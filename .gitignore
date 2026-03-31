@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results
+/artifacts
 
 # next.js
 /.next/
@@ -23,6 +25,7 @@
 # misc
 .DS_Store
 *.pem
+audit_log.txt
 
 # debug
 npm-debug.log*
