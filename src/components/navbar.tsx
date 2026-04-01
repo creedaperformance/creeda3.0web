@@ -2,46 +2,18 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Menu, X, Activity, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LanguageToggle, useTranslation } from '@/lib/i18n/LanguageProvider'
-import { getRoleHomeRoute, isAppRole } from '@/lib/role_routes'
-import { motion, AnimatePresence } from 'framer-motion'
-import { createClient } from '@/lib/supabase/client'
 
 export function Navbar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
-  const [userRole, setUserRole] = useState<string | null>(null)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const { t } = useTranslation()
-  const supabase = createClient()
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsLoggedIn(!!session)
-      if (session) {
-        supabase.from('profiles').select('role').eq('id', session.user.id).single()
-          .then(({ data }) => setUserRole(data?.role || null))
-      }
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session)
-      if (session) {
-        supabase.from('profiles').select('role').eq('id', session.user.id).single()
-          .then(({ data }) => setUserRole(data?.role || null))
-      } else {
-        setUserRole(null)
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [supabase])
-
-  const dashboardLink = isLoggedIn && isAppRole(userRole) ? getRoleHomeRoute(userRole) : '/signup'
-  const loginText = isLoggedIn ? t('landing.cta_dashboard', 'Go to Dashboard') : t('landing.cta_start', 'Start Your Journey')
+  const signupLink = '/signup'
+  const loginLink = '/login'
+  const loginText = t('landing.cta_start', 'Start Your Journey')
 
   // Hide on dashboard / internal pages (they have their own nav)
   const isDashboard = pathname?.startsWith('/athlete/') ||
@@ -88,12 +60,20 @@ export function Navbar() {
           <div className="flex items-center gap-3">
             <LanguageToggle />
 
+            <Link
+              href={loginLink}
+              prefetch={false}
+              className="hidden sm:inline-flex text-xs font-semibold text-white/55 hover:text-white transition-colors"
+            >
+              Log In
+            </Link>
+
             <Button
               asChild
               size="sm"
               className="hidden sm:inline-flex h-9 px-5 rounded-full bg-[var(--saffron)] text-black font-bold text-xs hover:brightness-110 transition-all shadow-lg shadow-[var(--saffron-glow)]"
             >
-              <Link href={dashboardLink}>
+              <Link href={signupLink} prefetch={false}>
                 {loginText}
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </Link>
@@ -112,41 +92,41 @@ export function Navbar() {
       </div>
 
       {/* Mobile Menu */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="md:hidden overflow-hidden bg-[#04070A]/95 backdrop-blur-xl border-t border-white/[0.04]"
-          >
-            <div className="px-4 py-6 space-y-1">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setIsOpen(false)}
-                  className="block px-4 py-3 rounded-xl text-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-all"
-                >
-                  {link.label}
+      {isOpen && (
+        <div className="md:hidden overflow-hidden bg-[#04070A]/95 backdrop-blur-xl border-t border-white/[0.04] animate-fade-in">
+          <div className="px-4 py-6 space-y-1">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setIsOpen(false)}
+                className="block px-4 py-3 rounded-xl text-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-all"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <Link
+              href={loginLink}
+              prefetch={false}
+              onClick={() => setIsOpen(false)}
+              className="block px-4 py-3 rounded-xl text-sm font-medium text-white/60 hover:text-white hover:bg-white/5 transition-all"
+            >
+              Log In
+            </Link>
+            <div className="pt-4 border-t border-white/[0.06]">
+              <Button
+                asChild
+                className="w-full h-12 rounded-xl bg-[var(--saffron)] text-black font-bold text-sm hover:brightness-110 shadow-lg"
+              >
+                <Link href={signupLink} prefetch={false} onClick={() => setIsOpen(false)}>
+                  {loginText}
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
-              ))}
-              <div className="pt-4 border-t border-white/[0.06]">
-                <Button
-                  asChild
-                  className="w-full h-12 rounded-xl bg-[var(--saffron)] text-black font-bold text-sm hover:brightness-110 shadow-lg"
-                >
-                  <Link href={dashboardLink} onClick={() => setIsOpen(false)}>
-                    {loginText}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
+              </Button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

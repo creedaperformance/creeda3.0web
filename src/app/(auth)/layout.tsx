@@ -1,3 +1,6 @@
+import Image from 'next/image'
+import { AuthListener } from '@/components/auth-listener'
+
 export default function AuthLayout({
   children,
 }: {
@@ -5,6 +8,7 @@ export default function AuthLayout({
 }) {
   return (
     <div className="flex min-h-screen bg-background text-foreground">
+      <AuthListener />
       {/* Left Pane - Branding & Image (hidden on mobile) */}
       <div className="relative hidden w-1/2 lg:flex items-center justify-center overflow-hidden bg-primary">
         {/* Abstract Indian/Sports Pattern Background Idea - Using CSS gradients/blobs */}
@@ -14,8 +18,23 @@ export default function AuthLayout({
         
         <div className="relative z-10 flex flex-col items-start justify-center px-16 text-primary-foreground max-w-xl">
           <div className="flex items-center gap-4 mb-6 shrink-0">
-            <img src="/logo.png" alt="Creeda Flame Logo" className="h-24 w-auto object-contain shrink-0" />
-            <img src="/creeda-performance-logo.png" alt="Creeda Performance Text Logo" className="h-14 w-auto object-contain shrink-0 brightness-0 invert" style={{ filter: 'brightness(0) invert(1)' }} />
+            <Image
+              src="/logo.png"
+              alt="Creeda Flame Logo"
+              width={120}
+              height={120}
+              priority
+              className="h-24 w-auto object-contain shrink-0"
+            />
+            <Image
+              src="/creeda-performance-logo.png"
+              alt="Creeda Performance Text Logo"
+              width={280}
+              height={56}
+              priority
+              className="h-14 w-auto object-contain shrink-0 brightness-0 invert"
+              style={{ filter: 'brightness(0) invert(1)' }}
+            />
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-6 leading-tight">
             Welcome to your body&apos;s control room.
@@ -43,8 +62,22 @@ export default function AuthLayout({
       {/* Right Pane - Auth Form */}
       <div className="flex w-full flex-col justify-center px-8 sm:px-16 lg:w-1/2 xl:px-32 relative">
         <div className="absolute top-8 left-8 lg:hidden flex items-center gap-3 shrink-0">
-          <img src="/logo.png" alt="Creeda Flame Logo" className="h-10 w-auto object-contain shrink-0" />
-          <img src="/creeda-performance-logo.png" alt="Creeda Performance Text Logo" className="h-6 w-auto object-contain shrink-0" />
+          <Image
+            src="/logo.png"
+            alt="Creeda Flame Logo"
+            width={48}
+            height={48}
+            priority
+            className="h-10 w-auto object-contain shrink-0"
+          />
+          <Image
+            src="/creeda-performance-logo.png"
+            alt="Creeda Performance Text Logo"
+            width={160}
+            height={24}
+            priority
+            className="h-6 w-auto object-contain shrink-0"
+          />
         </div>
         <div className="mx-auto w-full max-w-sm">
           {children}

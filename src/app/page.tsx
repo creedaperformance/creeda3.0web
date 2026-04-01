@@ -1,8 +1,4 @@
-'use client'
-
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
 import {
   Activity,
   ArrowRight,
@@ -18,8 +14,6 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { createClient } from '@/lib/supabase/client'
-import { getRoleHomeRoute, isAppRole } from '@/lib/role_routes'
 
 const ATHLETE_SPORTS = ['Cricket', 'Badminton', 'Football', 'Athletics', 'Kabaddi', 'Hockey']
 const INDIVIDUAL_GOALS = ['Sleep', 'Stress', 'Strength', 'Fat loss', 'Mobility', 'Weekend sport']
@@ -70,28 +64,9 @@ const ATHLETE_FLOW = [
 ]
 
 export default function LandingPage() {
-  const [userRole, setUserRole] = useState<string | null>(null)
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const supabase = createClient()
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsLoggedIn(!!session)
-      if (session) {
-        supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data }) => setUserRole(data?.role || null))
-      }
-    })
-  }, [supabase])
-
-  const dashboardLink = isLoggedIn && isAppRole(userRole) ? getRoleHomeRoute(userRole) : '/signup'
-  const athleteLink = isLoggedIn ? dashboardLink : '/signup?role=athlete'
-  const individualLink = isLoggedIn ? dashboardLink : '/signup?role=individual'
-  const coachLink = isLoggedIn ? dashboardLink : '/signup?role=coach'
+  const athleteLink = '/signup?role=athlete'
+  const individualLink = '/signup?role=individual'
+  const coachLink = '/signup?role=coach'
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-[var(--background)] text-white relative overflow-x-hidden">
@@ -105,12 +80,7 @@ export default function LandingPage() {
         <section className="relative min-h-[calc(100svh-4rem)] flex items-center border-b border-white/[0.05]">
           <div className="w-full px-5 sm:px-6 lg:px-8 pt-24 pb-14 sm:pb-20">
             <div className="max-w-7xl mx-auto grid xl:grid-cols-[1.05fr_0.95fr] gap-12 xl:gap-16 items-center">
-              <motion.div
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55 }}
-                className="max-w-2xl"
-              >
+              <div className="max-w-2xl animate-fade-up">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm mb-7">
                   <span className="flex h-2 w-2 rounded-full bg-[var(--saffron)] animate-pulse" />
                   <span className="text-[10px] font-semibold text-white/60 tracking-[0.28em] uppercase">
@@ -138,7 +108,7 @@ export default function LandingPage() {
                     size="lg"
                     className="h-14 px-8 rounded-2xl bg-[var(--saffron)] text-black font-bold text-sm hover:brightness-110 transition-all shadow-[0_0_34px_var(--saffron-glow)]"
                   >
-                    <Link href={individualLink}>
+                    <Link href={individualLink} prefetch={false}>
                       Start as Individual
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
@@ -149,7 +119,7 @@ export default function LandingPage() {
                     variant="outline"
                     className="h-14 px-8 rounded-2xl border-white/10 bg-white/[0.03] text-white font-semibold text-sm hover:bg-white/[0.06] transition-all"
                   >
-                    <Link href={athleteLink}>
+                    <Link href={athleteLink} prefetch={false}>
                       Start as Athlete
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
@@ -166,14 +136,9 @@ export default function LandingPage() {
                     Daily decision engine, not passive tracking
                   </span>
                 </div>
-              </motion.div>
+              </div>
 
-              <motion.div
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.65, delay: 0.12 }}
-                className="grid md:grid-cols-2 gap-4 sm:gap-5"
-              >
+              <div className="grid md:grid-cols-2 gap-4 sm:gap-5 animate-scale-in">
                 <JourneyPanel
                   eyebrow="Athlete"
                   title="Performance system"
@@ -200,7 +165,7 @@ export default function LandingPage() {
                     'Sport or lifestyle path matched to physiology',
                   ]}
                 />
-              </motion.div>
+              </div>
             </div>
           </div>
         </section>
@@ -230,7 +195,7 @@ export default function LandingPage() {
                 size="lg"
                 className="mt-8 h-14 px-7 rounded-2xl bg-[var(--saffron)] text-black font-bold text-sm hover:brightness-110 transition-all"
               >
-                <Link href={individualLink}>
+                <Link href={individualLink} prefetch={false}>
                   Begin FitStart
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -290,7 +255,7 @@ export default function LandingPage() {
                 variant="outline"
                 className="mt-8 h-14 px-7 rounded-2xl border-white/10 bg-white/[0.03] text-white font-semibold text-sm hover:bg-white/[0.06] transition-all"
               >
-                <Link href={athleteLink}>
+                <Link href={athleteLink} prefetch={false}>
                   Enter athlete system
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -369,7 +334,7 @@ export default function LandingPage() {
                   size="lg"
                   className="h-14 px-8 rounded-2xl bg-[var(--saffron)] text-black font-bold text-sm hover:brightness-110 transition-all shadow-[0_0_34px_var(--saffron-glow)]"
                 >
-                  <Link href={individualLink}>
+                  <Link href={individualLink} prefetch={false}>
                     Start as Individual
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
@@ -380,7 +345,7 @@ export default function LandingPage() {
                   variant="outline"
                   className="h-14 px-8 rounded-2xl border-white/10 bg-white/[0.03] text-white font-semibold text-sm hover:bg-white/[0.06] transition-all"
                 >
-                  <Link href={athleteLink}>
+                  <Link href={athleteLink} prefetch={false}>
                     Start as Athlete
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
@@ -391,7 +356,7 @@ export default function LandingPage() {
                   variant="ghost"
                   className="h-14 px-6 rounded-2xl text-white/70 hover:bg-white/[0.04] hover:text-white text-sm"
                 >
-                  <Link href={coachLink}>I&apos;m a Coach / Practitioner</Link>
+                  <Link href={coachLink} prefetch={false}>I&apos;m a Coach / Practitioner</Link>
                 </Button>
               </div>
             </div>
@@ -513,13 +478,7 @@ function FlowRow({
   const color = tone === 'athlete' ? 'text-emerald-300 border-emerald-500/15 bg-emerald-500/10' : 'text-primary border-primary/15 bg-primary/10'
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.35 }}
-      transition={{ duration: 0.35, delay: index * 0.05 }}
-      className="grid grid-cols-[auto_1fr] gap-4 items-start"
-    >
+    <div className="grid grid-cols-[auto_1fr] gap-4 items-start">
       <div className={`h-12 w-12 rounded-2xl border flex items-center justify-center ${color}`}>
         <Icon className="h-5 w-5" />
       </div>
@@ -530,7 +489,7 @@ function FlowRow({
         <h3 className="text-xl font-bold text-white">{title}</h3>
         <p className="text-sm text-white/52 leading-relaxed mt-3">{body}</p>
       </div>
-    </motion.div>
+    </div>
   )
 }
 

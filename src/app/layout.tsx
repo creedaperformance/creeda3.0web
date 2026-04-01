@@ -3,14 +3,13 @@ import { Geist_Mono, Noto_Sans_Devanagari, Poppins } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/navbar";
 import { NavbarWrapper } from "@/components/navbar-wrapper";
-import { AuthListener } from "@/components/auth-listener";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
 import { Toaster } from "sonner";
 
 const poppins = Poppins({
   variable: "--font-poppins",
-  subsets: ["latin", "devanagari"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  subsets: ["latin"],
+  weight: ["400", "600", "700", "800"],
   display: "swap",
 });
 
@@ -22,8 +21,8 @@ const geistMono = Geist_Mono({
 
 const notoDevanagari = Noto_Sans_Devanagari({
   variable: "--font-noto-devanagari",
-  subsets: ["devanagari", "latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
+  subsets: ["devanagari"],
+  weight: ["400", "700"],
   display: "swap",
 });
 
@@ -87,7 +86,6 @@ export default function RootLayout({
         className={`${poppins.variable} ${geistMono.variable} ${notoDevanagari.variable} antialiased`}
       >
         <LanguageProvider>
-          <AuthListener />
           <NavbarWrapper>
             <Navbar />
           </NavbarWrapper>
