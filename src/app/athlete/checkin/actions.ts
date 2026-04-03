@@ -5,6 +5,11 @@ import * as z from 'zod'
 
 import { verifyRole } from '@/lib/auth_utils'
 import {
+  createDailyContextSignalRecord,
+  saveDailyContextSignal,
+  summarizeDailyContextSignals,
+} from '@/lib/context-signals/storage'
+import {
   buildAthleteDecisionTrace,
   computeAthleteDecisionFromLog,
   getAthleteDecisionContext,
@@ -22,7 +27,10 @@ const athleteDailyCheckInSchema = z.object({
   lifeStress: z.enum(['Low', 'Moderate', 'High', 'Very High']),
   motivation: z.enum(['Low', 'Moderate', 'High']),
   sessionCompletion: z.enum(['completed', 'competition', 'rest', 'missed']),
-  sessionType: z.enum(['Skill', 'Strength', 'Speed', 'Endurance', 'Recovery']).optional().default('Skill'),
+  sessionType: z
+    .union([z.enum(['Skill', 'Strength', 'Speed', 'Endurance', 'Recovery']), z.literal('')])
+    .optional()
+    .default(''),
   yesterdayDemand: z.number().min(0).max(10),
   yesterdayDuration: z.number().min(0).max(300),
   painStatus: z.enum(['none', 'mild', 'moderate', 'severe']),
@@ -30,6 +38,13 @@ const athleteDailyCheckInSchema = z.object({
   competitionToday: z.boolean().default(false),
   competitionTomorrow: z.boolean().default(false),
   competitionYesterday: z.boolean().default(false),
+  heatLevel: z.union([z.enum(['normal', 'warm', 'hot', 'extreme']), z.literal('')]).optional().default(''),
+  humidityLevel: z.union([z.enum(['low', 'moderate', 'high']), z.literal('')]).optional().default(''),
+  aqiBand: z.union([z.enum(['good', 'moderate', 'poor', 'very_poor']), z.literal('')]).optional().default(''),
+  commuteMinutes: z.number().min(0).max(240).default(0),
+  examStressScore: z.number().min(0).max(5).default(0),
+  fastingState: z.union([z.enum(['none', 'light', 'strict']), z.literal('')]).optional().default(''),
+  shiftWork: z.boolean().default(false),
   sessionNotes: z.string().max(300).optional().default(''),
 })
 
@@ -46,10 +61,39 @@ export async function submitAthleteDailyCheckIn(rawData: unknown) {
 
     const logDate = getTodayInIndia()
     const context = await getAthleteDecisionContext(supabase, user.id, { beforeDate: logDate })
+    const contextSignal = createDailyContextSignalRecord({
+      userId: user.id,
+      role: 'athlete',
+      logDate,
+      heatLevel: parsed.heatLevel,
+      humidityLevel: parsed.humidityLevel,
+      aqiBand: parsed.aqiBand,
+      commuteMinutes: parsed.commuteMinutes,
+      examStressScore: parsed.examStressScore,
+      fastingState: parsed.fastingState,
+      shiftWork: parsed.shiftWork,
+      contextNotes: parsed.sessionNotes,
+    })
+    const decisionContext =
+      contextSignal
+        ? {
+            ...context,
+            contextSignals: [contextSignal, ...context.contextSignals.filter((entry) => entry.logDate !== logDate)],
+            contextSummary: summarizeDailyContextSignals([
+              contextSignal,
+              ...context.contextSignals.filter((entry) => entry.logDate !== logDate),
+            ]),
+          }
+        : context
 
     const currentLog = buildCurrentLog(user.id, logDate, parsed)
-    const result = await computeAthleteDecisionFromLog(context, currentLog)
-    const trace = buildAthleteDecisionTrace(result, context.healthSummary)
+    const result = await computeAthleteDecisionFromLog(decisionContext, currentLog)
+    const trace = buildAthleteDecisionTrace(
+      result,
+      decisionContext.healthSummary,
+      'athlete_daily_checkin_v1',
+      decisionContext.contextSummary
+    )
 
     const readinessScore = Math.round(result.metrics.readiness.score)
     const dbStatus = mapDecisionToDbStatus(result.creedaDecision.decision)
@@ -79,6 +123,7 @@ export async function submitAthleteDailyCheckIn(rawData: unknown) {
       adherenceScore: result.creedaDecision.adherence.adherenceScore,
       sessionCompletion: parsed.sessionCompletion,
       source: trace.source,
+      contextSummary: decisionContext.contextSummary,
     }
 
     const logPayload = {
@@ -129,6 +174,16 @@ export async function submitAthleteDailyCheckIn(rawData: unknown) {
 
     if (logError) {
       return { error: logError.message }
+    }
+
+    const contextError = await saveDailyContextSignal(supabase, contextSignal, {
+      userId: user.id,
+      role: 'athlete',
+      logDate,
+    })
+
+    if (contextError?.error) {
+      return { error: contextError.error.message || 'Failed to save daily context.' }
     }
 
     if (result.adaptation_update) {
@@ -252,7 +307,7 @@ function buildCurrentLog(userId: string, logDate: string, parsed: AthleteDailyCh
     is_match_day: parsed.competitionToday,
     session_rpe: sessionCompleted ? parsed.yesterdayDemand : 0,
     duration_minutes: sessionCompleted ? parsed.yesterdayDuration : 0,
-    session_type: sessionCompleted ? parsed.sessionType : 'Recovery',
+    session_type: sessionCompleted ? parsed.sessionType || 'Recovery' : 'Recovery',
     session_notes: parsed.sessionNotes.trim(),
   }
 }

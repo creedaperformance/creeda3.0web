@@ -16,6 +16,8 @@ import {
   ClipboardList,
   BarChart3,
   ChevronRight,
+  Timer,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -23,6 +25,7 @@ import { LanguageToggle } from '@/lib/i18n/LanguageProvider'
 import { BottomNav } from '@/components/BottomNav'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
+import { CORE_MEDICAL_DISCLAIMER, DEFAULT_ROLE_LEGAL_PATHS, LEGAL_DOC_PATHS } from '@/lib/legal/constants'
 
 interface SidebarItemProps {
   href: string
@@ -82,23 +85,34 @@ export function DashboardLayout({ children, user, type, hasSyncedToday }: Dashbo
   const athleteLinks = [
     { href: '/athlete/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/athlete/scan', icon: ScanLine, label: 'Video Analysis', badge: 'NEW' },
+    { href: '/athlete/tests', icon: Timer, label: 'Objective Tests', badge: 'BETA' },
+    { href: '/athlete/family', icon: ShieldCheck, label: 'Guardian & Family', badge: 'NEW' },
+    { href: '/athlete/nutrition-safety', icon: ShieldCheck, label: 'Nutrition Safety', badge: 'NEW' },
     { href: '/athlete/plans', icon: ClipboardList, label: 'Training Plans', badge: 'NEW' },
     { href: '/athlete/checkin', icon: Calendar, label: 'Daily Check-In' },
-    { href: '/athlete/progress', icon: TrendingUp, label: 'Progress' },
+    { href: '/athlete/review', icon: TrendingUp, label: 'Weekly Review' },
+    { href: '/athlete/legal', icon: ShieldCheck, label: 'Legal & Privacy', badge: 'NEW' },
     { href: '/athlete/settings', icon: Settings, label: 'Settings' },
   ]
 
   const coachLinks = [
     { href: '/coach/dashboard', icon: LayoutDashboard, label: 'Squad Roster' },
+    { href: '/coach/academy', icon: ShieldCheck, label: 'Academy Ops', badge: 'NEW' },
+    { href: '/coach/review', icon: TrendingUp, label: 'Weekly Review', badge: 'NEW' },
     { href: '/coach/analytics', icon: BarChart3, label: 'Analytics' },
     { href: '/coach/reports', icon: ClipboardList, label: 'Reports', badge: 'NEW' },
+    { href: '/coach/legal', icon: ShieldCheck, label: 'Legal & Privacy', badge: 'NEW' },
     { href: '/coach/settings', icon: Settings, label: 'Settings' },
   ]
 
   const individualLinks = [
     { href: '/individual/dashboard', icon: LayoutDashboard, label: 'Home' },
     { href: '/individual/scan', icon: ScanLine, label: 'Movement Analysis', badge: 'NEW' },
+    { href: '/individual/tests', icon: Timer, label: 'Objective Tests', badge: 'BETA' },
+    { href: '/individual/nutrition-safety', icon: ShieldCheck, label: 'Nutrition Safety', badge: 'NEW' },
     { href: '/individual/logging', icon: Calendar, label: 'Daily Check-In' },
+    { href: '/individual/review', icon: BarChart3, label: 'Weekly Review' },
+    { href: '/individual/legal', icon: ShieldCheck, label: 'Legal & Privacy', badge: 'NEW' },
   ]
 
 
@@ -110,6 +124,7 @@ export function DashboardLayout({ children, user, type, hasSyncedToday }: Dashbo
   }
 
   const navLinks = navLinksMap[type] || athleteLinks
+  const legalHomePath = DEFAULT_ROLE_LEGAL_PATHS[type]
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -205,6 +220,22 @@ export function DashboardLayout({ children, user, type, hasSyncedToday }: Dashbo
 
         {/* Page Content */}
         <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto pb-24 lg:pb-8">
+          <section className="mb-5 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-200">Safety & Legal</p>
+            <p className="mt-2 text-sm text-amber-100/90 leading-relaxed">{CORE_MEDICAL_DISCLAIMER}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-amber-100/80">
+              <Link href={LEGAL_DOC_PATHS.disclaimer} className="underline underline-offset-4 hover:text-white">
+                Medical Disclaimer
+              </Link>
+              <Link href={LEGAL_DOC_PATHS.aiTransparency} className="underline underline-offset-4 hover:text-white">
+                AI Transparency
+              </Link>
+              <Link href={legalHomePath} className="underline underline-offset-4 hover:text-white">
+                Legal & Privacy Controls
+              </Link>
+            </div>
+          </section>
+
           {children}
 
           {/* Floating Wellness Button */}

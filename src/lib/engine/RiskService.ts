@@ -200,6 +200,9 @@ function predictInjuryType(
 ): InjuryType {
   const sport = (input.context.sport || '').toLowerCase();
   const pain = input.wellness.current_pain_level || 0;
+  const painLocations = Array.isArray(input.wellness.pain_location)
+    ? input.wellness.pain_location.map((item) => String(item).toLowerCase())
+    : [];
 
   // Vision fault-based prediction (highest confidence)
   for (const fault of visionFaults) {
@@ -213,6 +216,12 @@ function predictInjuryType(
 
   // If pain is low, no prediction needed
   if (pain < 3) return null;
+
+  if (painLocations.some((location) => location.includes('knee'))) return 'KNEE';
+  if (painLocations.some((location) => location.includes('ankle'))) return 'ANKLE';
+  if (painLocations.some((location) => location.includes('shoulder'))) return 'SHOULDER';
+  if (painLocations.some((location) => location.includes('back'))) return 'LOWER_BACK';
+  if (painLocations.some((location) => location.includes('hip'))) return 'HAMSTRING';
 
   // Sport-based prediction when pain is present
   if (load.neuromuscular > 7 && readiness.domains.neuromuscular < 40) {

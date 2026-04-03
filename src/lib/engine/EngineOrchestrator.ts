@@ -1,6 +1,6 @@
 import {
-  AthleteInput, OrchestratorOutput, OrchestratorOutputV5, EngineLogs, DecisionOutput,
-  CreedaDecision, AdherenceData, VisionFault, RehabHistoryEntry
+  AthleteInput, OrchestratorOutput, OrchestratorOutputV5, EngineLogs,
+  CreedaDecision, AdherenceData, RehabHistoryEntry
 } from './types';
 import { calculateLoad } from './LoadService';
 import { calculateReadiness } from './ReadinessService';
@@ -56,7 +56,7 @@ export async function orchestrateV5(
     }
   };
 
-  const safeNum = (val: any, fallback: number = 0): number => {
+  const safeNum = (val: unknown, fallback: number = 0): number => {
     const n = Number(val);
     return isNaN(n) ? fallback : n;
   };
@@ -123,7 +123,8 @@ export async function orchestrateV5(
       sorenessVal,
       input.context.sport,
       visionFaults,
-      rehabHistory
+      rehabHistory,
+      input.baseline_injuries
     ),
     { type: null, confidence: 0.5 },
     "InjuryContextInference"
@@ -184,6 +185,7 @@ export async function orchestrateV5(
       profile: input.profile,
       adherence,
       userId: input.userId || 'guest',
+      dailyContext: input.context,
     }),
     buildFallbackDecision(adherence),
     "CreedaDecisionService"
@@ -302,6 +304,28 @@ function buildFallbackDecision(adherence: AdherenceData): CreedaDecision {
     confidenceScore: 50,
     confidenceLevel: 'LOW',
     confidenceReasons: ['Fallback decision generated while the engine recovers from an internal error.'],
+    trustSummary: {
+      confidenceLevel: 'LOW',
+      confidenceScore: 50,
+      dataCompleteness: 10,
+      dataQuality: 'WEAK',
+      signals: [
+        {
+          label: 'Daily check-in',
+          type: 'self_reported',
+          status: 'limited',
+          detail: 'Fallback mode is using only partial input context.',
+        },
+        {
+          label: 'Recent training history',
+          type: 'estimated',
+          status: 'building',
+          detail: 'Trend context is not stable enough in fallback mode.',
+        },
+      ],
+      whyTodayChanged: ['Fallback mode is active, so CREEDA is simplifying today’s call.'],
+      nextBestInputs: ['Complete a fresh daily check-in to restore full engine confidence.'],
+    },
     visionFaults: [],
     scientificContext: {
       summary: 'Fallback mode is active, so CREEDA is withholding deeper sports-science overlays until the engine recovers.',

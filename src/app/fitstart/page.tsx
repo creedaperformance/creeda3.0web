@@ -17,7 +17,7 @@ import {
   Trophy,
   Zap,
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,9 @@ import { createClient } from '@/lib/supabase/client'
 import { scrollToTop } from '@/lib/utils'
 import { saveFitStartProfile } from './actions'
 import {
+  formatIndividualOccupationLabel,
+  INDIVIDUAL_OCCUPATION_OPTIONS,
+  normalizeIndividualOccupation,
   recommendPathwaysForIndividual,
   type IndividualPathRecommendation,
   type NormalIndividualFitStartInput,
@@ -51,45 +54,68 @@ const EQUIPMENT_OPTIONS = [
 
 const GENDER_OPTIONS = ['Female', 'Male', 'Non-binary', 'Prefer not to say']
 
-const defaultState: NormalIndividualFitStartInput = {
+type FitStartDraftState = {
+  basic: Omit<NormalIndividualFitStartInput['basic'], 'activityLevel'> & {
+    activityLevel: NormalIndividualFitStartInput['basic']['activityLevel'] | ''
+  }
+  physiology: Omit<
+    NormalIndividualFitStartInput['physiology'],
+    'injuryHistory' | 'mobilityLimitations' | 'trainingExperience'
+  > & {
+    injuryHistory: NormalIndividualFitStartInput['physiology']['injuryHistory'] | ''
+    mobilityLimitations: NormalIndividualFitStartInput['physiology']['mobilityLimitations'] | ''
+    trainingExperience: NormalIndividualFitStartInput['physiology']['trainingExperience'] | ''
+  }
+  lifestyle: Omit<NormalIndividualFitStartInput['lifestyle'], 'nutritionHabits'> & {
+    nutritionHabits: NormalIndividualFitStartInput['lifestyle']['nutritionHabits'] | ''
+  }
+  goals: {
+    primaryGoal: NormalIndividualFitStartInput['goals']['primaryGoal'] | ''
+    timeHorizon: NormalIndividualFitStartInput['goals']['timeHorizon'] | ''
+    intensityPreference: NormalIndividualFitStartInput['goals']['intensityPreference'] | ''
+  }
+  sport: NormalIndividualFitStartInput['sport']
+}
+
+const defaultState: FitStartDraftState = {
   basic: {
-    age: 28,
-    gender: 'Prefer not to say',
-    heightCm: 170,
-    weightKg: 70,
+    age: 0,
+    gender: '',
+    heightCm: 0,
+    weightKg: 0,
     occupation: '',
-    activityLevel: 'moderate',
+    activityLevel: '',
   },
   physiology: {
-    sleepQuality: 3,
-    energyLevels: 3,
-    stressLevels: 3,
-    recoveryRate: 3,
-    injuryHistory: 'none',
-    mobilityLimitations: 'none',
-    trainingExperience: 'novice',
-    endurance_capacity: 2,
-    strength_capacity: 2,
-    explosive_power: 2,
-    agility_control: 2,
-    reaction_self_perception: 2,
-    recovery_efficiency: 2,
-    fatigue_resistance: 2,
-    load_tolerance: 2,
-    movement_robustness: 2,
-    coordination_control: 2,
+    sleepQuality: 0,
+    energyLevels: 0,
+    stressLevels: 0,
+    recoveryRate: 0,
+    injuryHistory: '',
+    mobilityLimitations: '',
+    trainingExperience: '',
+    endurance_capacity: 0,
+    strength_capacity: 0,
+    explosive_power: 0,
+    agility_control: 0,
+    reaction_self_perception: 0,
+    recovery_efficiency: 0,
+    fatigue_resistance: 0,
+    load_tolerance: 0,
+    movement_robustness: 0,
+    coordination_control: 0,
     reaction_time_ms: undefined,
   },
   lifestyle: {
-    scheduleConstraints: ['after_work'],
-    equipmentAccess: ['bodyweight'],
-    nutritionHabits: 'basic',
-    sedentaryHours: 7,
+    scheduleConstraints: [],
+    equipmentAccess: [],
+    nutritionHabits: '',
+    sedentaryHours: -1,
   },
   goals: {
-    primaryGoal: 'general_fitness',
-    timeHorizon: '12_weeks',
-    intensityPreference: 'moderate',
+    primaryGoal: '',
+    timeHorizon: '',
+    intensityPreference: '',
   },
   sport: {
     selectedSport: '',
@@ -100,9 +126,14 @@ const defaultState: NormalIndividualFitStartInput = {
   },
 }
 
-function mergeWithDefaultState(partial: NormalIndividualFitStartInput): NormalIndividualFitStartInput {
+function mergeWithDefaultState(partial: Partial<FitStartDraftState>): FitStartDraftState {
+  const normalizedOccupation = normalizeIndividualOccupation(partial.basic?.occupation || '')
   return {
-    basic: { ...defaultState.basic, ...(partial.basic || {}) },
+    basic: {
+      ...defaultState.basic,
+      ...(partial.basic || {}),
+      occupation: normalizedOccupation || '',
+    },
     physiology: { ...defaultState.physiology, ...(partial.physiology || {}) },
     lifestyle: { ...defaultState.lifestyle, ...(partial.lifestyle || {}) },
     goals: { ...defaultState.goals, ...(partial.goals || {}) },
@@ -110,11 +141,50 @@ function mergeWithDefaultState(partial: NormalIndividualFitStartInput): NormalIn
   }
 }
 
+function toValidatedFitStartInput(state: FitStartDraftState): NormalIndividualFitStartInput | null {
+  if (
+    !state.basic.gender ||
+    !state.basic.activityLevel ||
+    !state.physiology.injuryHistory ||
+    !state.physiology.mobilityLimitations ||
+    !state.physiology.trainingExperience ||
+    !state.lifestyle.nutritionHabits ||
+    !state.goals.primaryGoal ||
+    !state.goals.timeHorizon ||
+    !state.goals.intensityPreference
+  ) {
+    return null
+  }
+
+  return {
+    basic: {
+      ...state.basic,
+      activityLevel: state.basic.activityLevel,
+    },
+    physiology: {
+      ...state.physiology,
+      injuryHistory: state.physiology.injuryHistory,
+      mobilityLimitations: state.physiology.mobilityLimitations,
+      trainingExperience: state.physiology.trainingExperience,
+    },
+    lifestyle: {
+      ...state.lifestyle,
+      nutritionHabits: state.lifestyle.nutritionHabits,
+    },
+    goals: {
+      primaryGoal: state.goals.primaryGoal,
+      timeHorizon: state.goals.timeHorizon,
+      intensityPreference: state.goals.intensityPreference,
+    },
+    sport: state.sport,
+  }
+}
+
 const NUTRITION_OPTS = [
-  { id: 'poor', label: 'Poor' },
-  { id: 'basic', label: 'Basic' },
+  { id: 'poor', label: 'Needs work' },
+  { id: 'basic', label: 'Okay' },
   { id: 'good', label: 'Good' },
-  { id: 'structured', label: 'Structured' },
+  { id: 'structured', label: 'Very structured' },
 ]
 
 const ACTIVITY_LEVELS = [
@@ -195,16 +265,16 @@ const RECOVERY_SIGNAL_OPTIONS = [
 ] as const
 
 const PHYSIOLOGY_DOMAINS = [
-  { id: 'endurance_capacity', label: 'Endurance', description: 'How long you can keep moving before you fade.' },
-  { id: 'strength_capacity', label: 'Strength', description: 'How strong everyday lifting and pushing feel.' },
-  { id: 'explosive_power', label: 'Power', description: 'How quickly you can move when needed.' },
-  { id: 'agility_control', label: 'Balance and control', description: 'How steady and coordinated you feel when moving fast.' },
-  { id: 'reaction_self_perception', label: 'Reaction speed', description: 'How quickly you notice and respond around you.' },
-  { id: 'recovery_efficiency', label: 'Recovery efficiency', description: 'How well your body resets after a demanding day.' },
-  { id: 'fatigue_resistance', label: 'Staying strong when tired', description: 'How well you hold up when the day gets long.' },
-  { id: 'load_tolerance', label: 'Workload tolerance', description: 'How much activity your body can handle in a week.' },
-  { id: 'movement_robustness', label: 'Movement quality', description: 'How mobile and comfortable your joints feel.' },
-  { id: 'coordination_control', label: 'Coordination', description: 'How naturally different movements come together.' },
+  { id: 'endurance_capacity', label: 'Endurance', description: 'How long you can keep moving before you need a real break.' },
+  { id: 'strength_capacity', label: 'Strength', description: 'How strong lifting, carrying, pushing, and pulling feel in real life.' },
+  { id: 'explosive_power', label: 'Power', description: 'How quickly you can move when you need to react fast.' },
+  { id: 'agility_control', label: 'Balance and control', description: 'How steady and coordinated you feel when you move quickly.' },
+  { id: 'reaction_self_perception', label: 'Reaction speed', description: 'How quickly you notice something and respond.' },
+  { id: 'recovery_efficiency', label: 'Recovery efficiency', description: 'How well your body resets after a hard day.' },
+  { id: 'fatigue_resistance', label: 'Holding up when tired', description: 'How well you still function when the day runs long.' },
+  { id: 'load_tolerance', label: 'Weekly load', description: 'How much activity your body can handle in a normal week.' },
+  { id: 'movement_robustness', label: 'Movement quality', description: 'How comfortable and free your joints feel when you move.' },
+  { id: 'coordination_control', label: 'Coordination', description: 'How naturally different body parts work together.' },
 ] as const
 
 const SCALE_LABELS = ['Needs work', 'Okay', 'Solid', 'Strong']
@@ -212,31 +282,57 @@ const SCALE_LABELS = ['Needs work', 'Okay', 'Solid', 'Strong']
 const STEP_COPY = {
   1: {
     title: 'Start with your basics',
-    subtitle: 'We need your body and real-life context before we can map the right next step.',
+    subtitle: 'These basics help CREEDA understand your body, body size, and daily reality.',
   },
   2: {
-    title: 'Map your daily life',
-    subtitle: 'Your work rhythm and routine shape recovery just as much as exercise does.',
+    title: 'Map your normal routine',
+    subtitle: 'Your schedule, sitting time, and food habits change what a realistic plan looks like.',
   },
   3: {
-    title: 'Understand your recovery baseline',
-    subtitle: 'This tells CREEDA how your body usually feels before we guide your week.',
+    title: 'Understand your usual baseline',
+    subtitle: 'This tells CREEDA how your body usually feels before it starts guiding your week.',
   },
   4: {
-    title: 'Capture movement history',
-    subtitle: 'Past injuries, mobility, and experience change how fast we should progress.',
+    title: 'Capture your movement history',
+    subtitle: 'Past injuries, mobility limits, and experience decide how fast you can safely progress.',
   },
   5: {
     title: 'Rate your current capacity',
-    subtitle: 'This is how CREEDA estimates your present physiology without a lab test.',
+    subtitle: 'This is a practical self-check so CREEDA can estimate your current strength, endurance, movement, and recovery.',
   },
   6: {
     title: 'Set the outcome you want',
-    subtitle: 'Your goals, time frame, and access decide what the best next step should be.',
+    subtitle: 'Your goal, time frame, and equipment access shape the best next path.',
   },
   7: {
-    title: 'Choose your best next path',
-    subtitle: 'CREEDA is recommending the starting plan that best fits your physiology, routine, and goal.',
+    title: 'Pick your best starting path',
+    subtitle: 'CREEDA has ranked the starting plans that best fit your body, routine, and goal.',
+  },
+} as const
+
+const STEP_PURPOSES = {
+  1: {
+    usedFor: 'Used to estimate body composition targets, realistic load, and lifestyle demand.',
+    note: 'Your day pattern helps CREEDA estimate fatigue and recovery needs. It is not a judgment about fitness.',
+  },
+  2: {
+    usedFor: 'Used to make the plan realistic around schedule, sitting time, and food structure.',
+  },
+  3: {
+    usedFor: 'Used to estimate baseline readiness and recovery capacity before any daily logs exist.',
+  },
+  4: {
+    usedFor: 'Used to set safer progression speed and flag injury or mobility risk.',
+  },
+  5: {
+    usedFor: 'Used to estimate current physiology across strength, endurance, movement quality, and coordination.',
+    note: 'These are guidance scores, not lab measurements.',
+  },
+  6: {
+    usedFor: 'Used to build the right weekly plan, intensity, and equipment match.',
+  },
+  7: {
+    usedFor: 'Used to lock the best starting path and store whether you want device sync now or later.',
   },
 } as const
 
@@ -327,7 +423,7 @@ function LikertRow({
 export default function FitStartPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
-  const [state, setState] = useState<NormalIndividualFitStartInput>(defaultState)
+  const [state, setState] = useState<FitStartDraftState>(defaultState)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [recommendations, setRecommendations] = useState<IndividualPathRecommendation[]>([])
   const [selectedRecommendationId, setSelectedRecommendationId] = useState<string | null>(null)
@@ -341,6 +437,9 @@ export default function FitStartPage() {
   )
 
   const activeCopy = STEP_COPY[step as keyof typeof STEP_COPY]
+  const activePurpose = STEP_PURPOSES[step as keyof typeof STEP_PURPOSES] as
+    | { usedFor: string; note?: string }
+    | undefined
   const selectedRecommendation = recommendations.find((item) => item.id === selectedRecommendationId) || null
 
   useEffect(() => {
@@ -370,14 +469,32 @@ export default function FitStartPage() {
   }, [state, isHydrated, storageKey])
 
   const nextStep = () => {
-    if (step === 1 && !state.basic.occupation.trim()) {
-      toast.error('Please add your occupation so CREEDA can estimate lifestyle load.')
-      return
+    if (step === 1) {
+      if (!state.basic.occupation.trim()) {
+        toast.error('Choose the option that best matches your normal day so CREEDA can estimate lifestyle load.')
+        return
+      }
+      if (state.basic.age <= 0 || state.basic.heightCm <= 0 || state.basic.weightKg <= 0) {
+        toast.error('Please add your real age, height, and weight before continuing.')
+        return
+      }
+      if (!state.basic.gender) {
+        toast.error('Select the gender option that fits you best.')
+        return
+      }
     }
 
     if (step === 2) {
+      if (!state.basic.activityLevel) {
+        toast.error('Choose the activity level that best matches your normal week.')
+        return
+      }
       if (state.lifestyle.sedentaryHours < 0 || state.lifestyle.sedentaryHours > 24) {
         toast.error('Please enter valid sedentary hours between 0 and 24.')
+        return
+      }
+      if (!state.lifestyle.nutritionHabits) {
+        toast.error('Choose the option that best matches your food routine.')
         return
       }
       if (state.lifestyle.scheduleConstraints.length === 0) {
@@ -386,9 +503,43 @@ export default function FitStartPage() {
       }
     }
 
-    if (step === 6 && state.lifestyle.equipmentAccess.length === 0) {
-      toast.error('Please select at least one equipment option.')
-      return
+    if (step === 4) {
+      if (!state.physiology.injuryHistory || !state.physiology.mobilityLimitations || !state.physiology.trainingExperience) {
+        toast.error('Answer the injury, mobility, and experience questions before continuing.')
+        return
+      }
+    }
+
+    if (step === 6) {
+      if (!state.goals.primaryGoal || !state.goals.timeHorizon || !state.goals.intensityPreference) {
+        toast.error('Choose your goal, time horizon, and intensity so CREEDA can build the right path.')
+        return
+      }
+      if (state.lifestyle.equipmentAccess.length === 0) {
+        toast.error('Please select at least one equipment option.')
+        return
+      }
+    }
+
+    if (step === 3) {
+      const recoverySignals = [
+        state.physiology.sleepQuality,
+        state.physiology.energyLevels,
+        state.physiology.stressLevels,
+        state.physiology.recoveryRate,
+      ]
+      if (recoverySignals.some((value) => value < 1 || value > 5)) {
+        toast.error('Rate all four baseline signals so CREEDA is not guessing.')
+        return
+      }
+    }
+
+    if (step === 5) {
+      const capacitySignals = PHYSIOLOGY_DOMAINS.map((domain) => state.physiology[domain.id])
+      if (capacitySignals.some((value) => value < 1 || value > 4)) {
+        toast.error('Rate every body-capacity card so the analysis is built from your real answers.')
+        return
+      }
     }
 
     setStep((current) => Math.min(TOTAL_STEPS, current + 1))
@@ -401,7 +552,13 @@ export default function FitStartPage() {
   }
 
   const handleBaselineSubmit = () => {
-    const recs = recommendPathwaysForIndividual(state)
+    const validatedInput = toValidatedFitStartInput(state)
+    if (!validatedInput) {
+      toast.error('Finish the key goal and lifestyle questions first so CREEDA is not guessing.')
+      return
+    }
+
+    const recs = recommendPathwaysForIndividual(validatedInput)
     setRecommendations(recs)
     setSelectedRecommendationId(recs[0]?.id || null)
     setStep(7)
@@ -414,10 +571,16 @@ export default function FitStartPage() {
       return
     }
 
+    const validatedInput = toValidatedFitStartInput(state)
+    if (!validatedInput) {
+      toast.error('Please finish the key onboarding inputs before starting your journey.')
+      return
+    }
+
     setIsSubmitting(true)
 
     const payload = {
-      ...state,
+      ...validatedInput,
       sport: {
         selectedSport: selectedRecommendation.mappedSport,
         selectedPathwayId: selectedRecommendation.id,
@@ -455,6 +618,17 @@ export default function FitStartPage() {
             {activeCopy.title}
           </h1>
           <p className="text-slate-400 text-sm max-w-2xl mx-auto leading-relaxed">{activeCopy.subtitle}</p>
+          <div className="mt-5 max-w-2xl mx-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-left">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary">Used For</p>
+            <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+              {activePurpose?.usedFor}
+            </p>
+            {activePurpose?.note && (
+              <p className="mt-2 text-xs text-slate-500 leading-relaxed">
+                {activePurpose.note}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-7 gap-2 mb-12">
@@ -486,18 +660,16 @@ export default function FitStartPage() {
           </div>
 
           <div className="p-8 md:p-14 flex-1">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={step}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.35 }}
-                className="space-y-10"
-              >
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-10"
+            >
                 {step === 1 && (
                   <div className="space-y-10">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="space-y-3">
                         <Label htmlFor="fitstart-age" className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                           Age
@@ -505,22 +677,10 @@ export default function FitStartPage() {
                         <Input
                           id="fitstart-age"
                           type="number"
-                          value={state.basic.age}
+                          value={state.basic.age > 0 ? state.basic.age : ''}
                           onChange={(e) => setState({ ...state, basic: { ...state.basic, age: Number(e.target.value) } })}
+                          placeholder="28"
                           className="h-16 bg-slate-950/50 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary border-2 text-xl font-bold"
-                        />
-                      </div>
-
-                      <div className="space-y-3">
-                        <Label htmlFor="fitstart-occupation" className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                          Occupation
-                        </Label>
-                        <Input
-                          id="fitstart-occupation"
-                          placeholder="e.g. Product manager"
-                          value={state.basic.occupation}
-                          onChange={(e) => setState({ ...state, basic: { ...state.basic, occupation: e.target.value } })}
-                          className="h-16 bg-slate-950/50 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary border-2 text-sm font-bold"
                         />
                       </div>
 
@@ -531,8 +691,9 @@ export default function FitStartPage() {
                         <Input
                           id="fitstart-height"
                           type="number"
-                          value={state.basic.heightCm}
+                          value={state.basic.heightCm > 0 ? state.basic.heightCm : ''}
                           onChange={(e) => setState({ ...state, basic: { ...state.basic, heightCm: Number(e.target.value) } })}
+                          placeholder="170"
                           className="h-16 bg-slate-950/50 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary border-2 text-xl font-bold"
                         />
                       </div>
@@ -544,11 +705,55 @@ export default function FitStartPage() {
                         <Input
                           id="fitstart-weight"
                           type="number"
-                          value={state.basic.weightKg}
+                          value={state.basic.weightKg > 0 ? state.basic.weightKg : ''}
                           onChange={(e) => setState({ ...state, basic: { ...state.basic, weightKg: Number(e.target.value) } })}
+                          placeholder="70"
                           className="h-16 bg-slate-950/50 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary border-2 text-xl font-bold"
                         />
                       </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                        What best describes your normal day?
+                      </Label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {INDIVIDUAL_OCCUPATION_OPTIONS.map((option) => {
+                          const active = state.basic.occupation === option.id
+
+                          return (
+                            <Button
+                              key={option.id}
+                              type="button"
+                              variant={active ? 'default' : 'outline'}
+                              onClick={() =>
+                                setState({
+                                  ...state,
+                                  basic: {
+                                    ...state.basic,
+                                    occupation: option.id,
+                                  },
+                                })
+                              }
+                              className="h-auto min-h-20 rounded-2xl border-slate-800 px-5 py-4 text-left justify-start whitespace-normal"
+                            >
+                              <div className="space-y-1">
+                                <div className="text-[11px] font-bold uppercase tracking-widest">
+                                  {option.label}
+                                </div>
+                                <div className={`text-xs leading-relaxed ${active ? 'text-slate-900/75' : 'text-slate-400'}`}>
+                                  {option.description}
+                                </div>
+                              </div>
+                            </Button>
+                          )
+                        })}
+                      </div>
+                      {state.basic.occupation && (
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Selected: {formatIndividualOccupationLabel(state.basic.occupation)}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-4">
@@ -570,7 +775,7 @@ export default function FitStartPage() {
                 {step === 2 && (
                   <div className="space-y-10">
                     <div className="space-y-4">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Activity level</Label>
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">How active are your normal days?</Label>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {ACTIVITY_LEVELS.map((option) => (
                           <SegmentedOption
@@ -615,14 +820,15 @@ export default function FitStartPage() {
                         <Input
                           id="fitstart-sedentary"
                           type="number"
-                          value={state.lifestyle.sedentaryHours}
+                          value={state.lifestyle.sedentaryHours >= 0 ? state.lifestyle.sedentaryHours : ''}
                           onChange={(e) => setState({ ...state, lifestyle: { ...state.lifestyle, sedentaryHours: Number(e.target.value) } })}
+                          placeholder="7"
                           className="h-16 bg-slate-950/50 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary border-2 text-xl font-bold"
                         />
                       </div>
 
                       <div className="space-y-4">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Nutrition habits</Label>
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">How organised is your eating?</Label>
                         <div className="grid grid-cols-2 gap-4">
                           {NUTRITION_OPTS.map((option) => (
                             <SegmentedOption
@@ -719,7 +925,7 @@ export default function FitStartPage() {
                     </div>
 
                     <div className="space-y-4">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Training experience</Label>
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">How much training experience do you have?</Label>
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                         {EXPERIENCE_OPTS.map((option) => (
                           <SegmentedOption
@@ -754,8 +960,8 @@ export default function FitStartPage() {
                               <Label className="text-[10px] font-bold uppercase tracking-widest text-white">{domain.label}</Label>
                               <p className="text-xs text-slate-400 mt-2 leading-relaxed">{domain.description}</p>
                             </div>
-                            <span className="text-[10px] font-bold text-primary px-2 py-1 bg-primary/10 rounded-lg border border-primary/20">
-                              {SCALE_LABELS[Math.max(0, score - 1)]}
+                          <span className="text-[10px] font-bold text-primary px-2 py-1 bg-primary/10 rounded-lg border border-primary/20">
+                              {score > 0 ? SCALE_LABELS[Math.max(0, score - 1)] : 'Not answered'}
                             </span>
                           </div>
                           <div className="grid grid-cols-4 gap-2">
@@ -967,8 +1173,7 @@ export default function FitStartPage() {
                     </div>
                   </div>
                 )}
-              </motion.div>
-            </AnimatePresence>
+            </motion.div>
 
             <div className="flex items-center justify-between mt-auto pt-10 border-t border-slate-800">
               <Button

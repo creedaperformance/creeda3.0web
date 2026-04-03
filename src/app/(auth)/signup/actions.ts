@@ -6,6 +6,8 @@ import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { rateLimit } from '@/lib/rate_limit'
+import { LEGAL_POLICY_VERSION } from '@/lib/legal/constants'
+import { persistLegalConsentBundle } from '@/lib/legal/compliance'
 
 import { getRoleOnboardingRoute, isAppRole } from '@/lib/role_routes'
 
@@ -16,7 +18,10 @@ async function findCoachByLockerCode(supabase: Awaited<ReturnType<typeof createC
     .rpc('find_profile_by_locker_code', { code: normalizedCode })
     .maybeSingle()
 
-  if ((rpcCoach as any)?.id) return rpcCoach as { id: string; full_name: string }
+  const rpcCoachRecord = rpcCoach as { id?: string; full_name?: string } | null
+  if (rpcCoachRecord?.id && rpcCoachRecord.full_name) {
+    return { id: rpcCoachRecord.id, full_name: rpcCoachRecord.full_name }
+  }
 
   const { data: scopedCoach } = await supabase
     .from('profiles')
@@ -52,14 +57,21 @@ export async function signup(formData: FormData) {
   const fullName = formData.get('full_name') as string
   const role = formData.get('role') as string // 'athlete', 'coach', or 'individual'
   const coachLockerCode = formData.get('coach_locker_code') as string | null
-  const consent = formData.get('consent') === 'on'
+  const legacyConsent = formData.get('consent') === 'on'
+  const termsPrivacyConsent =
+    formData.get('terms_privacy_consent') === 'on' ||
+    (legacyConsent && !formData.has('terms_privacy_consent'))
+  const medicalDisclaimerConsent = formData.get('medical_disclaimer_consent') === 'on'
+  const dataProcessingConsent = formData.get('data_processing_consent') === 'on'
+  const aiAcknowledgementConsent = formData.get('ai_acknowledgement_consent') === 'on'
+  const marketingConsent = formData.get('marketing_consent') === 'on'
 
   if (!email || !password || !fullName || !role) {
     return { error: 'All fields are required' }
   }
 
-  if (!consent) {
-    return { error: 'You must agree to the Terms & Conditions and Privacy Policy to continue.' }
+  if (!termsPrivacyConsent || !medicalDisclaimerConsent || !dataProcessingConsent || !aiAcknowledgementConsent) {
+    return { error: 'Please complete all required legal acknowledgements to continue.' }
   }
 
   const supabase = await createClient()
@@ -76,6 +88,9 @@ export async function signup(formData: FormData) {
   const host = headersList.get('host')
   const proto = headersList.get('x-forwarded-proto') || 'http'
   const origin = headersList.get('origin') || (host ? `${proto}://${host}` : process.env.NEXT_PUBLIC_SITE_URL) || 'http://localhost:3000'
+  const consentTimestamp = new Date().toISOString()
+  const userAgent = headersList.get('user-agent')
+  const requestIp = headersList.get('x-forwarded-for')
 
   const data = {
     email,
@@ -88,7 +103,15 @@ export async function signup(formData: FormData) {
         // Keep the legacy field stable in auth metadata; access is no longer tier-gated.
         subscription_tier: legacyTier,
         coach_locker_code: coachLockerCode,
-        legal_consent_at: new Date().toISOString(),
+        legal_consent_at: consentTimestamp,
+        medical_disclaimer_accepted_at: consentTimestamp,
+        data_processing_consent_at: consentTimestamp,
+        ai_acknowledgement_at: consentTimestamp,
+        marketing_consent: marketingConsent,
+        legal_policy_version: LEGAL_POLICY_VERSION,
+        privacy_policy_version: LEGAL_POLICY_VERSION,
+        consent_policy_version: LEGAL_POLICY_VERSION,
+        consent_updated_at: consentTimestamp,
       },
     },
   }
@@ -97,6 +120,29 @@ export async function signup(formData: FormData) {
 
   if (error) {
     return { error: error.message }
+  }
+
+  if (authData.user?.id && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const admin = createAdminClient()
+    await persistLegalConsentBundle({
+      supabase: admin,
+      userId: authData.user.id,
+      role: isAppRole(role) ? role : 'unknown',
+      acceptedAt: consentTimestamp,
+      policyVersion: LEGAL_POLICY_VERSION,
+      source: 'signup',
+      userAgent,
+      requestIp,
+      termsAccepted: termsPrivacyConsent,
+      privacyAccepted: termsPrivacyConsent,
+      medicalDisclaimerAccepted: medicalDisclaimerConsent,
+      dataProcessingAccepted: dataProcessingConsent,
+      aiDecisionSupportAccepted: aiAcknowledgementConsent,
+      marketingAccepted: marketingConsent,
+      metadata: {
+        flow: 'signup',
+      },
+    })
   }
 
   revalidatePath('/', 'layout')

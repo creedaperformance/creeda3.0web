@@ -4,16 +4,31 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, ShieldAlert, Eye, EyeOff, User, MessageSquare, Users } from 'lucide-react'
+import { Loader2, ShieldAlert, Eye, EyeOff, User, MessageSquare } from 'lucide-react'
 import { updateProfile, deleteAccount } from '@/app/athlete/actions'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { AvatarUpload } from '@/components/AvatarUpload'
 import { DashboardLayout } from '@/components/DashboardLayout'
+import Link from 'next/link'
+
+type ProfileRecord = {
+  id: string
+  email?: string | null
+  full_name: string | null
+  username: string | null
+  avatar_url: string | null
+  mobile_number: string | null
+}
+
+type AuthUserRecord = {
+  id: string
+  email?: string | null
+}
 
 export default function CoachSettings() {
-  const [user, setUser] = useState<any>(null)
-  const [profile, setProfile] = useState<any>(null)
+  const [user, setUser] = useState<AuthUserRecord | null>(null)
+  const [profile, setProfile] = useState<ProfileRecord | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -22,32 +37,33 @@ export default function CoachSettings() {
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
 
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setUser(user)
-        supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
-          setProfile(data)
-          setFormData({
-            full_name: data?.full_name || '',
-            username: data?.username || '',
-            avatar_url: data?.avatar_url || '',
-            mobile_number: data?.mobile_number || '',
-          })
-        })
-      } else {
-        router.push('/login')
-      }
-    })
-  }, [])
-
   const [formData, setFormData] = useState({
     full_name: '',
     username: '',
     avatar_url: '',
     mobile_number: '',
   })
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser(user)
+        supabase.from('profiles').select('*').eq('id', user.id).single().then(({ data }) => {
+          const nextProfile = (data || null) as ProfileRecord | null
+          setProfile(nextProfile)
+          setFormData({
+            full_name: nextProfile?.full_name || '',
+            username: nextProfile?.username || '',
+            avatar_url: nextProfile?.avatar_url || '',
+            mobile_number: nextProfile?.mobile_number || '',
+          })
+        })
+      } else {
+        router.push('/login')
+      }
+    })
+  }, [router])
 
   const handleUpdate = async () => {
     if (newPassword) {
@@ -192,11 +208,11 @@ export default function CoachSettings() {
               <h3 className="text-sm font-black uppercase tracking-widest text-foreground mb-6">Data Sovereignty</h3>
               <div className="bg-muted/30 rounded-2xl p-6 border border-border">
                 <p className="text-[10px] text-muted-foreground font-bold leading-relaxed uppercase tracking-tight mb-4">
-                  Your data is yours. To request a full export of your personal and squad data in machine-readable format, please contact our support team.
+                  Manage data export, deletion, correction, and consent requests from your legal center.
                 </p>
-                <a href="mailto:creedaperformance@gmail.com" className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:underline">
-                  Request Data Export →
-                </a>
+                <Link href="/coach/legal" className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:underline">
+                  Open Legal & Privacy →
+                </Link>
               </div>
             </div>
 

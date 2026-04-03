@@ -2,11 +2,93 @@
  
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { verifyRole } from '@/lib/auth_utils'
 import { orchestrateV5 } from '@/lib/engine/EngineOrchestrator'
 import { AthleteInput } from '@/lib/engine/types'
+import { upsertHealthConnectionPreference } from '@/lib/health/storage'
+import { LEGAL_POLICY_VERSION } from '@/lib/legal/constants'
+import { persistLegalConsentBundle } from '@/lib/legal/compliance'
+
+function inferAthleteActivityLevel(trainingFrequency: string, avgIntensity: string, playingLevel: string) {
+  const frequency = String(trainingFrequency || '').trim().toLowerCase()
+  const intensity = String(avgIntensity || '').trim().toLowerCase()
+  const level = String(playingLevel || '').trim().toLowerCase()
+
+  let score = 0
+  if (frequency === 'daily') score += 3
+  else if (frequency === '4-6 days') score += 2
+  else if (frequency === '1-3 days') score += 1
+
+  if (intensity === 'high') score += 2
+  else if (intensity === 'moderate') score += 1
+
+  if (['national', 'professional'].includes(level)) score += 2
+  else if (['state', 'district'].includes(level)) score += 1
+
+  if (score >= 5) return 'athlete'
+  if (score >= 3) return 'active'
+  return 'moderate'
+}
+
+type InjuryEntryLike = {
+  region: string
+  type: string
+  side: string
+  recurring: boolean
+}
+
+type DiagnosticFormPayload = {
+  fullName: string
+  username?: string
+  primarySport: string
+  position: string
+  coachId?: string | null
+  coachLockerCode?: string
+  inviteToken?: string
+  heightCm: number
+  weightKg: number
+  avatar_url?: string
+  minorGuardianConsent?: boolean
+  typicalWeeklyHours: number
+  typicalRPE: number
+  age: number
+  biologicalSex: string
+  dominantSide: string
+  playingLevel: string
+  seasonPhase?: string
+  trainingFrequency: string
+  avgIntensity: string
+  typicalSleep: string
+  usualWakeUpTime: string
+  typicalSoreness: string
+  typicalEnergy: string
+  currentIssue: string
+  activeInjuries?: InjuryEntryLike[]
+  pastMajorInjury: string
+  pastInjuries?: InjuryEntryLike[]
+  hasIllness?: string
+  illnesses?: string[]
+  endurance_capacity: number
+  strength_capacity: number
+  explosive_power: number
+  agility_control: number
+  reaction_self_perception?: number
+  recovery_efficiency: number
+  fatigue_resistance: number
+  load_tolerance: number
+  movement_robustness: number
+  coordination_control: number
+  reaction_time_ms?: number
+  primaryGoal: string
+  health_connection_preference?: 'connect_now' | 'later'
+  legalConsent: boolean
+  medicalDisclaimerConsent: boolean
+  dataProcessingConsent: boolean
+  aiAcknowledgementConsent: boolean
+  marketingConsent?: boolean
+}
 
 async function findCoachIdByLockerCode(supabase: Awaited<ReturnType<typeof createClient>>, code: string): Promise<string | null> {
   const normalizedCode = code.trim().toUpperCase()
@@ -15,7 +97,8 @@ async function findCoachIdByLockerCode(supabase: Awaited<ReturnType<typeof creat
     .rpc('find_profile_by_locker_code', { code: normalizedCode })
     .maybeSingle()
 
-  if ((rpcCoach as any)?.id) return (rpcCoach as any).id as string
+  const rpcCoachRecord = rpcCoach as { id?: string } | null
+  if (rpcCoachRecord?.id) return rpcCoachRecord.id
 
   const { data: scopedCoach } = await supabase
     .from('profiles')
@@ -41,8 +124,9 @@ async function findCoachIdByLockerCode(supabase: Awaited<ReturnType<typeof creat
   return null
 }
 
-export async function submitDiagnosticForm(data: any) {
+export async function submitDiagnosticForm(data: DiagnosticFormPayload) {
   const supabase = await createClient()
+  const headersList = await headers()
 
   const { user } = await verifyRole('athlete')
 
@@ -84,15 +168,17 @@ export async function submitDiagnosticForm(data: any) {
   // 2. Update Core Profile (Essential fields ONLY)
   // Generation of a simple locker code
   const lockerCode = Math.floor(100000 + Math.random() * 900000).toString()
+  const typicalWeeklyMinutes = Number(data.typicalWeeklyHours || 0) * 60
 
   const performance_baseline = {
-    weekly_training_minutes: data.typicalWeeklyMinutes,
+    weekly_training_minutes: typicalWeeklyMinutes,
     avg_session_rpe: data.typicalRPE,
-    chronic_load_seed: data.typicalWeeklyMinutes * data.typicalRPE,
+    chronic_load_seed: typicalWeeklyMinutes * Number(data.typicalRPE || 0),
     initialized_at: new Date().toISOString()
   }
 
   // Initial profile update — onboarding_completed stays FALSE until diagnostics succeeds
+  const consentTimestamp = new Date().toISOString()
   const { error: profileError } = await supabase.from('profiles').update({ 
     full_name: data.fullName,
     username: data.username?.toLowerCase(),
@@ -104,14 +190,45 @@ export async function submitDiagnosticForm(data: any) {
     height: data.heightCm,
     weight: data.weightKg,
     avatar_url: data.avatar_url || undefined,
-    medical_disclaimer_accepted_at: new Date().toISOString(),
-    guardian_consent_confirmed: data.minorGuardianConsent || false
+    legal_consent_at: consentTimestamp,
+    legal_policy_version: LEGAL_POLICY_VERSION,
+    privacy_policy_version: LEGAL_POLICY_VERSION,
+    consent_policy_version: LEGAL_POLICY_VERSION,
+    medical_disclaimer_accepted_at: data.medicalDisclaimerConsent ? consentTimestamp : null,
+    data_processing_consent_at: data.dataProcessingConsent ? consentTimestamp : null,
+    ai_acknowledgement_at: data.aiAcknowledgementConsent ? consentTimestamp : null,
+    marketing_consent: Boolean(data.marketingConsent),
+    marketing_consent_at: data.marketingConsent ? consentTimestamp : null,
+    consent_updated_at: consentTimestamp,
+    guardian_consent_confirmed: data.minorGuardianConsent || false,
   }).eq('id', user.id)
 
   if (profileError) {
     console.error("Profile Update Error during onboarding:", profileError)
     return { error: `Profile update failed: ${profileError.message}` }
   }
+
+  await persistLegalConsentBundle({
+    supabase,
+    userId: user.id,
+    role: 'athlete',
+    acceptedAt: consentTimestamp,
+    policyVersion: LEGAL_POLICY_VERSION,
+    source: 'onboarding',
+    userAgent: headersList.get('user-agent'),
+    requestIp: headersList.get('x-forwarded-for'),
+    termsAccepted: data.legalConsent,
+    privacyAccepted: data.legalConsent,
+    medicalDisclaimerAccepted: data.medicalDisclaimerConsent,
+    dataProcessingAccepted: data.dataProcessingConsent,
+    aiDecisionSupportAccepted: data.aiAcknowledgementConsent,
+    marketingAccepted: Boolean(data.marketingConsent),
+    guardianConsentAccepted: Boolean(data.minorGuardianConsent),
+    metadata: {
+      flow: 'athlete_onboarding',
+      objective_testing_optional: true,
+    },
+  })
 
   // 2b. Create Connection Request if pending_coach_id exists
   if (pending_coach_id) {
@@ -154,11 +271,11 @@ export async function submitDiagnosticForm(data: any) {
 
   const physical_status = {
     currentIssue: data.currentIssue,
-    activeInjuries: (data as any).activeInjuries || [],
+    activeInjuries: data.activeInjuries || [],
     pastMajorInjury: data.pastMajorInjury,
-    pastInjuries: (data as any).pastInjuries || [],
-    hasIllness: (data as any).hasIllness,
-    illnesses: (data as any).illnesses || []
+    pastInjuries: data.pastInjuries || [],
+    hasIllness: data.hasIllness,
+    illnesses: data.illnesses || []
   }
 
   const physiology_profile = {
@@ -219,16 +336,11 @@ export async function submitDiagnosticForm(data: any) {
   }
 
   // Optional health-data integration preference (non-blocking).
-  const { error: healthConnectionError } = await supabase
-    .from('health_connections')
-    .upsert(
-      {
-        user_id: user.id,
-        connection_preference: data.health_connection_preference || 'later',
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    )
+  const { error: healthConnectionError } = await upsertHealthConnectionPreference(supabase, {
+    userId: user.id,
+    connectionPreference: data.health_connection_preference || 'later',
+    updatedAt: new Date().toISOString(),
+  })
 
   if (healthConnectionError) {
     // Keep onboarding completion resilient even if health tables are not migrated yet.
@@ -282,7 +394,8 @@ export async function submitDiagnosticForm(data: any) {
         heightCm: Number(data.heightCm) || undefined,
         weightKg: Number(data.weightKg) || undefined,
         primaryGoal: String(data.primaryGoal || ''),
-        activityLevel: data.trainingFrequency === 'Daily' ? 'athlete' : data.trainingFrequency === '4-6 days' ? 'active' : 'moderate',
+        activityLevel: inferAthleteActivityLevel(data.trainingFrequency, data.avgIntensity, data.playingLevel),
+        wakeTime: String(data.usualWakeUpTime || ''),
       },
     }
 

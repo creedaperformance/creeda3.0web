@@ -1,23 +1,23 @@
 'use client'
  
 import { useState, useEffect, useRef } from 'react'
-import { useForm } from 'react-hook-form'
+import Link from 'next/link'
+import { type DefaultValues, type FieldPath, type PathValue, type Resolver, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
 import { 
-  ArrowRight, ArrowLeft, HeartPulse, Activity, CheckCircle2, ShieldAlert, 
-  Scale, Moon, Target, Dumbbell, History, Sparkles, AlertTriangle, Brain, 
-  ChevronRight, Info, Zap, Flame, Trophy, Layers, Microscope, LayoutGrid, 
-  ShieldCheck, PlusCircle, X, Loader2
+  ArrowRight, ArrowLeft, Activity, CheckCircle2, ShieldAlert,
+  Moon, Target, History, AlertTriangle, Brain,
+  Zap, Flame, ShieldCheck, PlusCircle, X, Loader2,
+  type LucideIcon
 } from 'lucide-react'
 import { submitDiagnosticForm } from './actions'
 import { SPORTS_DATABASE } from '@/lib/sport_intelligence'
-import { SPORTS_LIST } from '@/lib/constants'
+import { SPORTS_LIST, type SportType } from '@/lib/constants'
 import { AvatarUpload } from '@/components/AvatarUpload'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -36,7 +36,7 @@ const step0Schema = z.object({
 const step1Schema = z.object({
   fullName: z.string().min(2, "Full Name is required"),
   username: z.string().min(3, "Username must be at least 3 characters").regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed"),
-  primarySport: z.enum(SPORTS_LIST as any),
+  primarySport: z.enum(SPORTS_LIST),
   position: z.string().min(1, "Position is required"),
   dominantSide: z.enum(["Left", "Right", "Both", "Ambidextrous"])
 })
@@ -112,6 +112,10 @@ const step6Schema = z.object({
 
 const step7Schema = z.object({
   legalConsent: z.boolean().refine(val => val === true, "Consent is required to continue"),
+  medicalDisclaimerConsent: z.boolean().refine(val => val === true, "Medical disclaimer acknowledgement is required"),
+  dataProcessingConsent: z.boolean().refine(val => val === true, "Data processing consent is required"),
+  aiAcknowledgementConsent: z.boolean().refine(val => val === true, "AI acknowledgement is required"),
+  marketingConsent: z.boolean().default(false),
   minorGuardianConsent: z.boolean().optional()
 })
 
@@ -126,7 +130,7 @@ const onboardingSchema = z.object({
   ...step6Schema.shape,
   ...step7Schema.shape,
   coachLockerCode: z.string().optional()
-}).refine((data: any) => {
+}).refine((data) => {
   if (data.age < 18 && !data.minorGuardianConsent) return false
   return true
 }, {
@@ -135,31 +139,212 @@ const onboardingSchema = z.object({
 })
 
 type OnboardingValues = z.infer<typeof onboardingSchema>
+type InjuryEntry = z.infer<typeof injuryEntrySchema>
+type PhysiologyKey = Exclude<keyof z.infer<typeof physiologySchema>, 'reaction_time_ms' | 'reaction_self_perception'>
+
+const TOTAL_STEPS = 16
+const DOMINANT_SIDE_OPTIONS = ['Left', 'Right', 'Both', 'Ambidextrous'] as const
+const BIOLOGICAL_SEX_OPTIONS = ['Male', 'Female', 'Other'] as const
+const TRAINING_FREQUENCY_OPTIONS = ['1-3 days', '4-6 days', 'Daily'] as const
+const INTENSITY_OPTIONS = ['Low', 'Moderate', 'High'] as const
+const PRIMARY_GOAL_OPTIONS = [
+  { value: 'Performance Enhancement', desc: 'Get sharper daily readiness, training-load, and performance decisions.' },
+  { value: 'Injury Prevention', desc: 'Spot risk earlier and make safer training adjustments.' },
+  { value: 'Recovery Efficiency', desc: 'Recover better between sessions so you can train well again sooner.' },
+  { value: 'Return from Injury', desc: 'Build a safer step-by-step return to full sport.' },
+  { value: 'Competition Prep', desc: 'Plan the build-up so you arrive ready on the day that matters.' },
+] as const
+const YES_NO_OPTIONS = ['No', 'Yes'] as const
+const TYPICAL_SLEEP_OPTIONS = ['< 6 hours', '6-7 hours', '7-8 hours', '8-9 hours', '> 9 hours'] as const
+const TYPICAL_SORENESS_OPTIONS = ['None', 'Low', 'Moderate', 'High'] as const
+const TYPICAL_ENERGY_OPTIONS = ['Low', 'Moderate', 'High'] as const
+
+const STEP_FIELDS: Record<number, FieldPath<OnboardingValues>[]> = {
+  0: ['fullName', 'username', 'age', 'biologicalSex', 'heightCm', 'weightKg', 'primarySport', 'position', 'dominantSide'],
+  1: ['playingLevel', 'trainingFrequency', 'avgIntensity', 'typicalWeeklyHours', 'typicalRPE'],
+  2: ['primaryGoal'],
+  3: ['currentIssue', 'pastMajorInjury', 'hasIllness'],
+  4: ['endurance_capacity'],
+  5: ['strength_capacity'],
+  6: ['explosive_power'],
+  7: ['agility_control'],
+  8: ['recovery_efficiency'],
+  9: ['fatigue_resistance'],
+  10: ['load_tolerance'],
+  11: ['movement_robustness'],
+  12: ['coordination_control'],
+  13: ['reaction_time_ms'],
+  14: ['typicalSleep', 'usualWakeUpTime', 'typicalSoreness', 'typicalEnergy'],
+  15: [
+    'legalConsent',
+    'medicalDisclaimerConsent',
+    'dataProcessingConsent',
+    'aiAcknowledgementConsent',
+    'marketingConsent',
+    'minorGuardianConsent',
+  ],
+}
+
+const PHYSIOLOGY_KEYS: PhysiologyKey[] = [
+  'endurance_capacity',
+  'strength_capacity',
+  'explosive_power',
+  'agility_control',
+  'recovery_efficiency',
+  'fatigue_resistance',
+  'load_tolerance',
+  'movement_robustness',
+  'coordination_control',
+]
+
+const PHYSIOLOGY_QUESTIONS: Record<PhysiologyKey, { question: string; description: string; options: [string, string, string, string] }> = {
+  endurance_capacity: {
+    question: "How well do you hold your pace deep into a session or match?",
+    description: "Think about your breathing, movement quality, and how much your level drops when you get tired.",
+    options: ["I slow down quickly and need frequent breaks", "I can hold a basic level but I fade", "I hold my level well for most of the session", "I stay strong deep into the session and can still push at the end"],
+  },
+  strength_capacity: {
+    question: "How strong do you feel when dealing with contact, resistance, or heavy effort?",
+    description: "Think about gym work, body control, and how solid you feel in physical moments.",
+    options: ["I feel underpowered and get moved easily", "I have some strength but it is inconsistent", "I feel strong in most situations", "I feel very strong and hard to move"],
+  },
+  explosive_power: {
+    question: "How sharp is your first burst of speed or force?",
+    description: "Think about jumps, first steps, quick accelerations, and powerful actions.",
+    options: ["I feel slow off the mark", "I can generate power but it takes me time", "I usually feel quick and reactive", "I explode instantly and create separation fast"],
+  },
+  agility_control: {
+    question: "How well do you change direction at speed?",
+    description: "Think about footwork, cuts, and staying in control.",
+    options: ["I'm stiff and predictable", "I manage basic lateral movement", "I'm nimble and can read spaces", "I move fluidly in any direction at pace"],
+  },
+  recovery_efficiency: {
+    question: "How do you usually feel the day after a hard session?",
+    description: "Think about soreness, energy, and readiness to go again.",
+    options: ["Very sore, need 2–3 days off", "Noticeably sore, need a light day", "Mildly sore, could train again", "Barely feel it, ready to go"],
+  },
+  fatigue_resistance: {
+    question: "When a session gets long, how well do you hold your level?",
+    description: "Compare the end of the session to the start.",
+    options: ["Drops off significantly", "Noticeably slower and weaker", "Slight dip but still effective", "I maintain my level throughout"],
+  },
+  load_tolerance: {
+    question: "How much hard training can your body handle in a normal week?",
+    description: "Think about tough sessions, not warm-ups or easy recovery work.",
+    options: ["1 – 2 sessions max", "3 sessions comfortably", "4 – 5 sessions comfortably", "6+ sessions without issue"],
+  },
+  movement_robustness: {
+    question: "How free and comfortable does your body move?",
+    description: "Think about squats, reaching overhead, and joint stiffness.",
+    options: ["Very stiff and restricted", "Limited in some joints", "Good range in most movements", "Full unrestricted range everywhere"],
+  },
+  coordination_control: {
+    question: "How well do you stay in control during complex movement?",
+    description: "Think about balance, landing, and multi-step movement.",
+    options: ["I wobble and lose balance often", "I'm stable in basic positions", "I'm controlled in most movements", "I have precise control in all positions"],
+  },
+}
+
+const createOnboardingDefaults = (overrides: Partial<DefaultValues<OnboardingValues>> = {}): DefaultValues<OnboardingValues> => ({
+  fullName: '',
+  username: '',
+  age: 18,
+  heightCm: 175,
+  weightKg: 70,
+  position: '',
+  typicalWeeklyHours: 5,
+  typicalRPE: 6,
+  activeInjuries: [],
+  pastInjuries: [],
+  illnesses: [],
+  usualWakeUpTime: '',
+  legalConsent: false,
+  medicalDisclaimerConsent: false,
+  dataProcessingConsent: false,
+  aiAcknowledgementConsent: false,
+  marketingConsent: false,
+  minorGuardianConsent: false,
+  coachLockerCode: '',
+  ...overrides,
+})
 
 // --- Step Configuration ---
-const STEP_LABELS: Record<number, { title: string; subtitle: string; icon: any }> = {
-  0: { title: 'Athlete Setup', subtitle: "Biological & Sport Identity", icon: Zap },
-  1: { title: 'Training Load', subtitle: 'Help creeda understand your general training load', icon: Flame },
-  2: { title: 'Your Goal', subtitle: 'What is your primary goal for using Creeda?', icon: Target },
-  3: { title: 'Injury History', subtitle: 'Map your injury intelligence', icon: ShieldAlert },
-  4: { title: 'Physiology Check', subtitle: 'Endurance & Strength (1/9)', icon: Brain },
-  5: { title: 'Physiology Check', subtitle: 'Explosive Power (2/9)', icon: Brain },
-  6: { title: 'Physiology Check', subtitle: 'Agility (3/9)', icon: Brain },
-  7: { title: 'Physiology Check', subtitle: 'Recovery (4/9)', icon: Brain },
-  8: { title: 'Physiology Check', subtitle: 'Fatigue Resistance (5/9)', icon: Brain },
-  9: { title: 'Physiology Check', subtitle: 'Training Load (6/9)', icon: Brain },
-  10: { title: 'Physiology Check', subtitle: 'Movement Quality (7/9)', icon: Brain },
-  11: { title: 'Physiology Check', subtitle: 'Body Control (8/9)', icon: Brain },
-  12: { title: 'Physiology Check', subtitle: 'Balance & Stability (9/9)', icon: Brain },
-  13: { title: 'Reaction Test', subtitle: 'Measure your cognitive reflex speed', icon: Activity },
-  14: { title: 'Wellness Sync', subtitle: 'Recovery & circadian calibration', icon: Moon },
+const STEP_LABELS: Record<number, { title: string; subtitle: string; icon: LucideIcon }> = {
+  0: { title: 'Athlete Profile', subtitle: 'Body, sport, position, and dominant side', icon: Zap },
+  1: { title: 'Training Reality', subtitle: 'How often you train and how hard normal weeks feel', icon: Flame },
+  2: { title: 'Your Main Goal', subtitle: 'What you want CREEDA to help with first', icon: Target },
+  3: { title: 'Health And Injury', subtitle: 'Current issues, past injuries, and medical context', icon: ShieldAlert },
+  4: { title: 'Current Capacity', subtitle: 'Endurance (1/9)', icon: Brain },
+  5: { title: 'Current Capacity', subtitle: 'Strength (2/9)', icon: Brain },
+  6: { title: 'Current Capacity', subtitle: 'Power (3/9)', icon: Brain },
+  7: { title: 'Current Capacity', subtitle: 'Agility (4/9)', icon: Brain },
+  8: { title: 'Current Capacity', subtitle: 'Recovery (5/9)', icon: Brain },
+  9: { title: 'Current Capacity', subtitle: 'Fatigue resistance (6/9)', icon: Brain },
+  10: { title: 'Current Capacity', subtitle: 'Weekly load tolerance (7/9)', icon: Brain },
+  11: { title: 'Current Capacity', subtitle: 'Mobility (8/9)', icon: Brain },
+  12: { title: 'Current Capacity', subtitle: 'Coordination (9/9)', icon: Brain },
+  13: { title: 'Reaction Test', subtitle: 'Quick 3-trial reflex check', icon: Activity },
+  14: { title: 'Normal Recovery Baseline', subtitle: 'Sleep, soreness, energy, and wake time', icon: Moon },
   15: { title: 'Consent & Authorization', subtitle: 'Review and accept terms', icon: ShieldCheck },
+}
+
+const STEP_PURPOSES: Record<number, { usedFor: string; note?: string }> = {
+  0: {
+    usedFor: 'Used to load the correct sport demands, position context, and body-size baseline.',
+    note: 'Name and username help identity and reporting. Sport, position, age, sex, height, and weight shape the actual model.',
+  },
+  1: {
+    usedFor: 'Used to seed your normal training load and stress baseline.',
+    note: 'This step matters directly for workload context and early readiness calibration.',
+  },
+  2: {
+    usedFor: 'Used to decide what CREEDA should optimize first.',
+  },
+  3: {
+    usedFor: 'Used to tighten injury risk, rehab logic, and return-to-play safeguards.',
+  },
+  4: {
+    usedFor: 'Used to estimate your current endurance baseline.',
+  },
+  5: {
+    usedFor: 'Used to estimate your current strength baseline.',
+  },
+  6: {
+    usedFor: 'Used to estimate your power and first-burst profile.',
+  },
+  7: {
+    usedFor: 'Used to estimate agility and movement control.',
+  },
+  8: {
+    usedFor: 'Used to estimate how quickly you usually bounce back after hard work.',
+  },
+  9: {
+    usedFor: 'Used to estimate how well you hold your level when fatigue builds.',
+  },
+  10: {
+    usedFor: 'Used to estimate how much weekly hard work your body can currently tolerate.',
+  },
+  11: {
+    usedFor: 'Used to estimate mobility and movement freedom.',
+  },
+  12: {
+    usedFor: 'Used to estimate balance, control, and coordination quality.',
+  },
+  13: {
+    usedFor: 'Used to build your reaction-time baseline for nervous-system and freshness signals.',
+    note: 'This is why the test needs 3 clean trials.',
+  },
+  14: {
+    usedFor: 'Used as your normal recovery baseline before daily check-ins and device trend data take over.',
+  },
+  15: {
+    usedFor: 'Required for consent and safe use. This step does not change performance scoring.',
+  },
 }
 
 export default function AthleteOnboarding() {
   const [currentStep, setCurrentStep] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showSummary, setShowSummary] = useState(false)
   const [showResumeModal, setShowResumeModal] = useState(false)
   const [isReady, setIsReady] = useState(false)
   const [userLoaded, setUserLoaded] = useState(false)
@@ -176,77 +361,66 @@ export default function AthleteOnboarding() {
   const router = useRouter()
 
   // Injury local state (synced to react-hook-form)
-  type InjuryEntry = { region: string; type: string; side: string; recurring: boolean };
   const [activeInjuries, setActiveInjuries] = useState<InjuryEntry[]>([])
   const [pastInjuries, setPastInjuries] = useState<InjuryEntry[]>([])
   const [illnesses, setIllnesses] = useState<string[]>([])
 
   const {
     register,
-    handleSubmit,
     trigger,
     watch,
     setValue,
     reset,
     formState: { errors }
   } = useForm<OnboardingValues>({
-    resolver: zodResolver(onboardingSchema) as any,
-    defaultValues: {
-      fullName: "",
-      username: "",
-      age: 18,
-      biologicalSex: "Male",
-      heightCm: 175,
-      weightKg: 70,
-      primarySport: "Cricket",
-      position: "Fast Bowler",
-      dominantSide: "Right",
-      playingLevel: "District",
-      trainingFrequency: "4-6 days",
-      avgIntensity: "Moderate",
-      typicalWeeklyHours: 5,
-      typicalRPE: 6,
-      primaryGoal: "Performance Enhancement",
-      currentIssue: "No",
-      activeInjuries: [],
-      pastMajorInjury: "No",
-      pastInjuries: [],
-      hasIllness: "No",
-      illnesses: [],
-      endurance_capacity: 2,
-      strength_capacity: 2,
-      explosive_power: 2,
-      agility_control: 2,
-      reaction_self_perception: 2,
-      recovery_efficiency: 2,
-      fatigue_resistance: 2,
-      load_tolerance: 2,
-      movement_robustness: 2,
-      coordination_control: 2,
-    }
+    resolver: zodResolver(onboardingSchema) as Resolver<OnboardingValues>,
+    defaultValues: createOnboardingDefaults(),
   })
 
   const formValues = watch()
-  const { clearDraft } = useOnboardingPersistence(formValues, currentStep, (vals) => reset(vals), setCurrentStep, isReady, userId)
+  const { clearDraft } = useOnboardingPersistence(formValues, currentStep, isReady, userId)
+  const selectedSport = formValues.primarySport
+  const selectedDominantSide = formValues.dominantSide
+  const selectedTrainingFrequency = formValues.trainingFrequency
+  const selectedAvgIntensity = formValues.avgIntensity
+  const selectedGoal = formValues.primaryGoal
+  const selectedCurrentIssue = formValues.currentIssue
+  const selectedHasIllness = formValues.hasIllness
+  const selectedPastMajorInjury = formValues.pastMajorInjury
+  const selectedTypicalSoreness = formValues.typicalSoreness
+  const selectedTypicalEnergy = formValues.typicalEnergy
+  const age = formValues.age
+  const selectedPositionOptions = selectedSport ? SPORTS_DATABASE[selectedSport.toLowerCase()]?.positions || [] : []
 
-   useEffect(() => {
+  const setFormValue = <K extends FieldPath<OnboardingValues>>(field: K, value: PathValue<OnboardingValues, K>) => {
+    setValue(field, value, { shouldDirty: true, shouldTouch: true, shouldValidate: true })
+  }
+
+  useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setUserId(user.id)
         // Clear any stale guest drafts when a real user logs in
-        try { localStorage.removeItem('creeda_onboarding_draft_guest') } catch (_) {}
+        try { localStorage.removeItem('creeda_onboarding_draft_guest') } catch {}
         // Pre-fill name if available
         supabase.from('profiles').select('full_name').eq('id', user.id).single()
           .then(({ data }) => {
-            if (data?.full_name && !watch('fullName')) {
-              setValue('fullName', data.full_name)
+            if (data?.full_name && !formValues.fullName) {
+              setValue('fullName', data.full_name, { shouldDirty: false })
             }
           })
+
+        const coachLockerCode = typeof user.user_metadata?.coach_locker_code === 'string'
+          ? user.user_metadata.coach_locker_code.trim().toUpperCase()
+          : ''
+        if (coachLockerCode && !formValues.coachLockerCode) {
+          setValue('coachLockerCode', coachLockerCode, { shouldDirty: false })
+        }
       }
       setUserLoaded(true)
     })
-  }, [])
+  }, [formValues.coachLockerCode, formValues.fullName, setValue])
 
   useEffect(() => {
     // Don't check for drafts until we know who the user is
@@ -264,7 +438,13 @@ export default function AthleteOnboarding() {
     } else if (!draft) {
       setIsReady(true)
     }
-  }, [currentStep, isReady, userId, userLoaded])
+  }, [currentStep, isReady, showResumeModal, userId, userLoaded])
+
+  useEffect(() => {
+    return () => {
+      if (reactionDelayTimerRef.current) clearTimeout(reactionDelayTimerRef.current)
+    }
+  }, [])
 
   const resumeOnboarding = async () => {
     const persistenceKey = userId ? `creeda_onboarding_draft_${userId}` : 'creeda_onboarding_draft_guest';
@@ -294,44 +474,19 @@ export default function AthleteOnboarding() {
     clearDraft()
     localStorage.removeItem(persistenceKey)
     sessionStorage.removeItem('creeda_session_entropy')
-    reset({
-      fullName: "",
-      username: "",
+    reset(createOnboardingDefaults({
       age: 25,
-      biologicalSex: "Male",
       heightCm: 180,
       weightKg: 75,
-      primarySport: "Basketball",
-      position: "Guard",
-      dominantSide: "Right",
-      playingLevel: "Professional",
-      trainingFrequency: "4-6 days",
-      avgIntensity: "High",
       typicalWeeklyHours: 8,
       typicalRPE: 7,
-      primaryGoal: "Performance Enhancement",
-      currentIssue: "No",
-      activeInjuries: [],
-      pastMajorInjury: "No",
-      pastInjuries: [],
-      endurance_capacity: 2,
-      strength_capacity: 2,
-      explosive_power: 2,
-      agility_control: 2,
-      reaction_self_perception: 2,
-      recovery_efficiency: 2,
-      fatigue_resistance: 2,
-      load_tolerance: 2,
-      movement_robustness: 2,
-      coordination_control: 2,
-      typicalSleep: "7-8 hours",
-      usualWakeUpTime: "07:00",
-      typicalSoreness: "Low",
-      typicalEnergy: "Moderate",
-      legalConsent: false,
-      minorGuardianConsent: false,
-      coachLockerCode: ""
-    })
+    }))
+    setActiveInjuries([])
+    setPastInjuries([])
+    setIllnesses([])
+    setReactionTrials([])
+    setReactionScore(null)
+    setReactionState('idle')
     setCurrentStep(0)
     setIsReady(true)
     setShowResumeModal(false)
@@ -343,38 +498,8 @@ export default function AthleteOnboarding() {
     scrollToTop()
   }
 
-  const TOTAL_STEPS = 16
-
   const nextStep = async () => {
-    let fields: any[] = []
-    if (currentStep === 0) fields = ["fullName", "username", "age", "biologicalSex", "heightCm", "weightKg", "primarySport", "position"]
-    if (currentStep === 1) fields = ["playingLevel", "trainingFrequency", "avgIntensity", "typicalWeeklyHours", "typicalRPE"]
-    if (currentStep === 2) fields = ["primaryGoal"]
-    if (currentStep === 3) fields = ["currentIssue", "pastMajorInjury"]
-    
-    // Steps 4-12 are Physiology Check (Neural Check)
-    if (currentStep === 4) fields = ["endurance_capacity"]
-    if (currentStep === 5) fields = ["strength_capacity"]
-    if (currentStep === 6) fields = ["explosive_power"]
-    if (currentStep === 7) fields = ["agility_control"]
-    if (currentStep === 8) fields = ["recovery_efficiency"]
-    if (currentStep === 9) fields = ["fatigue_resistance"]
-    if (currentStep === 10) fields = ["load_tolerance"]
-    if (currentStep === 11) fields = ["movement_robustness"]
-    if (currentStep === 12) fields = ["coordination_control"]
-    
-    // Step 13 is Reaction Test
-    if (currentStep === 13) {
-      fields = ["reaction_time_ms"]
-      // Custom check: if reaction test isn't complete, we shouldn't continue
-      if (reactionState !== 'complete' && !watch('reaction_time_ms')) {
-        toast.error("Please complete the reaction test protocol to continue.")
-        return
-      }
-    }
-
-    if (currentStep === 14) fields = ["typicalSleep", "typicalSoreness", "typicalEnergy"]
-    if (currentStep === 15) fields = ["legalConsent", "minorGuardianConsent"]
+    const fields = STEP_FIELDS[currentStep] ?? []
 
     const isValid = await trigger(fields)
     if (isValid) {
@@ -394,7 +519,7 @@ export default function AthleteOnboarding() {
       // Convert Hours to Minutes for backend compatibility
       const data = {
         ...vals,
-        typicalWeeklyMinutes: (vals as any).typicalWeeklyHours * 60,
+        typicalWeeklyMinutes: vals.typicalWeeklyHours * 60,
         seasonPhase: "In-season",
         avatar_url: avatarUrl || undefined
       }
@@ -405,7 +530,7 @@ export default function AthleteOnboarding() {
       } else {
         toast.error("Process interrupted: " + result.error)
       }
-    } catch (err) {
+    } catch {
       toast.error("Critical error in intelligence uplink")
     } finally {
       setIsSubmitting(false)
@@ -469,12 +594,12 @@ export default function AthleteOnboarding() {
             className="inline-flex items-center gap-3 px-4 py-2 bg-slate-900/50 rounded-full border border-slate-800 mb-6"
           >
             <Zap className="h-4 w-4 text-primary" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Creeda Intelligence v5.0: Digital Sports Scientist</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Athlete performance setup</span>
           </motion.div>
           <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
-            Initialize Profile
+            Athlete Setup
           </h1>
-          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em]">Comprehensive Onboarding Protocol</p>
+          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em]">Performance baseline setup</p>
         </div>
 
         {/* Progress System */}
@@ -522,6 +647,17 @@ export default function AthleteOnboarding() {
                   <p className="text-xs font-medium text-slate-400 uppercase tracking-widest">
                     {STEP_LABELS[currentStep]?.subtitle}
                   </p>
+                  <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary">Used For</p>
+                    <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+                      {STEP_PURPOSES[currentStep]?.usedFor}
+                    </p>
+                    {STEP_PURPOSES[currentStep]?.note && (
+                      <p className="mt-2 text-xs text-slate-500 leading-relaxed">
+                        {STEP_PURPOSES[currentStep]?.note}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="min-h-[300px]">
@@ -549,33 +685,34 @@ export default function AthleteOnboarding() {
                        </div>
 
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div className="space-y-3">
-                            <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Primary Sport</Label>
-                            <select {...register("primarySport")} 
+                       <div className="space-y-3">
+                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Primary Sport</Label>
+                          <select {...register("primarySport")} 
                               onChange={(e) => {
-                                setValue('primarySport', e.target.value as any)
-                                const sportKey = e.target.value.toLowerCase()
+                                const nextSport = e.target.value as SportType
+                                setFormValue('primarySport', nextSport)
+                                const sportKey = nextSport.toLowerCase()
                                 const positions = SPORTS_DATABASE[sportKey]?.positions || []
                                 if (positions.length > 0) {
-                                  setValue('position', positions[0].name)
+                                  setFormValue('position', '')
                                 } else {
-                                  setValue('position', "")
+                                  setFormValue('position', '')
                                 }
                               }}
                               className="w-full h-16 bg-slate-950/50 border-2 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary outline-none text-sm font-bold uppercase tracking-widest"
                             >
+                               <option value="">Select sport</option>
                                {SPORTS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                          </div>
                          <div className="space-y-3">
-                            <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Playing Position</Label>
+                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Position</Label>
                             {(() => {
-                               const sportKey = watch('primarySport')?.toLowerCase()
-                               const positions = SPORTS_DATABASE[sportKey]?.positions || []
-                               if (positions.length > 0) {
+                               if (selectedPositionOptions.length > 0) {
                                  return (
                                    <select {...register("position")} className="w-full h-16 bg-slate-950/50 border-2 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary outline-none text-sm font-bold uppercase">
-                                      {positions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                                      <option value="">Select position</option>
+                                      {selectedPositionOptions.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
                                    </select>
                                  )
                                }
@@ -584,6 +721,26 @@ export default function AthleteOnboarding() {
                                )
                             })()}
                          </div>
+                       </div>
+
+                       <div className="space-y-4">
+                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Dominant Side</Label>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                             {DOMINANT_SIDE_OPTIONS.map((side) => (
+                               <button
+                                 key={side}
+                                 type="button"
+                                 onClick={() => setFormValue('dominantSide', side)}
+                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[9px] tracking-widest transition-all ${
+                                   selectedDominantSide === side
+                                     ? 'border-primary bg-primary text-slate-950'
+                                     : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'
+                                 }`}
+                               >
+                                 {side}
+                               </button>
+                             ))}
+                          </div>
                        </div>
 
                        <div className="h-px w-full bg-slate-800/50 my-8"></div>
@@ -595,12 +752,12 @@ export default function AthleteOnboarding() {
                             {errors.age && <p className="text-[10px] text-red-500 font-bold">{errors.age.message}</p>}
                          </div>
                          <div className="space-y-3 col-span-1">
-                            <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center block">Sex</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                               {["Male", "Female"].map(s => (
-                                 <button key={s} type="button" onClick={() => setValue('biologicalSex', s as any)} 
-                                   className={`h-16 rounded-2xl border-2 font-bold uppercase text-[9px] tracking-widest transition-all ${watch('biologicalSex') === s ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
-                                   {s === 'Male' ? 'M' : 'F'}
+                            <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center block">Biological Sex</Label>
+                            <div className="grid grid-cols-3 gap-2">
+                               {BIOLOGICAL_SEX_OPTIONS.map((s) => (
+                                 <button key={s} type="button" onClick={() => setFormValue('biologicalSex', s)} 
+                                   className={`h-16 rounded-2xl border-2 font-bold uppercase text-[9px] tracking-widest transition-all ${formValues.biologicalSex === s ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
+                                   {s === 'Male' ? 'Male' : s === 'Female' ? 'Female' : 'Other'}
                                  </button>
                                ))}
                             </div>
@@ -622,7 +779,7 @@ export default function AthleteOnboarding() {
                     <div className="flex flex-col items-center justify-center space-y-8 py-10">
                        <div className="text-center space-y-2">
                           <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Average Reflex Speed: <span className="text-primary font-bold">{watch('reaction_time_ms') || '---'} ms</span></p>
-                          <p className="text-[9px] text-slate-500 uppercase tracking-widest">Requirement: 3 successful trials</p>
+                          <p className="text-[9px] text-slate-500 uppercase tracking-widest">Optional: complete 3 successful trials if you want a baseline</p>
                        </div>
 
                        <div 
@@ -663,28 +820,29 @@ export default function AthleteOnboarding() {
                   {currentStep === 1 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                        <div className="space-y-3">
-                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">What is your current competitive level?</Label>
+                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Current level</Label>
                           <select {...register("playingLevel")} className="w-full h-16 bg-slate-950/50 border-2 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary outline-none text-sm font-bold uppercase">
+                             <option value="">Select level</option>
                              {["Recreational", "School", "District", "State", "National", "Professional"].map(l => <option key={l} value={l}>{l}</option>)}
                           </select>
                        </div>
                        <div className="space-y-3">
-                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">How many days a week do you train?</Label>
+                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Training days per week</Label>
                           <div className="grid grid-cols-3 gap-3">
-                             {["1-3 days", "4-6 days", "Daily"].map(f => (
-                               <button key={f} type="button" onClick={() => setValue('trainingFrequency', f as any)} 
-                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${watch('trainingFrequency') === f ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
+                             {TRAINING_FREQUENCY_OPTIONS.map((f) => (
+                               <button key={f} type="button" onClick={() => setFormValue('trainingFrequency', f)} 
+                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${selectedTrainingFrequency === f ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
                                  {f}
                                </button>
                              ))}
                           </div>
                        </div>
                        <div className="space-y-3">
-                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">What is your typical intensity during training?</Label>
+                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Typical session intensity</Label>
                           <div className="grid grid-cols-3 gap-3">
-                             {["Low", "Moderate", "High"].map(i => (
-                               <button key={i} type="button" onClick={() => setValue('avgIntensity', i as any)} 
-                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${watch('avgIntensity') === i ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
+                             {INTENSITY_OPTIONS.map((i) => (
+                               <button key={i} type="button" onClick={() => setFormValue('avgIntensity', i)} 
+                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${selectedAvgIntensity === i ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
                                  {i}
                                </button>
                              ))}
@@ -692,7 +850,7 @@ export default function AthleteOnboarding() {
                        </div>
                        <div className="space-y-6">
                            <div className="flex justify-between items-center mb-2">
-                             <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">How many hours do you train per week?</Label>
+                             <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Weekly training hours</Label>
                              <span className="text-2xl font-black text-primary bg-primary/10 px-4 py-1 rounded-lg border border-primary/20">{Number(watch('typicalWeeklyHours'))}h</span>
                            </div>
                            <input 
@@ -713,7 +871,7 @@ export default function AthleteOnboarding() {
 
                        <div className="space-y-6 col-span-1 md:col-span-2">
                            <div className="flex justify-between items-center mb-4">
-                             <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">How exerted do you feel after a training session?</Label>
+                             <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">How hard does a normal hard session feel?</Label>
                              <div className="flex flex-col items-end">
                                <span className="text-2xl font-black text-primary bg-primary/10 px-4 py-1 rounded-lg border border-primary/20">{Number(watch('typicalRPE'))}</span>
                                <span className="text-[9px] font-bold text-slate-500 uppercase mt-1">
@@ -761,20 +919,14 @@ export default function AthleteOnboarding() {
                     <div className="space-y-6">
                        <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block text-center mb-8">What do you want Creeda to help you achieve?</Label>
                        <div className="grid grid-cols-1 gap-4">
-                          {[
-                            { value: "Performance Enhancement", desc: "Creeda will track your readiness, optimise your training loads, and push you toward peak performance with precision intelligence." },
-                            { value: "Injury Prevention", desc: "Creeda will monitor your body's stress signals, flag injury risks early, and guide you with protective training adjustments." },
-                            { value: "Recovery Efficiency", desc: "Creeda will analyse your recovery patterns, optimise rest periods, and ensure you're fully recharged for every session." },
-                            { value: "Return from Injury", desc: "Creeda will build a safe, progressive return-to-play plan, tracking your healing markers and readiness at every stage." },
-                            { value: "Competition Prep", desc: "Creeda will periodise your build-up, manage taper phases, and ensure you peak on the day that matters most." }
-                          ].map(g => (
-                            <button key={g.value} type="button" onClick={() => setValue('primaryGoal', g.value as any)} 
-                              className={`p-6 rounded-3xl border-2 text-left transition-all ${watch('primaryGoal') === g.value ? 'border-primary bg-primary/5 shadow-xl' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
+                          {PRIMARY_GOAL_OPTIONS.map((g) => (
+                            <button key={g.value} type="button" onClick={() => setFormValue('primaryGoal', g.value)} 
+                              className={`p-6 rounded-3xl border-2 text-left transition-all ${selectedGoal === g.value ? 'border-primary bg-primary/5 shadow-xl' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
                               <div className="flex items-center justify-between mb-2">
-                                <span className={`text-lg font-bold ${watch('primaryGoal') === g.value ? 'text-primary' : ''}`}>{g.value}</span>
-                                {watch('primaryGoal') === g.value && <CheckCircle2 className="h-6 w-6 text-primary flex-shrink-0" />}
+                                <span className={`text-lg font-bold ${selectedGoal === g.value ? 'text-primary' : ''}`}>{g.value}</span>
+                                {selectedGoal === g.value && <CheckCircle2 className="h-6 w-6 text-primary flex-shrink-0" />}
                               </div>
-                              <p className={`text-[10px] leading-relaxed ${watch('primaryGoal') === g.value ? 'text-slate-300' : 'text-slate-500'}`}>{g.desc}</p>
+                              <p className={`text-[10px] leading-relaxed ${selectedGoal === g.value ? 'text-slate-300' : 'text-slate-500'}`}>{g.desc}</p>
                             </button>
                           ))}
                        </div>
@@ -788,46 +940,46 @@ export default function AthleteOnboarding() {
                        <div className="space-y-6">
                           <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Active Injury Status</Label>
                           <div className="grid grid-cols-2 gap-4">
-                             {["No", "Yes"].map(v => (
-                               <button key={v} type="button" onClick={() => { setValue('currentIssue', v as any); if (v === 'No') { setActiveInjuries([]); setValue('activeInjuries', [] as any); } }} 
-                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${watch('currentIssue') === v ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
+                             {YES_NO_OPTIONS.map((v) => (
+                               <button key={v} type="button" onClick={() => { setFormValue('currentIssue', v); if (v === 'No') { setActiveInjuries([]); setFormValue('activeInjuries', []); } }} 
+                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${selectedCurrentIssue === v ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
                                  {v === "Yes" ? "Currently Injured" : "No Active Injury"}
                                </button>
                              ))}
                           </div>
-                          {watch('currentIssue') === "Yes" && (
+                          {selectedCurrentIssue === "Yes" && (
                             <div className="space-y-4 mt-4">
                               {activeInjuries.map((entry, idx) => (
                                 <div key={idx} className="p-5 rounded-2xl border border-slate-800 bg-slate-950/60 space-y-4 relative group">
-                                  <button type="button" onClick={() => { const updated = activeInjuries.filter((_, i) => i !== idx); setActiveInjuries(updated); setValue('activeInjuries', updated as any); }}
+                                  <button type="button" onClick={() => { const updated = activeInjuries.filter((_, i) => i !== idx); setActiveInjuries(updated); setFormValue('activeInjuries', updated); }}
                                     className="absolute top-3 right-3 h-7 w-7 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20">
                                     <X size={12} />
                                   </button>
                                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Injury {idx + 1}</p>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <select value={entry.region} onChange={e => { const updated = [...activeInjuries]; updated[idx] = { ...updated[idx], region: e.target.value }; setActiveInjuries(updated); setValue('activeInjuries', updated as any); }}
+                                    <select value={entry.region} onChange={e => { const updated = [...activeInjuries]; updated[idx] = { ...updated[idx], region: e.target.value }; setActiveInjuries(updated); setFormValue('activeInjuries', updated); }}
                                       className="h-12 bg-slate-900 border border-slate-700 text-white rounded-xl px-4 text-xs font-bold outline-none focus:border-primary">
                                       <option value="">Select Region</option>
                                       {INJURY_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>
-                                    <select value={entry.type} onChange={e => { const updated = [...activeInjuries]; updated[idx] = { ...updated[idx], type: e.target.value }; setActiveInjuries(updated); setValue('activeInjuries', updated as any); }}
+                                    <select value={entry.type} onChange={e => { const updated = [...activeInjuries]; updated[idx] = { ...updated[idx], type: e.target.value }; setActiveInjuries(updated); setFormValue('activeInjuries', updated); }}
                                       className="h-12 bg-slate-900 border border-slate-700 text-white rounded-xl px-4 text-xs font-bold outline-none focus:border-primary">
                                       <option value="">Injury Type</option>
                                       {INJURY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
-                                    <select value={entry.side} onChange={e => { const updated = [...activeInjuries]; updated[idx] = { ...updated[idx], side: e.target.value }; setActiveInjuries(updated); setValue('activeInjuries', updated as any); }}
+                                    <select value={entry.side} onChange={e => { const updated = [...activeInjuries]; updated[idx] = { ...updated[idx], side: e.target.value }; setActiveInjuries(updated); setFormValue('activeInjuries', updated); }}
                                       className="h-12 bg-slate-900 border border-slate-700 text-white rounded-xl px-4 text-xs font-bold outline-none focus:border-primary">
                                       <option value="">Left / Right</option>
                                       {INJURY_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
-                                    <button type="button" onClick={() => { const updated = [...activeInjuries]; updated[idx] = { ...updated[idx], recurring: !updated[idx].recurring }; setActiveInjuries(updated); setValue('activeInjuries', updated as any); }}
+                                    <button type="button" onClick={() => { const updated = [...activeInjuries]; updated[idx] = { ...updated[idx], recurring: !updated[idx].recurring }; setActiveInjuries(updated); setFormValue('activeInjuries', updated); }}
                                       className={`h-12 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${entry.recurring ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600'}`}>
                                       {entry.recurring ? "⟳ Recurring" : "Not Recurring"}
                                     </button>
                                   </div>
                                 </div>
                               ))}
-                              <button type="button" onClick={() => { const updated = [...activeInjuries, { region: '', type: '', side: '', recurring: false }]; setActiveInjuries(updated); setValue('activeInjuries', updated as any); }}
+                              <button type="button" onClick={() => { const updated = [...activeInjuries, { region: '', type: '', side: '', recurring: false }]; setActiveInjuries(updated); setFormValue('activeInjuries', updated); }}
                                 className="w-full h-14 rounded-2xl border-2 border-dashed border-slate-700 text-slate-400 hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest">
                                 <PlusCircle size={14} /> Add Injury
                               </button>
@@ -839,14 +991,14 @@ export default function AthleteOnboarding() {
                        <div className="space-y-6">
                           <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Medical Conditions / Illnesses</Label>
                           <div className="grid grid-cols-2 gap-4">
-                             {["No", "Yes"].map(v => (
-                               <button key={v} type="button" onClick={() => { setValue('hasIllness', v as any); if (v === 'No') { setIllnesses([]); setValue('illnesses', [] as any); } }} 
-                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${watch('hasIllness') === v ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
+                             {YES_NO_OPTIONS.map((v) => (
+                               <button key={v} type="button" onClick={() => { setFormValue('hasIllness', v); if (v === 'No') { setIllnesses([]); setFormValue('illnesses', []); } }} 
+                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${selectedHasIllness === v ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
                                  {v === "Yes" ? "Yes, I have an illness" : "No Illnesses"}
                                </button>
                              ))}
                           </div>
-                          {watch('hasIllness') === "Yes" && (
+                          {selectedHasIllness === "Yes" && (
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
                                {MEDICAL_CONDITIONS.map(condition => {
                                  const isSelected = illnesses.includes(condition);
@@ -857,7 +1009,7 @@ export default function AthleteOnboarding() {
                                          ? illnesses.filter(c => c !== condition) 
                                          : [...illnesses, condition];
                                        setIllnesses(updated);
-                                       setValue('illnesses', updated as any);
+                                       setFormValue('illnesses', updated);
                                      }}
                                      className={`h-12 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all ${isSelected ? 'border-primary bg-primary/10 text-primary' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
                                      {condition}
@@ -872,46 +1024,46 @@ export default function AthleteOnboarding() {
                        <div className="space-y-6">
                           <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Past Injury History (Last 6 Months)</Label>
                           <div className="grid grid-cols-2 gap-4">
-                             {["No", "Yes"].map(v => (
-                               <button key={v} type="button" onClick={() => { setValue('pastMajorInjury', v as any); if (v === 'No') { setPastInjuries([]); setValue('pastInjuries', [] as any); } }} 
-                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${watch('pastMajorInjury') === v ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
+                             {YES_NO_OPTIONS.map((v) => (
+                               <button key={v} type="button" onClick={() => { setFormValue('pastMajorInjury', v); if (v === 'No') { setPastInjuries([]); setFormValue('pastInjuries', []); } }} 
+                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${selectedPastMajorInjury === v ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
                                  {v === "Yes" ? "Yes, Past Injuries" : "No Past Injuries"}
                                </button>
                              ))}
                           </div>
-                          {watch('pastMajorInjury') === "Yes" && (
+                          {selectedPastMajorInjury === "Yes" && (
                             <div className="space-y-4 mt-4">
                               {pastInjuries.map((entry, idx) => (
                                 <div key={idx} className="p-5 rounded-2xl border border-slate-800 bg-slate-950/60 space-y-4 relative group">
-                                  <button type="button" onClick={() => { const updated = pastInjuries.filter((_, i) => i !== idx); setPastInjuries(updated); setValue('pastInjuries', updated as any); }}
+                                  <button type="button" onClick={() => { const updated = pastInjuries.filter((_, i) => i !== idx); setPastInjuries(updated); setFormValue('pastInjuries', updated); }}
                                     className="absolute top-3 right-3 h-7 w-7 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20">
                                     <X size={12} />
                                   </button>
                                   <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Past Injury {idx + 1}</p>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <select value={entry.region} onChange={e => { const updated = [...pastInjuries]; updated[idx] = { ...updated[idx], region: e.target.value }; setPastInjuries(updated); setValue('pastInjuries', updated as any); }}
+                                    <select value={entry.region} onChange={e => { const updated = [...pastInjuries]; updated[idx] = { ...updated[idx], region: e.target.value }; setPastInjuries(updated); setFormValue('pastInjuries', updated); }}
                                       className="h-12 bg-slate-900 border border-slate-700 text-white rounded-xl px-4 text-xs font-bold outline-none focus:border-primary">
                                       <option value="">Select Region</option>
                                       {INJURY_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>
-                                    <select value={entry.type} onChange={e => { const updated = [...pastInjuries]; updated[idx] = { ...updated[idx], type: e.target.value }; setPastInjuries(updated); setValue('pastInjuries', updated as any); }}
+                                    <select value={entry.type} onChange={e => { const updated = [...pastInjuries]; updated[idx] = { ...updated[idx], type: e.target.value }; setPastInjuries(updated); setFormValue('pastInjuries', updated); }}
                                       className="h-12 bg-slate-900 border border-slate-700 text-white rounded-xl px-4 text-xs font-bold outline-none focus:border-primary">
                                       <option value="">Injury Type</option>
                                       {INJURY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
-                                    <select value={entry.side} onChange={e => { const updated = [...pastInjuries]; updated[idx] = { ...updated[idx], side: e.target.value }; setPastInjuries(updated); setValue('pastInjuries', updated as any); }}
+                                    <select value={entry.side} onChange={e => { const updated = [...pastInjuries]; updated[idx] = { ...updated[idx], side: e.target.value }; setPastInjuries(updated); setFormValue('pastInjuries', updated); }}
                                       className="h-12 bg-slate-900 border border-slate-700 text-white rounded-xl px-4 text-xs font-bold outline-none focus:border-primary">
                                       <option value="">Left / Right</option>
                                       {INJURY_SIDES.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
-                                    <button type="button" onClick={() => { const updated = [...pastInjuries]; updated[idx] = { ...updated[idx], recurring: !updated[idx].recurring }; setPastInjuries(updated); setValue('pastInjuries', updated as any); }}
+                                    <button type="button" onClick={() => { const updated = [...pastInjuries]; updated[idx] = { ...updated[idx], recurring: !updated[idx].recurring }; setPastInjuries(updated); setFormValue('pastInjuries', updated); }}
                                       className={`h-12 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all ${entry.recurring ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-slate-700 bg-slate-900 text-slate-400 hover:border-slate-600'}`}>
                                       {entry.recurring ? "⟳ Recurring" : "Not Recurring"}
                                     </button>
                                   </div>
                                 </div>
                               ))}
-                              <button type="button" onClick={() => { const updated = [...pastInjuries, { region: '', type: '', side: '', recurring: false }]; setPastInjuries(updated); setValue('pastInjuries', updated as any); }}
+                              <button type="button" onClick={() => { const updated = [...pastInjuries, { region: '', type: '', side: '', recurring: false }]; setPastInjuries(updated); setFormValue('pastInjuries', updated); }}
                                 className="w-full h-14 rounded-2xl border-2 border-dashed border-slate-700 text-slate-400 hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest">
                                 <PlusCircle size={14} /> Add Past Injury
                               </button>
@@ -925,62 +1077,9 @@ export default function AthleteOnboarding() {
                   {currentStep >= 4 && currentStep <= 12 && (
                     <div className="space-y-12 animate-fade-in">
                         {(() => {
-                           const schemaKeys = [
-                             "endurance_capacity", "strength_capacity", "explosive_power", 
-                             "agility_control", "recovery_efficiency", 
-                             "fatigue_resistance", "load_tolerance", "movement_robustness", "coordination_control"
-                           ]
-                           const key = schemaKeys[currentStep - 4] as keyof OnboardingValues
-
-                           const questions: Record<string, { question: string; description: string; options: string[] }> = {
-                             endurance_capacity: {
-                               question: "How far can you run without stopping?",
-                               description: "At a comfortable pace, no walking breaks.",
-                               options: ["Under 1 km", "1 – 3 km", "3 – 8 km", "8+ km with ease"]
-                             },
-                             strength_capacity: {
-                               question: "How many push-ups can you do in one go?",
-                               description: "Full range, non-stop, at a steady pace.",
-                               options: ["Fewer than 10", "10 – 25", "25 – 40", "40+ without breaking form"]
-                             },
-                             explosive_power: {
-                               question: "How much force can you produce in a single effort?",
-                               description: "Think about a max jump, a hard throw, or a powerful kick.",
-                               options: ["I lack power in explosive efforts", "I generate moderate force", "I produce strong, powerful efforts", "I generate exceptional force on demand"]
-                             },
-                             agility_control: {
-                               question: "How well can you dodge and weave through obstacles?",
-                               description: "Think about navigating through cones, defenders, or tight spaces at pace.",
-                               options: ["I'm stiff and predictable", "I manage basic lateral movement", "I'm nimble and can read spaces", "I move fluidly in any direction at pace"]
-                             },
-                             recovery_efficiency: {
-                               question: "How do you feel the day after an intense session?",
-                               description: "Think about soreness, energy, and readiness to train again.",
-                               options: ["Very sore, need 2–3 days off", "Noticeably sore, need a light day", "Mildly sore, could train again", "Barely feel it, ready to go"]
-                             },
-                             fatigue_resistance: {
-                               question: "How does your performance change in the last quarter of a game or session?",
-                               description: "Compare your effort in the final 15 minutes vs the first 15.",
-                               options: ["Drops off significantly", "Noticeably slower and weaker", "Slight dip but still effective", "I maintain my level throughout"]
-                             },
-                             load_tolerance: {
-                               question: "How many intense sessions can you handle per week?",
-                               description: "Sessions where you're pushing close to your limit.",
-                               options: ["1 – 2 sessions max", "3 sessions comfortably", "4 – 5 sessions comfortably", "6+ sessions without issue"]
-                             },
-                             movement_robustness: {
-                               question: "How well does your body move through its full range of motion?",
-                               description: "Think about touching your toes, deep squats, or overhead reaches.",
-                               options: ["Very stiff and restricted", "Limited in some joints", "Good range in most movements", "Full unrestricted range everywhere"]
-                             },
-                             coordination_control: {
-                               question: "How well can you control your body during complex movements?",
-                               description: "Think about balancing on one leg, landing from a jump, or multi-step drills.",
-                               options: ["I wobble and lose balance often", "I'm stable in basic positions", "I'm controlled in most movements", "I have precise control in all positions"]
-                             }
-                           }
-
-                           const q = questions[key as string]
+                           const key = PHYSIOLOGY_KEYS[currentStep - 4]
+                           const q = PHYSIOLOGY_QUESTIONS[key]
+                           const selectedValue = formValues[key]
                            
                            return (
                              <div className="space-y-8">
@@ -997,13 +1096,13 @@ export default function AthleteOnboarding() {
                                      <button
                                        key={val}
                                        type="button"
-                                       onClick={() => setValue(key as any, val)}
+                                       onClick={() => setFormValue(key, val)}
                                        className={`h-20 md:h-24 rounded-2xl border-2 flex items-center gap-4 px-6 transition-all text-left
-                                         ${watch(key as any) === val ? 'border-primary bg-primary shadow-lg shadow-primary/20' : 'border-slate-800 bg-slate-900/50 hover:border-slate-700'}
+                                         ${selectedValue === val ? 'border-primary bg-primary shadow-lg shadow-primary/20' : 'border-slate-800 bg-slate-900/50 hover:border-slate-700'}
                                        `}
                                      >
-                                        <span className={`text-2xl font-bold shrink-0 ${watch(key as any) === val ? 'text-slate-950' : 'text-white/30'}`}>{val}</span>
-                                        <span className={`text-xs font-bold leading-snug ${watch(key as any) === val ? 'text-slate-950' : 'text-slate-300'}`}>
+                                        <span className={`text-2xl font-bold shrink-0 ${selectedValue === val ? 'text-slate-950' : 'text-white/30'}`}>{val}</span>
+                                        <span className={`text-xs font-bold leading-snug ${selectedValue === val ? 'text-slate-950' : 'text-slate-300'}`}>
                                            {q.options[val - 1]}
                                         </span>
                                      </button>
@@ -1011,7 +1110,7 @@ export default function AthleteOnboarding() {
                                 </div>
 
                                 <div className="flex justify-center gap-2 mt-12">
-                                   {schemaKeys.map((_, i) => (
+                                   {PHYSIOLOGY_KEYS.map((_, i) => (
                                       <div key={i} className={`h-1 w-8 rounded-full transition-all ${currentStep - 4 === i ? 'bg-primary w-12' : 'bg-white/5'}`} />
                                    ))}
                                 </div>
@@ -1027,16 +1126,26 @@ export default function AthleteOnboarding() {
                        <div className="space-y-3">
                           <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Typical Sleep Duration</Label>
                           <select {...register("typicalSleep")} className="w-full h-16 bg-slate-950/50 border-2 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary outline-none text-sm font-bold uppercase">
-                             {["< 6 hours", "6-7 hours", "7-8 hours", "8-9 hours", "> 9 hours"].map(s => <option key={s} value={s}>{s}</option>)}
+                             <option value="">Select sleep range</option>
+                             {TYPICAL_SLEEP_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                           </select>
+                       </div>
+
+                       <div className="space-y-3">
+                          <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Usual Wake-Up Time</Label>
+                          <Input
+                            type="time"
+                            {...register("usualWakeUpTime")}
+                            className="h-16 bg-slate-950/50 border-slate-800 text-white rounded-2xl px-6 focus:ring-primary border-2 text-lg font-bold"
+                          />
                        </div>
 
                        <div className="space-y-3">
                           <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Typical Soreness</Label>
                           <div className="grid grid-cols-4 gap-2">
-                             {["None", "Low", "Moderate", "High"].map(s => (
-                               <button key={s} type="button" onClick={() => setValue('typicalSoreness', s as any)} 
-                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[8px] tracking-widest transition-all ${watch('typicalSoreness') === s ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
+                             {TYPICAL_SORENESS_OPTIONS.map((s) => (
+                               <button key={s} type="button" onClick={() => setFormValue('typicalSoreness', s)} 
+                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[8px] tracking-widest transition-all ${selectedTypicalSoreness === s ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
                                  {s}
                                </button>
                              ))}
@@ -1045,9 +1154,9 @@ export default function AthleteOnboarding() {
                        <div className="space-y-3">
                           <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Typical Energy Levels</Label>
                           <div className="grid grid-cols-3 gap-3">
-                             {["Low", "Moderate", "High"].map(e => (
-                               <button key={e} type="button" onClick={() => setValue('typicalEnergy', e as any)} 
-                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${watch('typicalEnergy') === e ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
+                             {TYPICAL_ENERGY_OPTIONS.map((e) => (
+                               <button key={e} type="button" onClick={() => setFormValue('typicalEnergy', e)} 
+                                 className={`h-16 rounded-2xl border-2 font-bold uppercase text-[10px] tracking-widest transition-all ${selectedTypicalEnergy === e ? 'border-primary bg-primary text-slate-950' : 'border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700'}`}>
                                  {e}
                                </button>
                              ))}
@@ -1065,23 +1174,78 @@ export default function AthleteOnboarding() {
                              <h3 className="text-xl font-bold uppercase tracking-tight">Terms of Service</h3>
                           </div>
                           <p className="text-sm text-slate-400 leading-relaxed font-medium">
-                             By clicking "Accept", you acknowledge that Creeda provides performance intelligence for informational purposes only. Consult a medical professional before engaging in high-intensity training.
+                             Before finishing onboarding, review and accept each legal acknowledgement. CREEDA is a decision-support system for sports science and healthy living.
                           </p>
-                          <div className="flex items-center gap-4">
-                             <input 
-                               type="checkbox" 
-                               id="legalConsent" 
-                               {...register("legalConsent")}
-                               className="h-6 w-6 rounded border-slate-800 bg-slate-950 text-primary focus:ring-primary"
-                             />
-                             <Label htmlFor="legalConsent" className="text-xs font-bold uppercase text-slate-300 cursor-pointer">
-                                I Accept the Performance Intelligence Terms of Use
-                             </Label>
+                          <div className="space-y-4">
+                            <div className="flex items-start gap-4">
+                              <input
+                                type="checkbox"
+                                id="legalConsent"
+                                {...register("legalConsent")}
+                                className="mt-1 h-6 w-6 rounded border-slate-800 bg-slate-950 text-primary focus:ring-primary"
+                              />
+                              <Label htmlFor="legalConsent" className="text-xs font-bold uppercase text-slate-300 cursor-pointer leading-relaxed">
+                                I accept the <Link href="/terms" target="_blank" className="text-primary underline">Terms</Link> and <Link href="/privacy" target="_blank" className="text-primary underline">Privacy Policy</Link>.
+                              </Label>
+                            </div>
+                            {errors.legalConsent && <p className="text-[10px] text-red-500 font-bold">{errors.legalConsent.message}</p>}
+
+                            <div className="flex items-start gap-4">
+                              <input
+                                type="checkbox"
+                                id="medicalDisclaimerConsent"
+                                {...register("medicalDisclaimerConsent")}
+                                className="mt-1 h-6 w-6 rounded border-slate-800 bg-slate-950 text-primary focus:ring-primary"
+                              />
+                              <Label htmlFor="medicalDisclaimerConsent" className="text-xs font-bold uppercase text-slate-300 cursor-pointer leading-relaxed">
+                                I acknowledge the <Link href="/disclaimer" target="_blank" className="text-primary underline">Medical Disclaimer</Link>. CREEDA does not replace qualified medical care.
+                              </Label>
+                            </div>
+                            {errors.medicalDisclaimerConsent && <p className="text-[10px] text-red-500 font-bold">{errors.medicalDisclaimerConsent.message}</p>}
+
+                            <div className="flex items-start gap-4">
+                              <input
+                                type="checkbox"
+                                id="dataProcessingConsent"
+                                {...register("dataProcessingConsent")}
+                                className="mt-1 h-6 w-6 rounded border-slate-800 bg-slate-950 text-primary focus:ring-primary"
+                              />
+                              <Label htmlFor="dataProcessingConsent" className="text-xs font-bold uppercase text-slate-300 cursor-pointer leading-relaxed">
+                                I give explicit consent for processing my performance and wellness data as described in <Link href="/consent" target="_blank" className="text-primary underline">Consent Acknowledgement</Link> (DPDP/GDPR aligned).
+                              </Label>
+                            </div>
+                            {errors.dataProcessingConsent && <p className="text-[10px] text-red-500 font-bold">{errors.dataProcessingConsent.message}</p>}
+
+                            <div className="flex items-start gap-4">
+                              <input
+                                type="checkbox"
+                                id="aiAcknowledgementConsent"
+                                {...register("aiAcknowledgementConsent")}
+                                className="mt-1 h-6 w-6 rounded border-slate-800 bg-slate-950 text-primary focus:ring-primary"
+                              />
+                              <Label htmlFor="aiAcknowledgementConsent" className="text-xs font-bold uppercase text-slate-300 cursor-pointer leading-relaxed">
+                                I understand AI outputs are advisory and probabilistic, as explained in <Link href="/ai-transparency" target="_blank" className="text-primary underline">AI Transparency</Link>.
+                              </Label>
+                            </div>
+                            {errors.aiAcknowledgementConsent && <p className="text-[10px] text-red-500 font-bold">{errors.aiAcknowledgementConsent.message}</p>}
+
+                            <div className="pt-2 border-t border-slate-800">
+                              <div className="flex items-start gap-4">
+                                <input
+                                  type="checkbox"
+                                  id="marketingConsent"
+                                  {...register("marketingConsent")}
+                                  className="mt-1 h-6 w-6 rounded border-slate-800 bg-slate-950 text-primary focus:ring-primary"
+                                />
+                                <Label htmlFor="marketingConsent" className="text-xs font-bold uppercase text-slate-400 cursor-pointer leading-relaxed">
+                                  Optional: send me product updates and educational messages. I can change this later in Legal & Privacy settings.
+                                </Label>
+                              </div>
+                            </div>
                           </div>
-                          {errors.legalConsent && <p className="text-[10px] text-red-500 font-bold">{errors.legalConsent.message}</p>}
                        </div>
 
-                       {watch('age') < 18 && (
+                       {age < 18 && (
                          <div className="p-8 rounded-3xl border-2 border-amber-500/20 bg-amber-500/5 space-y-6">
                             <div className="flex items-center gap-4 text-amber-500">
                                <AlertTriangle className="h-8 w-8" />

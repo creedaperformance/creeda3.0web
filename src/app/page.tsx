@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import {
   Activity,
   ArrowRight,
@@ -14,6 +15,11 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import {
+  CREEDA_LEGAL_ENTITY,
+  LEGAL_DOC_PATHS,
+  LEGAL_POLICY_VERSION,
+} from '@/lib/legal/constants'
 
 const ATHLETE_SPORTS = ['Cricket', 'Badminton', 'Football', 'Athletics', 'Kabaddi', 'Hockey']
 const INDIVIDUAL_GOALS = ['Sleep', 'Stress', 'Strength', 'Fat loss', 'Mobility', 'Weekend sport']
@@ -21,11 +27,11 @@ const INDIVIDUAL_GOALS = ['Sleep', 'Stress', 'Strength', 'Fat loss', 'Mobility',
 const INDIA_CONTEXT = [
   {
     title: 'Built for Indian routines',
-    body: 'Office commutes, college schedules, family time, heat, poor sleep, and long sitting hours all change how your body should train and recover.',
+    body: 'Office commutes, college schedules, family time, heat, poor sleep, and long sitting hours all change how your body trains and recovers.',
   },
   {
     title: 'Made for Indian food reality',
-    body: 'CREEDA should guide real eating patterns, not imported fitness templates. Daily advice has to fit how people actually live and eat in India.',
+    body: 'CREEDA guides real eating patterns, not imported fitness templates. Daily advice has to fit how people actually live and eat in India.',
   },
   {
     title: 'Useful for both sport and health',
@@ -44,22 +50,79 @@ const INDIVIDUAL_FLOW = [
   },
   {
     title: 'Guide daily healthy living',
-    body: 'Every day should answer one question clearly: what should this person do next to become healthier and more capable?',
+    body: 'Every day answers one question clearly: what should this person do next to become healthier and more capable?',
   },
 ]
 
 const ATHLETE_FLOW = [
   {
     title: 'Profile performance deeply',
-    body: 'Athletes move into deeper sport-specific diagnostics, readiness, movement, rehab, and competition-aware decision support.',
+    body: 'Athletes move into sport-specific diagnostics, readiness, movement, rehab, and competition-aware decision support.',
   },
   {
     title: 'Read training stress correctly',
-    body: 'The athlete path should focus on workload, performance outputs, recovery, injury risk, and sharper session decisions.',
+    body: 'The athlete path focuses on workload, performance outputs, recovery, injury risk, and sharper session decisions.',
   },
   {
     title: 'Operate like an elite support team',
-    body: 'CREEDA should feel like an always-on sports scientist, not a generic wellness tracker, when the user is an athlete.',
+    body: 'CREEDA acts like an always-on sports scientist, not a generic wellness tracker, when the user is an athlete.',
+  },
+]
+
+const COACH_FLOW = [
+  {
+    title: 'See who needs action now',
+    body: 'Coaches need a fast queue, not another passive dashboard. CREEDA surfaces intervention pressure, low-data blockers, and who needs a decision today.',
+  },
+  {
+    title: 'Run the week, not just the day',
+    body: 'Weekly reviews, team trends, and group suggestions help the coach shape the next microcycle instead of reacting athlete by athlete.',
+  },
+  {
+    title: 'Track rehab and return clearly',
+    body: 'Return-to-play should feel operational. Coaches need staged rehab visibility, restrictions, and progression readiness in one place.',
+  },
+]
+
+const PRODUCT_LOOP = [
+  {
+    title: 'Today',
+    body: 'Give one clear call for the day: train, modify, recover, walk more, sleep earlier, or keep the load light.',
+  },
+  {
+    title: 'Plan',
+    body: 'Show the weekly structure clearly so the user knows what the next block is building toward.',
+  },
+  {
+    title: 'Trends',
+    body: 'Explain whether the user is moving forward, plateauing, or drifting off course and what needs to change.',
+  },
+  {
+    title: 'Technique',
+    body: 'Use supported video and phone-based testing to make movement quality practical, not abstract.',
+  },
+  {
+    title: 'Science',
+    body: 'Show confidence, data quality, measured versus estimated signals, and what would improve the call.',
+  },
+]
+
+const LEGAL_COMMITMENTS = [
+  {
+    title: 'Explicit consent and transparency',
+    body: 'Signup and onboarding require clear opt-in for terms, privacy, medical disclaimer, data processing, and AI advisories.',
+  },
+  {
+    title: 'DPDP + GDPR rights support',
+    body: 'Users can request access, correction, export, deletion, and consent withdrawal through in-app legal controls.',
+  },
+  {
+    title: 'Minor athlete safeguards',
+    body: 'Junior-athlete workflows require guardian or authorized organizational consent before full participation.',
+  },
+  {
+    title: 'Decision-support positioning',
+    body: 'CREEDA is built as a sports-science decision-support system, not a diagnostic medical device.',
   },
 ]
 
@@ -89,7 +152,7 @@ export default function LandingPage() {
                 </div>
 
                 <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-primary mb-4">
-                  Know your body. Build your peak.
+                  Know your body. Make the right call today.
                 </p>
 
                 <h1 className="text-5xl sm:text-7xl lg:text-[5.4rem] font-black tracking-tight leading-[0.92]">
@@ -99,7 +162,7 @@ export default function LandingPage() {
                 </h1>
 
                 <p className="text-base sm:text-lg text-white/55 leading-relaxed max-w-xl mt-7">
-                  CREEDA should not feel like another tracker. It should feel like a personal sports scientist that helps athletes perform better and helps normal people move, recover, eat, and live healthier with clear daily guidance.
+                  CREEDA is not another tracker. It is a decision engine that helps athletes perform better and helps normal people move, recover, eat, and live healthier with clear daily guidance.
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-3 mt-8">
@@ -138,33 +201,68 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4 sm:gap-5 animate-scale-in">
-                <JourneyPanel
-                  eyebrow="Athlete"
-                  title="Performance system"
-                  subtitle="For readiness, load, rehab, and sharper training decisions."
-                  accent="athlete"
-                  ctaLabel="Athlete journey"
-                  ctaHref={athleteLink}
-                  bullets={[
-                    'Deep sport-specific onboarding',
-                    'Session decisions for train, modify, recover',
-                    'Competition, fatigue, movement and health context',
-                  ]}
-                />
-                <JourneyPanel
-                  eyebrow="Individual"
-                  title="Healthy-living guide"
-                  subtitle="For sleep, stress, strength, mobility, fat loss, and sport entry."
-                  accent="individual"
-                  ctaLabel="Individual journey"
-                  ctaHref={individualLink}
-                  bullets={[
-                    'FitStart baseline for real Indian routines',
-                    'Daily guidance for movement, recovery, and habits',
-                    'Sport or lifestyle path matched to physiology',
-                  ]}
-                />
+              <div className="space-y-5 animate-scale-in">
+                <div className="relative overflow-hidden rounded-[2.4rem] border border-white/[0.08] bg-[linear-gradient(160deg,rgba(15,23,42,0.95),rgba(2,6,23,0.92))] p-6 sm:p-8">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(245,124,0,0.18),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.12),transparent_42%)]" />
+                  <div className="relative">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/45">
+                      CREEDA Performance
+                    </p>
+                    <Image
+                      src="/creeda-performance-bgr.png"
+                      alt="Creeda Performance brand mark"
+                      width={1200}
+                      height={800}
+                      priority
+                      className="mt-4 w-full h-auto object-contain"
+                    />
+                    <p className="mt-3 text-sm text-slate-300/80 leading-relaxed">
+                      One platform, two clearly different journeys: athlete performance and healthier everyday living.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid lg:grid-cols-3 gap-4 sm:gap-5">
+                  <JourneyPanel
+                    eyebrow="Athlete"
+                    title="Performance system"
+                    subtitle="For readiness, load, rehab, and sharper training decisions."
+                    accent="athlete"
+                    ctaLabel="Athlete journey"
+                    ctaHref={athleteLink}
+                    bullets={[
+                      'Deep sport-specific onboarding',
+                      'Session decisions for train, modify, recover',
+                      'Competition, fatigue, movement and health context',
+                    ]}
+                  />
+                  <JourneyPanel
+                    eyebrow="Individual"
+                    title="Healthy-living guide"
+                    subtitle="For sleep, stress, strength, mobility, fat loss, and sport entry."
+                    accent="individual"
+                    ctaLabel="Individual journey"
+                    ctaHref={individualLink}
+                    bullets={[
+                      'FitStart baseline for real Indian routines',
+                      'Daily guidance for movement, recovery, and habits',
+                      'Sport or lifestyle path matched to physiology',
+                    ]}
+                  />
+                  <JourneyPanel
+                    eyebrow="Coach"
+                    title="Command center"
+                    subtitle="For intervention queues, weekly reviews, rehab tracking, and squad-level decisions."
+                    accent="coach"
+                    ctaLabel="Coach journey"
+                    ctaHref={coachLink}
+                    bullets={[
+                      'Intervention queue and low-data queue',
+                      'Weekly squad review and group suggestions',
+                      'Rehab and return-to-play operating lane',
+                    ]}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -178,7 +276,7 @@ export default function LandingPage() {
                 A healthier life should feel guided, not confusing.
               </h2>
               <p className="text-base text-white/55 mt-5 leading-relaxed">
-                CREEDA should help everyday Indians understand their body, choose the right next path, and stay consistent without needing to think like an athlete.
+                CREEDA helps everyday Indians understand their body, choose the right next path, and stay consistent without needing to think like an athlete.
               </p>
               <div className="flex flex-wrap gap-2 mt-7">
                 {INDIVIDUAL_GOALS.map((item) => (
@@ -237,7 +335,7 @@ export default function LandingPage() {
                 Athletes need a sharper operating system, not generic wellness copy.
               </h2>
               <p className="text-base text-white/55 mt-5 leading-relaxed">
-                The athlete pathway should feel elite, structured, and performance-first. It must read training load, recovery, injury context, and readiness with much more precision than the normal-individual journey.
+                The athlete pathway is elite, structured, and performance-first. It reads training load, recovery, injury context, and readiness with much more precision than the normal-individual journey.
               </p>
               <div className="flex flex-wrap gap-2 mt-7">
                 {ATHLETE_SPORTS.map((item) => (
@@ -264,15 +362,53 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <section id="coaches" className="scroll-mt-24 py-20 sm:py-24 border-b border-white/[0.05]">
+          <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 grid xl:grid-cols-[1.05fr_0.95fr] gap-10 xl:gap-16 items-start">
+            <div className="max-w-xl">
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-blue-300 mb-4">For coaches</p>
+              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+                Coaches need control, foresight, and believable next actions.
+              </h2>
+              <p className="text-base text-white/55 mt-5 leading-relaxed">
+                The coach experience is now a command center: who needs action, who is low-confidence, who is in rehab, and what the squad needs next week.
+              </p>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="mt-8 h-14 px-7 rounded-2xl border-white/10 bg-white/[0.03] text-white font-semibold text-sm hover:bg-white/[0.06] transition-all"
+              >
+                <Link href={coachLink} prefetch={false}>
+                  Enter coach command center
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+
+            <div className="space-y-5">
+              {COACH_FLOW.map((item, index) => (
+                <FlowRow
+                  key={item.title}
+                  index={index + 1}
+                  title={item.title}
+                  body={item.body}
+                  icon={index === 0 ? ShieldCheck : index === 1 ? TrendingUp : CalendarHeart}
+                  tone="coach"
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section id="how-it-works" className="scroll-mt-24 py-20 sm:py-24 border-b border-white/[0.05]">
           <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
             <div className="max-w-3xl">
               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-primary mb-4">Made for India</p>
               <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
-                The product should understand Indian sport and Indian life.
+                The product understands Indian sport and Indian life.
               </h2>
               <p className="text-base text-white/55 mt-5 leading-relaxed">
-                The landing page has to say this clearly: CREEDA is for the person chasing a podium and the person trying to sleep better, move more, lose fat, or get strong after years of sitting.
+                CREEDA is for the person chasing a podium and the person trying to sleep better, move more, lose fat, or get strong after years of sitting.
               </p>
             </div>
 
@@ -288,7 +424,7 @@ export default function LandingPage() {
 
               <div className="rounded-[2.25rem] border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8">
                 <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500 mb-5">
-                  What CREEDA should decide
+                  What CREEDA decides
                 </p>
 
                 <div className="space-y-5">
@@ -303,12 +439,66 @@ export default function LandingPage() {
                     text="Should I train hard, modify the session, protect output, or bias recovery before performance drops?"
                   />
                   <DecisionLine
+                    icon={Target}
+                    title="For coaches"
+                    text="Who needs intervention, who needs better data, who is in staged rehab, and what should the squad change next?"
+                  />
+                  <DecisionLine
                     icon={Brain}
                     title="For everyone"
                     text="What is the next best action for this body right now, given trend, lifestyle, and real capacity?"
                   />
                 </div>
               </div>
+            </div>
+
+            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              {PRODUCT_LOOP.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-[1.8rem] border border-white/[0.06] bg-white/[0.02] p-5"
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-primary">
+                    {item.title}
+                  </p>
+                  <h3 className="mt-3 text-xl font-bold text-white">{item.title} comes first</h3>
+                  <p className="mt-3 text-sm text-white/55 leading-relaxed">{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-b border-white/[0.05] py-20 sm:py-24">
+          <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8">
+            <div className="max-w-3xl">
+              <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-primary mb-4">Legal & trust layer</p>
+              <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+                Compliance is product infrastructure, not a legal afterthought.
+              </h2>
+              <p className="text-base text-white/55 mt-5 leading-relaxed">
+                CREEDA is designed around explicit consent, transparent AI behavior, minors protection, and formal data-rights controls.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 md:grid-cols-2">
+              {LEGAL_COMMITMENTS.map((item) => (
+                <div key={item.title} className="rounded-[1.8rem] border border-white/[0.06] bg-white/[0.02] p-5">
+                  <h3 className="text-xl font-bold text-white">{item.title}</h3>
+                  <p className="mt-3 text-sm text-white/60 leading-relaxed">{item.body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 flex flex-wrap gap-x-4 gap-y-2 text-xs text-white/60">
+              <Link href={LEGAL_DOC_PATHS.terms} className="underline underline-offset-4 hover:text-white">Terms</Link>
+              <Link href={LEGAL_DOC_PATHS.privacy} className="underline underline-offset-4 hover:text-white">Privacy</Link>
+              <Link href={LEGAL_DOC_PATHS.disclaimer} className="underline underline-offset-4 hover:text-white">Medical Disclaimer</Link>
+              <Link href={LEGAL_DOC_PATHS.consent} className="underline underline-offset-4 hover:text-white">Consent</Link>
+              <Link href={LEGAL_DOC_PATHS.aiTransparency} className="underline underline-offset-4 hover:text-white">AI Transparency</Link>
+              <Link href={LEGAL_DOC_PATHS.dataOwnership} className="underline underline-offset-4 hover:text-white">Data Ownership</Link>
+              <Link href={LEGAL_DOC_PATHS.sla} className="underline underline-offset-4 hover:text-white">SLA</Link>
+              <Link href={LEGAL_DOC_PATHS.security} className="underline underline-offset-4 hover:text-white">Security</Link>
             </div>
           </div>
         </section>
@@ -324,7 +514,7 @@ export default function LandingPage() {
                   One app. Two different promises. Both need to feel fully real.
                 </h2>
                 <p className="text-base text-white/55 mt-5 leading-relaxed max-w-2xl">
-                  Athletes should enter a deeper performance system. Individuals should enter a simpler, clearer health-performance coach. CREEDA wins only if both journeys feel intentional from the first click.
+                  Athletes enter a deeper performance system. Individuals enter a simpler, clearer health-performance coach. CREEDA wins only if both journeys feel intentional from the first click.
                 </p>
               </div>
 
@@ -368,31 +558,52 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-5 sm:px-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="text-center sm:text-left">
-              <Link href="/" className="inline-flex items-center gap-2 mb-2">
-                <div className="h-7 w-7 rounded-lg bg-[var(--saffron)] flex items-center justify-center">
-                  <Activity className="text-black h-4 w-4" strokeWidth={3} />
-                </div>
-                <span className="text-base font-extrabold text-white tracking-tight">Creeda</span>
+              <Link href="/" className="inline-flex items-center gap-3 mb-2">
+                <Image
+                  src="/creeda-performance-bgr.png"
+                  alt="Creeda Performance"
+                  width={320}
+                  height={160}
+                  className="h-10 w-auto object-contain"
+                />
               </Link>
               <p className="text-[11px] text-white/25 font-medium">
                 Sports science and healthier living, made for India.
               </p>
             </div>
 
-            <div className="flex items-center gap-6 text-xs font-medium text-white/30">
-              <Link href="/terms" className="hover:text-white/60 transition-colors">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-white/30 justify-center sm:justify-end">
+              <Link href={LEGAL_DOC_PATHS.terms} className="hover:text-white/60 transition-colors">
                 Terms
               </Link>
-              <Link href="/privacy" className="hover:text-white/60 transition-colors">
+              <Link href={LEGAL_DOC_PATHS.privacy} className="hover:text-white/60 transition-colors">
                 Privacy
               </Link>
-              <Link href="/refund-policy" className="hover:text-white/60 transition-colors">
+              <Link href={LEGAL_DOC_PATHS.disclaimer} className="hover:text-white/60 transition-colors">
+                Disclaimer
+              </Link>
+              <Link href={LEGAL_DOC_PATHS.consent} className="hover:text-white/60 transition-colors">
+                Consent
+              </Link>
+              <Link href={LEGAL_DOC_PATHS.aiTransparency} className="hover:text-white/60 transition-colors">
+                AI
+              </Link>
+              <Link href={LEGAL_DOC_PATHS.security} className="hover:text-white/60 transition-colors">
+                Security
+              </Link>
+              <Link href={LEGAL_DOC_PATHS.refund} className="hover:text-white/60 transition-colors">
                 Refunds
+              </Link>
+              <Link href="/sitemap.xml" className="hover:text-white/60 transition-colors">
+                Sitemap
+              </Link>
+              <Link href="/llms.txt" className="hover:text-white/60 transition-colors">
+                LLM Scope
               </Link>
             </div>
 
             <p className="text-[10px] text-white/15 font-medium">
-              © 2026 Creeda. Made in India.
+              © 2026 {CREEDA_LEGAL_ENTITY}. Policy version {LEGAL_POLICY_VERSION}. Made in India.
             </p>
           </div>
         </div>
@@ -416,14 +627,16 @@ function JourneyPanel({
   bullets: string[]
   ctaLabel: string
   ctaHref: string
-  accent: 'athlete' | 'individual'
+  accent: 'athlete' | 'individual' | 'coach'
 }) {
   const tone =
     accent === 'athlete'
       ? 'border-emerald-500/20 bg-[linear-gradient(180deg,rgba(29,185,84,0.14),rgba(10,132,255,0.06))]'
+      : accent === 'coach'
+        ? 'border-blue-500/20 bg-[linear-gradient(180deg,rgba(10,132,255,0.14),rgba(255,255,255,0.03))]'
       : 'border-primary/20 bg-[linear-gradient(180deg,rgba(255,153,51,0.16),rgba(255,255,255,0.02))]'
-  const dotTone = accent === 'athlete' ? 'bg-emerald-400' : 'bg-primary'
-  const textTone = accent === 'athlete' ? 'text-emerald-300' : 'text-primary'
+  const dotTone = accent === 'athlete' ? 'bg-emerald-400' : accent === 'coach' ? 'bg-blue-400' : 'bg-primary'
+  const textTone = accent === 'athlete' ? 'text-emerald-300' : accent === 'coach' ? 'text-blue-300' : 'text-primary'
 
   return (
     <div className={`relative min-h-[25rem] rounded-[2.2rem] border p-6 sm:p-7 overflow-hidden ${tone}`}>
@@ -473,9 +686,14 @@ function FlowRow({
   title: string
   body: string
   icon: typeof Brain
-  tone?: 'individual' | 'athlete'
+  tone?: 'individual' | 'athlete' | 'coach'
 }) {
-  const color = tone === 'athlete' ? 'text-emerald-300 border-emerald-500/15 bg-emerald-500/10' : 'text-primary border-primary/15 bg-primary/10'
+  const color =
+    tone === 'athlete'
+      ? 'text-emerald-300 border-emerald-500/15 bg-emerald-500/10'
+      : tone === 'coach'
+        ? 'text-blue-300 border-blue-500/15 bg-blue-500/10'
+        : 'text-primary border-primary/15 bg-primary/10'
 
   return (
     <div className="grid grid-cols-[auto_1fr] gap-4 items-start">

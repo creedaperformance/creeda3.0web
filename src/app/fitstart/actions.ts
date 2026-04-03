@@ -3,8 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { verifyRole } from '@/lib/auth_utils'
+import { upsertHealthConnectionPreference } from '@/lib/health/storage'
 import {
   computeFitStartJourney,
+  formatIndividualOccupationLabel,
   type NormalIndividualFitStartInput,
 } from '@/lib/individual_performance_engine'
 
@@ -28,7 +30,7 @@ function mapLegacyFitnessLevel(experience: NormalIndividualFitStartInput['physio
 function validatePayload(payload: SaveFitStartPayload) {
   if (!payload.sport.selectedSport.trim()) return 'Please select one CREEDA recommendation to continue.'
   if (!payload.goals.primaryGoal) return 'Please choose a primary goal.'
-  if (!payload.basic.occupation.trim()) return 'Occupation is required.'
+  if (!payload.basic.occupation.trim()) return 'Please choose the option that best matches your normal day.'
   if (payload.basic.age < 13 || payload.basic.age > 90) return 'Age must be between 13 and 90.'
   if (payload.basic.heightCm < 120 || payload.basic.heightCm > 230) return 'Height must be between 120cm and 230cm.'
   if (payload.basic.weightKg < 30 || payload.basic.weightKg > 220) return 'Weight must be between 30kg and 220kg.'
@@ -89,7 +91,7 @@ export async function saveFitStartProfile(payload: SaveFitStartPayload) {
 
   const individualProfilePayload = {
     id: user.id,
-    work_schedule: payload.basic.occupation,
+    work_schedule: formatIndividualOccupationLabel(payload.basic.occupation),
     fitness_level: payload.physiology.trainingExperience,
     lifestyle_constraints: {
       activity_level: payload.basic.activityLevel,
@@ -160,16 +162,11 @@ export async function saveFitStartProfile(payload: SaveFitStartPayload) {
     }
   }
 
-  const { error: connectionPrefError } = await supabase
-    .from('health_connections')
-    .upsert(
-      {
-        user_id: user.id,
-        connection_preference: payload.health_connection_preference || 'later',
-        updated_at: nowIso,
-      },
-      { onConflict: 'user_id' }
-    )
+  const { error: connectionPrefError } = await upsertHealthConnectionPreference(supabase, {
+    userId: user.id,
+    connectionPreference: payload.health_connection_preference || 'later',
+    updatedAt: nowIso,
+  })
 
   if (connectionPrefError) {
     // Keep onboarding non-blocking for optional health sync preferences.

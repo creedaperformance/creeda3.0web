@@ -37,16 +37,15 @@ test.describe('Access Integrity Audit (No Tier Gating)', () => {
     const password = 'Password123!'
 
     // Athlete signup should go directly to account creation, no plan picker.
-    await page.goto('/signup')
-    await page.getByRole('button', { name: /I am an Athlete/i }).click()
+    await page.goto('/signup?role=athlete')
     await expect(page.getByRole('button', { name: /Athlete Free/i })).toHaveCount(0)
     await expect(page.getByRole('button', { name: /Continue Subcription/i })).toHaveCount(0)
 
     await page.getByLabel(/Full Name/i).fill('Audit Athlete')
-    await page.getByLabel(/Email Address/i).fill(athleteEmail)
-    await page.getByLabel(/Password/i).fill(password)
+    await page.getByLabel(/Email Connection/i).fill(athleteEmail)
+    await page.getByLabel(/Security Access/i).fill(password)
     await page.locator('#consent').check()
-    await page.getByRole('button', { name: /Complete Signup/i }).click()
+    await page.getByRole('button', { name: /Continue to Athlete Onboarding/i }).click()
 
     await page.waitForURL(/\/(athlete\/onboarding|athlete\/dashboard|verify-email)/, { timeout: 30000 })
     await expect(page).not.toHaveURL(/\/checkout/)
@@ -72,16 +71,15 @@ test.describe('Access Integrity Audit (No Tier Gating)', () => {
 
     // Coach signup should also be direct, with no checkout redirection.
     await page.context().clearCookies()
-    await page.goto('/signup')
-    await page.getByRole('button', { name: /I am a Coach/i }).click()
+    await page.goto('/signup?role=coach')
     await expect(page.getByRole('button', { name: /Coach Pro/i })).toHaveCount(0)
     await expect(page.getByRole('button', { name: /Continue Subcription/i })).toHaveCount(0)
 
     await page.getByLabel(/Full Name/i).fill('Audit Coach')
-    await page.getByLabel(/Email Address/i).fill(coachEmail)
-    await page.getByLabel(/Password/i).fill(password)
+    await page.getByLabel(/Email Connection/i).fill(coachEmail)
+    await page.getByLabel(/Security Access/i).fill(password)
     await page.locator('#consent').check()
-    await page.getByRole('button', { name: /Complete Signup/i }).click()
+    await page.getByRole('button', { name: /Create Coach Account/i }).click()
 
     await page.waitForURL(/\/(coach\/dashboard|coach\/onboarding|verify-email)/, { timeout: 30000 })
     await expect(page).not.toHaveURL(/\/checkout/)

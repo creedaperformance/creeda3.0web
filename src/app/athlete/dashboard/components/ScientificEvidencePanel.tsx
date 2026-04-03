@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React from "react";
 import { motion } from "framer-motion";
 import {
@@ -15,13 +16,21 @@ import {
 } from "lucide-react";
 
 import type { AthleteScientificContext } from "@/lib/engine/Prescription/AthleteScienceContext";
+import type { NutritionSafetySummary } from "@/lib/nutrition-safety";
 
 interface Props {
   context: AthleteScientificContext;
+  role: "athlete" | "individual";
+  nutritionSafety: NutritionSafetySummary;
 }
 
-export const ScientificEvidencePanel: React.FC<Props> = ({ context }) => {
+export const ScientificEvidencePanel: React.FC<Props> = ({
+  context,
+  role,
+  nutritionSafety,
+}) => {
   if (!context) return null;
+  const nutritionAdviceBlocked = nutritionSafety.blocksDetailedAdvice;
 
   return (
     <motion.section
@@ -155,23 +164,43 @@ export const ScientificEvidencePanel: React.FC<Props> = ({ context }) => {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[0.96fr_1.04fr]">
-        <SurfaceCard icon={<UtensilsCrossed className="w-4 h-4 text-lime-300" />} title="Performance Nutrition">
-          <p className="text-[11px] text-slate-400 leading-relaxed">{context.nutrition.summary}</p>
+        {nutritionAdviceBlocked ? (
+          <SurfaceCard icon={<ShieldCheck className="w-4 h-4 text-amber-300" />} title="Nutrition Safety Gate">
+            <p className="text-[11px] text-slate-400 leading-relaxed">{nutritionSafety.summary}</p>
 
-          <SectionLabel className="mt-4">Fueling Priorities</SectionLabel>
-          <div className="space-y-2 mt-2">
-            {context.nutrition.priorities.map((item) => (
-              <ListRow key={item} text={item} tone="lime" />
-            ))}
-          </div>
+            <SectionLabel className="mt-4">Why this layer is paused</SectionLabel>
+            <div className="space-y-2 mt-2">
+              <ListRow text={nutritionSafety.nextAction} tone="amber" />
+              <ListRow text="Detailed meals, fueling suggestions, and supplement guidance stay hidden while this safety gate is active." tone="amber" />
+            </div>
 
-          <SectionLabel className="mt-4">Timing & Guardrails</SectionLabel>
-          <div className="space-y-2 mt-2">
-            {context.nutrition.timing.map((item) => (
-              <ListRow key={item} text={item} tone="lime" />
-            ))}
-          </div>
-        </SurfaceCard>
+            <Link
+              href={`/${role}/nutrition-safety`}
+              className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-100 transition-all hover:bg-amber-500/15"
+            >
+              Open Nutrition Safety
+              <ArrowUpRight className="w-4 h-4" />
+            </Link>
+          </SurfaceCard>
+        ) : (
+          <SurfaceCard icon={<UtensilsCrossed className="w-4 h-4 text-lime-300" />} title="Performance Nutrition">
+            <p className="text-[11px] text-slate-400 leading-relaxed">{context.nutrition.summary}</p>
+
+            <SectionLabel className="mt-4">Fueling Priorities</SectionLabel>
+            <div className="space-y-2 mt-2">
+              {context.nutrition.priorities.map((item) => (
+                <ListRow key={item} text={item} tone="lime" />
+              ))}
+            </div>
+
+            <SectionLabel className="mt-4">Timing & Guardrails</SectionLabel>
+            <div className="space-y-2 mt-2">
+              {context.nutrition.timing.map((item) => (
+                <ListRow key={item} text={item} tone="lime" />
+              ))}
+            </div>
+          </SurfaceCard>
+        )}
 
         <SurfaceCard icon={<ShieldCheck className="w-4 h-4 text-blue-400" />} title="Return-To-Play Guardrails">
           {context.injuryReturn ? (
@@ -205,33 +234,47 @@ export const ScientificEvidencePanel: React.FC<Props> = ({ context }) => {
       </div>
 
       <SurfaceCard icon={<Pill className="w-4 h-4 text-orange-400" />} title="Supplement Strategy">
-        <p className="text-[11px] text-slate-400 leading-relaxed">{context.antiDopingNote}</p>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 mt-4">
-          {context.supplements.length > 0 ? (
-            context.supplements.map((item) => (
-              <div key={item.name} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold text-white">{item.name}</p>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-orange-300 bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded-md">
-                    {item.status.replace(/_/g, " ")}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed mt-3">{item.useCase}</p>
-                <div className="space-y-2 mt-4">
-                  <InfoLine label="Protocol" value={item.protocol} />
-                  <InfoLine label="Caution" value={item.caution} />
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 md:col-span-2 xl:col-span-3">
-              <p className="text-sm font-semibold text-white">No supplement push today</p>
-              <p className="text-[11px] text-slate-400 leading-relaxed mt-2">
-                Food-first recovery and the core prescription are likely the bigger win than adding an ergogenic aid right now.
-              </p>
+        {nutritionAdviceBlocked ? (
+          <>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Supplement suggestions are paused with the rest of the nutrition layer until allergy and medical-health screening is complete.
+            </p>
+            <div className="space-y-2 mt-4">
+              <ListRow text={nutritionSafety.nextAction} tone="amber" />
+              <ListRow text="This avoids showing supplement ideas when health context could materially change safety." tone="amber" />
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <>
+            <p className="text-[11px] text-slate-400 leading-relaxed">{context.antiDopingNote}</p>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 mt-4">
+              {context.supplements.length > 0 ? (
+                context.supplements.map((item) => (
+                  <div key={item.name} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-bold text-white">{item.name}</p>
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-orange-300 bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded-md">
+                        {item.status.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed mt-3">{item.useCase}</p>
+                    <div className="space-y-2 mt-4">
+                      <InfoLine label="Protocol" value={item.protocol} />
+                      <InfoLine label="Caution" value={item.caution} />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 md:col-span-2 xl:col-span-3">
+                  <p className="text-sm font-semibold text-white">No supplement push today</p>
+                  <p className="text-[11px] text-slate-400 leading-relaxed mt-2">
+                    Food-first recovery and the core prescription are likely the bigger win than adding an ergogenic aid right now.
+                  </p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </SurfaceCard>
 
       {context.evidence.length > 0 && (

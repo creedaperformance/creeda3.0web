@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { Menu, X, Activity, ArrowRight } from 'lucide-react'
+import { Menu, X, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LanguageToggle, useTranslation } from '@/lib/i18n/LanguageProvider'
 
@@ -27,6 +28,7 @@ export function Navbar() {
     { href: '/#individuals', label: t('landing.section_individuals', 'Individuals') },
     { href: '/#athletes', label: t('landing.section_athletes', 'Athletes') },
     { href: '/#how-it-works', label: t('landing.section_how', 'How It Works') },
+    { href: '/consent', label: 'Trust & Legal' },
   ]
 
   return (
@@ -34,12 +36,17 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="h-8 w-8 rounded-lg bg-[var(--saffron)] flex items-center justify-center shadow-lg shadow-[var(--saffron-glow)] group-hover:shadow-xl transition-shadow">
-              <Activity className="text-black h-4.5 w-4.5" strokeWidth={3} />
-            </div>
-            <span className="text-lg font-extrabold tracking-tight text-white">
-              Creeda
+          <Link href="/" className="flex items-center gap-3 group">
+            <Image
+              src="/creeda-performance-bgr.png"
+              alt="Creeda Performance"
+              width={360}
+              height={180}
+              priority
+              className="h-10 w-auto object-contain"
+            />
+            <span className="hidden lg:block text-[10px] font-bold uppercase tracking-[0.24em] text-white/45">
+              Digital Sports Scientist
             </span>
           </Link>
 

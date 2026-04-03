@@ -12,7 +12,7 @@ interface Props {
 const DECISION_CONFIG = {
   TRAIN: {
     label: "TRAIN",
-    sublabel: "Full Potential Unlocked",
+    sublabel: "You can push today",
     gradient: "from-[var(--indian-green-light)] to-[#22c55e]",
     bg: "bg-[var(--indian-green-light)]/10",
     border: "border-[var(--indian-green-light)]/30",
@@ -23,7 +23,7 @@ const DECISION_CONFIG = {
   },
   MODIFY: {
     label: "MODIFY",
-    sublabel: "Strategic Adjustment Required",
+    sublabel: "Train, but keep it controlled",
     gradient: "from-[var(--saffron)] to-[#f97316]",
     bg: "bg-[var(--saffron)]/10",
     border: "border-[var(--saffron)]/30",
@@ -34,7 +34,7 @@ const DECISION_CONFIG = {
   },
   RECOVER: {
     label: "RECOVER",
-    sublabel: "Critical Physiological Reset",
+    sublabel: "Recovery should lead today",
     gradient: "from-[#ef4444] to-[#f43f5e]",
     bg: "bg-red-500/10",
     border: "border-red-500/30",
@@ -47,7 +47,10 @@ const DECISION_CONFIG = {
 
 export const HeroDecision: React.FC<Props> = ({ decision }) => {
   const config = DECISION_CONFIG[decision.decision];
-  const Icon = config.icon;
+  const trustSummary = decision.trustSummary ?? {
+    dataQuality: decision.dataCompleteness >= 80 ? 'COMPLETE' : decision.dataCompleteness >= 50 ? 'PARTIAL' : 'WEAK',
+    whyTodayChanged: [],
+  };
 
   // Primary explanation (1 line)
   const primaryExplanation = decision.explanation.primaryDrivers[0]?.reason || decision.sessionType;
@@ -73,7 +76,7 @@ export const HeroDecision: React.FC<Props> = ({ decision }) => {
           <div className="flex items-center gap-2">
             <div className={`h-2 w-2 rounded-full ${config.pulse} animate-pulse shadow-[0_0_10px_currentColor]`} />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-              Your Sports Scientist Says
+              Today&apos;s call
             </span>
           </div>
           
@@ -83,7 +86,7 @@ export const HeroDecision: React.FC<Props> = ({ decision }) => {
               decision.confidenceLevel === 'MEDIUM' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' :
               'bg-red-500/10 border-red-500/20 text-red-400 animate-pulse'
             }`}>
-              CONFIDENCE: {decision.confidenceLevel}
+              {decision.confidenceLevel} CONFIDENCE
             </div>
             {decision.confidenceReasons && decision.confidenceReasons.length > 0 && (
               <span className="text-[8px] text-slate-500 uppercase tracking-tighter max-w-[120px] text-right leading-tight">
@@ -108,13 +111,19 @@ export const HeroDecision: React.FC<Props> = ({ decision }) => {
           </div>
         </div>
 
-        {/* 1-line explanation */}
-        <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl">
-          {shortExplanation}
-        </p>
+	        {/* 1-line explanation */}
+	        <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl">
+	          {shortExplanation}
+	        </p>
 
-        {/* Dominant factor badge + intensity */}
-        <div className="flex items-center gap-3 mt-5 flex-wrap">
+          {trustSummary.whyTodayChanged[0] && (
+            <p className="mt-3 text-xs text-slate-400 leading-relaxed max-w-2xl">
+              {trustSummary.whyTodayChanged[0]}
+            </p>
+          )}
+
+	        {/* Dominant factor badge + intensity */}
+	        <div className="flex items-center gap-3 mt-5 flex-wrap">
           <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${config.bg} border ${config.border}`}>
             <AlertTriangle className={`w-3 h-3 ${config.textColor}`} />
             <span className={`text-[10px] font-bold uppercase tracking-widest ${config.textColor}`}>
@@ -126,13 +135,18 @@ export const HeroDecision: React.FC<Props> = ({ decision }) => {
               Intensity: {decision.intensity}%
             </span>
           </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06]">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              {decision.duration} min
-            </span>
-          </div>
-        </div>
-      </div>
-    </motion.div>
+	          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06]">
+	            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+	              {decision.duration} min
+	            </span>
+	          </div>
+	          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06]">
+	            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+	              Data: {trustSummary.dataQuality}
+	            </span>
+	          </div>
+	        </div>
+	      </div>
+	    </motion.div>
   );
 };

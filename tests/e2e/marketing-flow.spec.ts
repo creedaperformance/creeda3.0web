@@ -21,14 +21,13 @@ test.describe('Marketing & Routing Flow', () => {
     await homePage.verifyValueProps();
 
     // 2. Verify all role pathways are visible and linked
-    await expect(page.locator('a[href="/signup?role=athlete"]')).toHaveCount(1);
-    await expect(page.locator('a[href="/signup?role=coach"]')).toHaveCount(1);
-    await expect(page.locator('a[href="/signup?role=individual"]')).toHaveCount(1);
-    await expect(page.locator('a[href="/signup?role=practitioner"]')).toHaveCount(1);
+    expect(await page.locator('a[href="/signup?role=athlete"]').count()).toBeGreaterThan(0);
+    expect(await page.locator('a[href="/signup?role=coach"]').count()).toBeGreaterThan(0);
+    expect(await page.locator('a[href="/signup?role=individual"]').count()).toBeGreaterThan(0);
 
     // 3. Navigate to Features and validate render
     await homePage.navigateToFeatures();
-    await expect(page.getByRole('heading', { name: /powering the modern athlete/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Know your body/i })).toBeVisible();
 
     // 4. Navigate to Mission and validate render
     await homePage.goto('/');

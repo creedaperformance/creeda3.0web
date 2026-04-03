@@ -9,9 +9,27 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import type { MediaPipeEngine as EngineType } from '@/lib/vision/MediaPipeEngine'
 import { LandmarkSmoother } from '@/lib/vision/geometry'
-import { createAnalysisState, runDeterministicRules, type AnalysisState, type FeedbackEvent, LA } from '@/lib/vision/rules'
+import {
+  assessVideoCapture,
+  createAnalysisState,
+  runDeterministicRules,
+  updateCaptureMetrics,
+  type AnalysisState,
+  type FeedbackEvent,
+  LA,
+} from '@/lib/vision/rules'
 import { buildVideoAnalysisArtifacts } from '@/lib/video-analysis/reporting'
 import { canonicalizeSportId, resolveVideoAnalysisProfile, type VideoAnalysisRole } from '@/lib/video-analysis/catalog'
+import {
+  formatClipDuration,
+  formatClipResolution,
+  loadClipMetadata,
+  MAX_VIDEO_ANALYSIS_SECONDS,
+  MIN_VIDEO_ANALYSIS_SECONDS,
+  validateClipFile,
+  validateClipMetadata,
+  type ClipMetadata,
+} from '@/lib/video-analysis/clipValidation'
 
 type ProfileState = {
   role: VideoAnalysisRole
@@ -53,19 +71,53 @@ function AnalyzeContent({ role }: Props) {
   const [isLoading, setIsLoading] = useState(true)
   const [progress, setProgress] = useState(0)
   const [engineError, setEngineError] = useState<string | null>(null)
+  const [engineNotice, setEngineNotice] = useState<string | null>(null)
+  const [engineMode, setEngineMode] = useState<'CPU' | 'GPU' | null>(null)
+  const [captureError, setCaptureError] = useState<string | null>(null)
+  const [clipMetadata, setClipMetadata] = useState<ClipMetadata | null>(null)
   const [analysisState, setAnalysisState] = useState<AnalysisState>(createAnalysisState(selectedSport))
   const [activeFeedback, setActiveFeedback] = useState<FeedbackEvent | null>(null)
+  const captureAssessment = useMemo(
+    () => assessVideoCapture(analysisState, selectedSport),
+    [analysisState, selectedSport]
+  )
+  const analysisUnavailable = Boolean(engineError) && !isEngineReady
 
   const backHref = `/${role}/scan`
   const dashboardHref = `/${role}/dashboard`
 
-  useEffect(() => {
+  const syncEngineStatus = useCallback((engine: EngineType) => {
+    const status = engine.getStatus()
+
+    setIsEngineReady(status.isReady)
+    setEngineMode(status.delegate)
+
+    if (status.delegate === 'CPU') {
+      setEngineNotice(
+        status.fallbackUsed
+          ? 'Running in compatibility mode for this browser.'
+          : 'Running in CPU compatibility mode on this device.'
+      )
+      return
+    }
+
+    setEngineNotice(null)
+  }, [])
+
+  const resetTrackedAnalysis = useCallback(() => {
     analysisRef.current = createAnalysisState(selectedSport)
     setAnalysisState(cloneAnalysisState(analysisRef.current))
     smootherRef.current.reset()
     setActiveFeedback(null)
     setProgress(0)
+    setCaptureError(null)
+    lastVideoTimeRef.current = -1
   }, [selectedSport])
+
+  useEffect(() => {
+    setClipMetadata(null)
+    resetTrackedAnalysis()
+  }, [resetTrackedAnalysis])
 
   useEffect(() => {
     let active = true
@@ -112,16 +164,19 @@ function AnalyzeContent({ role }: Props) {
       try {
         setIsLoading(true)
         setEngineError(null)
+        setEngineNotice(null)
+        setIsEngineReady(false)
         const { MediaPipeEngine } = await import('@/lib/vision/MediaPipeEngine')
         const engine = MediaPipeEngine.getInstance()
         await engine.initialize()
         if (!active) return
         engineRef.current = engine
-        setIsEngineReady(true)
+        syncEngineStatus(engine)
       } catch (error) {
         console.error('Failed to initialize MediaPipe engine', error)
         if (active) {
-          setEngineError('The video-analysis engine could not be loaded on this device.')
+          setIsEngineReady(false)
+          setEngineError('The video-analysis engine could not be started on this device.')
         }
       } finally {
         if (active) setIsLoading(false)
@@ -134,25 +189,103 @@ function AnalyzeContent({ role }: Props) {
       active = false
       if (reqRef.current) cancelAnimationFrame(reqRef.current)
     }
-  }, [])
+  }, [syncEngineStatus])
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
+    const fileValidationError = validateClipFile(file)
+    if (fileValidationError) {
+      setCaptureError(fileValidationError)
+      event.target.value = ''
+      return
+    }
+
     const url = URL.createObjectURL(file)
-    setVideoUrl(url)
-    smootherRef.current.reset()
-    analysisRef.current = createAnalysisState(selectedSport)
-    setAnalysisState(cloneAnalysisState(analysisRef.current))
-    setActiveFeedback(null)
-    setProgress(0)
-    lastVideoTimeRef.current = -1
+
+    try {
+      const metadata = await loadClipMetadata(url)
+      const metadataValidationError = validateClipMetadata(metadata)
+
+      if (metadataValidationError) {
+        URL.revokeObjectURL(url)
+        setCaptureError(metadataValidationError)
+        event.target.value = ''
+        return
+      }
+
+      resetTrackedAnalysis()
+      if (videoUrl) URL.revokeObjectURL(videoUrl)
+      setClipMetadata(metadata)
+      setVideoUrl(url)
+    } catch {
+      URL.revokeObjectURL(url)
+      setCaptureError('CREEDA could not read this video. Re-export it as MP4, MOV, or WEBM and try again')
+      event.target.value = ''
+    }
   }
 
   const syncVisibleState = useCallback(() => {
     setAnalysisState(cloneAnalysisState(analysisRef.current))
   }, [])
+
+  const handleEngineRuntimeFailure = useCallback(
+    (error: unknown) => {
+      const engine = engineRef.current
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const looksGraphicsFailure = /activetexture|emscripten_gl|webgl|kgpuservice|startgraph failed/i.test(errorMessage)
+      const canAttemptRecovery = Boolean(engine && looksGraphicsFailure)
+
+      if (canAttemptRecovery) {
+        console.warn('Video analysis frame failed, attempting compatibility fallback', error)
+      } else {
+        console.error('Video analysis frame failed', error)
+      }
+      setIsPlaying(false)
+      setActiveFeedback(null)
+
+      if (!engine) {
+        setIsEngineReady(false)
+        setEngineError('CREEDA could not continue the analysis on this device.')
+        return
+      }
+
+      setIsLoading(true)
+
+      void engine
+        .recoverFromRuntimeFailure(error)
+        .then((recovered) => {
+          if (recovered) {
+            syncEngineStatus(engine)
+            setEngineError(null)
+            resetTrackedAnalysis()
+
+            const video = videoRef.current
+            if (video) {
+              video.currentTime = 0
+              void video.play()
+                .then(() => {
+                  setIsPlaying(true)
+                })
+                .catch(() => {
+                  setCaptureError('CREEDA switched to compatibility mode. Tap play to continue the scan.')
+                })
+            } else {
+              setCaptureError('CREEDA switched to compatibility mode. Tap play to continue the scan.')
+            }
+            return
+          }
+
+          setIsEngineReady(false)
+          setEngineError('CREEDA could not continue the analysis on this device.')
+        })
+        .finally(() => {
+          setIsLoading(false)
+        })
+    },
+    [resetTrackedAnalysis, syncEngineStatus]
+  )
 
   const runAnalysisFrame = useCallback(() => {
     const video = videoRef.current
@@ -177,12 +310,22 @@ function AnalyzeContent({ role }: Props) {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-        const result = engine.detect(video, performance.now())
+        analysisRef.current.processedFrames += 1
+        let result: ReturnType<EngineType['detect']>
+
+        try {
+          result = engine.detect(video, performance.now())
+        } catch (error) {
+          handleEngineRuntimeFailure(error)
+          return
+        }
+
         setProgress((video.currentTime / Math.max(video.duration || 1, 1)) * 100)
 
         if (result.landmarks && result.landmarks.length > 0) {
           const smoothed = smootherRef.current.smooth(result.landmarks[0])
           const current = analysisRef.current
+          updateCaptureMetrics(smoothed, current)
           const feedback = runDeterministicRules(selectedSport, smoothed, current)
 
           if (feedback) {
@@ -195,11 +338,10 @@ function AnalyzeContent({ role }: Props) {
           drawSkeletons(ctx, smoothed, canvas.width, canvas.height, feedback?.isError)
         }
 
-        analysisRef.current.frameCount += 1
         syncVisibleState()
       }
     }
-  }, [selectedSport, syncVisibleState])
+  }, [handleEngineRuntimeFailure, selectedSport, syncVisibleState])
 
   useEffect(() => {
     if (isPlaying) {
@@ -235,6 +377,11 @@ function AnalyzeContent({ role }: Props) {
   }
 
   const handleSave = async () => {
+    if (!captureAssessment.usable) {
+      setCaptureError(captureAssessment.reason)
+      return
+    }
+
     setIsLoading(true)
     const supabase = createClient()
     const {
@@ -333,9 +480,13 @@ function AnalyzeContent({ role }: Props) {
               </p>
             ) : engineError ? (
               <p className="text-[10px] text-red-300 font-semibold mt-1">{engineError}</p>
+            ) : engineNotice ? (
+              <p className="text-[10px] text-amber-300 flex items-center gap-1 font-semibold mt-1">
+                <CheckCircle className="h-3 w-3" /> {engineNotice}
+              </p>
             ) : (
               <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-semibold mt-1">
-                <CheckCircle className="h-3 w-3" /> Engine ready
+                <CheckCircle className="h-3 w-3" /> Engine ready{engineMode ? ` (${engineMode})` : ''}
               </p>
             )}
           </div>
@@ -351,6 +502,7 @@ function AnalyzeContent({ role }: Props) {
               className="hidden"
               ref={fileInputRef}
               onChange={handleFileChange}
+              data-testid="video-upload-input"
             />
 
             <div className="h-20 w-20 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-6">
@@ -360,6 +512,9 @@ function AnalyzeContent({ role }: Props) {
             <h2 className="text-xl font-bold mb-2">Upload a short clip</h2>
             <p className="text-sm text-white/40 text-center max-w-[320px] mb-4 font-medium">
               {profile.shortPrompt}
+            </p>
+            <p className="text-[11px] text-white/35 text-center max-w-[320px] mb-6 leading-relaxed">
+              Upload a {MIN_VIDEO_ANALYSIS_SECONDS}-{MAX_VIDEO_ANALYSIS_SECONDS} second MP4, MOV, or WEBM clip. CREEDA only saves clips when it can clearly detect one person, full-body visibility, and enough movement for the selected sport.
             </p>
 
             <div className="w-full max-w-[320px] rounded-2xl border border-white/[0.06] bg-black/20 p-4 mb-8">
@@ -381,6 +536,15 @@ function AnalyzeContent({ role }: Props) {
             >
               Select Video
             </Button>
+
+            {captureError && (
+              <div
+                data-testid="capture-error"
+                className="mt-4 w-full max-w-[320px] rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100"
+              >
+                {captureError}. Upload a clearer clip to continue.
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0 relative">
@@ -413,7 +577,9 @@ function AnalyzeContent({ role }: Props) {
 
               <button
                 onClick={togglePlay}
-                className="absolute inset-0 z-10 flex items-center justify-center bg-black/10 hover:bg-black/30 transition-colors group"
+                aria-label={isPlaying ? 'Pause analysis playback' : 'Play analysis'}
+                disabled={analysisUnavailable}
+                className="absolute inset-0 z-10 flex items-center justify-center bg-black/10 hover:bg-black/30 transition-colors group disabled:cursor-not-allowed disabled:bg-black/40"
               >
                 {!isPlaying && (
                   <div className="h-16 w-16 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 group-hover:scale-110 transition-transform">
@@ -430,8 +596,19 @@ function AnalyzeContent({ role }: Props) {
             <div className="mt-4 p-5 rounded-3xl bg-[var(--background-elevated)] border border-white/[0.04] shrink-0 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Session Analysis</h3>
-                <span className="text-[10px] bg-white/5 text-white/50 px-2 py-1 rounded-full">{analysisState.frameCount} Frames</span>
+                <span className="text-[10px] bg-white/5 text-white/50 px-2 py-1 rounded-full">{analysisState.frameCount} Tracked Frames</span>
               </div>
+
+              {clipMetadata && (
+                <div className="mb-4 flex flex-wrap gap-2 text-[10px] text-slate-300">
+                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1">
+                    Clip {formatClipDuration(clipMetadata.durationSec)}
+                  </span>
+                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1">
+                    Resolution {formatClipResolution(clipMetadata)}
+                  </span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
@@ -455,17 +632,80 @@ function AnalyzeContent({ role }: Props) {
                 ))}
               </div>
 
-              {progress > 99 && (
+              {analysisUnavailable && (
+                <div
+                  data-testid="capture-assessment"
+                  className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4"
+                >
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-amber-300">
+                    Analysis unavailable
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">This device could not start CREEDA&apos;s movement engine</p>
+                  <p className="mt-1 text-xs text-slate-300 leading-relaxed">
+                    Try a supported mobile browser or another device with graphics acceleration enabled. CREEDA will not save a report from an unsupported analysis session.
+                  </p>
+                </div>
+              )}
+
+              {!analysisUnavailable && progress > 99 && (
+                <div
+                  data-testid="capture-assessment"
+                  className={`mt-4 rounded-2xl border p-4 ${
+                    captureAssessment.usable
+                      ? 'border-emerald-500/20 bg-emerald-500/10'
+                      : 'border-red-500/20 bg-red-500/10'
+                  }`}
+                >
+                  <p
+                    className={`text-xs font-bold uppercase tracking-[0.24em] ${
+                      captureAssessment.usable ? 'text-emerald-300' : 'text-red-300'
+                    }`}
+                  >
+                    {captureAssessment.usable ? 'Clip accepted' : 'Clip rejected'}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">{captureAssessment.reason}</p>
+                  <p className="mt-1 text-xs text-slate-300 leading-relaxed">{captureAssessment.detail}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-slate-300">
+                    <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1">
+                      Pose {captureAssessment.poseCoveragePct}%
+                    </span>
+                    <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1">
+                      Full body {captureAssessment.fullBodyCoveragePct}%
+                    </span>
+                    <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1">
+                      Motion {captureAssessment.motionEvidence}
+                    </span>
+                    <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1">
+                      Pattern {captureAssessment.patternEvidence}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {captureError && (
+                <div data-testid="capture-error" className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100">
+                  {captureError}. Upload a clearer clip to continue.
+                </div>
+              )}
+
+              {(progress > 99 || analysisUnavailable) && (
                 <Button
                   onClick={handleSave}
-                  disabled={isLoading}
+                  disabled={isLoading || analysisUnavailable || !captureAssessment.usable}
+                  data-testid="save-video-report"
                   className="w-full mt-4 h-12 rounded-xl bg-white/[0.06] text-white font-bold text-sm hover:bg-white/10"
                 >
-                  {isLoading ? 'Saving...' : 'Save Report & View Action Plan'}
+                  {isLoading
+                    ? 'Saving...'
+                    : analysisUnavailable
+                      ? 'Analysis unavailable on this device'
+                      : captureAssessment.usable
+                        ? 'Save Report & View Action Plan'
+                        : 'Upload a usable clip to continue'}
                 </Button>
               )}
 
-              {progress > 99 && (
+              {(progress > 99 || analysisUnavailable) && (
                 <Link
                   href={dashboardHref}
                   className="mt-3 block text-center text-xs text-slate-400 hover:text-white transition-colors"

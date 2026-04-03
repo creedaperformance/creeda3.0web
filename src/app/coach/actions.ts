@@ -66,11 +66,11 @@ export async function submitCoachOnboarding(data: {
 
   if (teamError) return { error: teamError.message }
 
-  redirect('/coach')
+  redirect('/coach/dashboard')
 }
 
 export async function addAthleteToTeam(identifier: string, teamId: string) {
-  const { user } = await verifyRole('coach')
+  await verifyRole('coach')
   const supabase = await createClient()
 
   // 1. Find Athlete by Username or Email (Case-Insensitive)
@@ -144,7 +144,7 @@ export async function joinTeamWithCode(inviteCode: string) {
 }
 
 export async function getTeamInviteCode(teamId: string) {
-  const { user } = await verifyRole('coach')
+  await verifyRole('coach')
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('teams')

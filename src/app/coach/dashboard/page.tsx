@@ -36,7 +36,7 @@ export default async function CoachDashboard() {
 
   return (
     <CreedaProvider>
-      <GamifiedCoachDashboard videoReports={videoReports} />
+      <GamifiedCoachDashboard videoReports={videoReports} lockerCode={profile?.locker_code ?? null} />
     </CreedaProvider>
   )
 }

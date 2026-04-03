@@ -36,7 +36,7 @@ export const IndividualDecisionHUD: React.FC<IndividualDecisionHUDProps> = ({ de
             Guidance Pending
           </div>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Complete today&apos;s wellness check-in so CREEDA can turn your physiology into one clear next step.
+            Complete today&apos;s quick check-in so CREEDA can turn your baseline into one clear next step.
           </p>
         </div>
       </div>
@@ -44,6 +44,7 @@ export const IndividualDecisionHUD: React.FC<IndividualDecisionHUDProps> = ({ de
   }
 
   const healthSummary = decision.health.summary;
+  const trustSummary = decision.trustSummary;
 
   return (
     <motion.div
@@ -56,7 +57,7 @@ export const IndividualDecisionHUD: React.FC<IndividualDecisionHUDProps> = ({ de
           <div className="space-y-4 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-[10px] font-bold uppercase tracking-[0.25em] text-slate-300">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Daily Direction
+              Today
             </div>
             <div>
               <h2 className="text-4xl sm:text-5xl font-black tracking-tight text-white">
@@ -67,6 +68,16 @@ export const IndividualDecisionHUD: React.FC<IndividualDecisionHUDProps> = ({ de
               </p>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">{decision.explanation}</p>
+            {trustSummary.whyTodayChanged[0] && (
+              <p className="text-sm text-slate-300 leading-relaxed">
+                {trustSummary.whyTodayChanged[0]}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Tag>{trustSummary.confidenceLevel} confidence</Tag>
+              <Tag>{trustSummary.dataQuality} data</Tag>
+              <Tag>{trustSummary.dataCompleteness}% complete</Tag>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 shrink-0 min-w-[260px]">
@@ -83,7 +94,7 @@ export const IndividualDecisionHUD: React.FC<IndividualDecisionHUDProps> = ({ de
           <div className="flex items-center gap-2 mb-5">
             <CheckCircle2 className="h-4 w-4 text-primary" />
             <h3 className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
-              What To Do Today
+              Your Next Step
             </h3>
           </div>
 
@@ -170,7 +181,7 @@ export const IndividualDecisionHUD: React.FC<IndividualDecisionHUDProps> = ({ de
           <div className="flex items-center gap-2 mb-5">
             <Target className="h-4 w-4 text-primary" />
             <h3 className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
-              Why This Path
+              Why This Path Fits You
             </h3>
           </div>
 
@@ -203,7 +214,7 @@ export const IndividualDecisionHUD: React.FC<IndividualDecisionHUDProps> = ({ de
           <div className="flex items-center gap-2 mb-5">
             <Smartphone className="h-4 w-4 text-primary" />
             <h3 className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">
-              Keep The Engine Accurate
+              Other Good Matches
             </h3>
           </div>
 
@@ -242,10 +253,13 @@ export const IndividualDecisionHUD: React.FC<IndividualDecisionHUDProps> = ({ de
               <CheckCircle2 className="w-4 h-4" />
               Daily Check-In
             </Link>
-            <div className="flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-slate-400">
+            <Link
+              href="/individual/review"
+              className="flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-slate-300 hover:bg-white/[0.05] transition-all"
+            >
               <Brain className="w-4 h-4" />
-              Server logic active
-            </div>
+              Weekly Review
+            </Link>
           </div>
         </section>
       </div>

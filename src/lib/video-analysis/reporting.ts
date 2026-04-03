@@ -5,6 +5,7 @@ import {
   type VideoAnalysisFamily,
   type VideoAnalysisRole,
 } from '@/lib/video-analysis/catalog'
+import { MAX_VIDEO_ANALYSIS_SECONDS, MIN_VIDEO_ANALYSIS_SECONDS } from '@/lib/video-analysis/clipValidation'
 
 export interface VideoAnalysisFeedbackEvent {
   message: string
@@ -90,6 +91,16 @@ function uniqueStrings(values: string[]) {
   return [...new Set(values.filter(Boolean))]
 }
 
+function hasInsufficientEvidence(input: BuildArtifactsInput) {
+  return (
+    input.frameCount < 24 ||
+    (input.visionFaults.length === 0 &&
+      input.feedbackLog.length < 2 &&
+      input.positive === 0 &&
+      input.warnings === 0)
+  )
+}
+
 function normalizeFeedbackLog(value: unknown): VideoAnalysisFeedbackEvent[] {
   if (!Array.isArray(value)) return []
   const entries: Array<VideoAnalysisFeedbackEvent | null> = value
@@ -134,6 +145,7 @@ export function normalizeVideoFaults(value: unknown): VisionFault[] {
 }
 
 function buildMovementScore(input: BuildArtifactsInput) {
+  if (hasInsufficientEvidence(input)) return 42
   const uniqueFaults = uniqueStrings(input.visionFaults.map((fault) => `${fault.fault}:${fault.severity}`))
   const structuralPenalty = input.visionFaults.reduce((sum, fault) => sum + severityPenalty(fault.severity), 0)
   const warningPenalty = clamp(input.warnings * 2, 0, 18)
@@ -144,6 +156,9 @@ function buildMovementScore(input: BuildArtifactsInput) {
 }
 
 function buildHeadline(input: BuildArtifactsInput, profileLabel: string) {
+  if (hasInsufficientEvidence(input)) {
+    return `Clip quality was too weak for a trusted ${profileLabel.toLowerCase()} read`
+  }
   const topFault = input.visionFaults[0]
   if (topFault) return ISSUE_TITLES[input.issuesDetected[0] || ''] || topFault.fault
   if (input.warnings > 0) return `${profileLabel} needs a lighter cleanup pass`
@@ -161,6 +176,9 @@ function buildCoachSummary(
   summary: VideoAnalysisSummary,
   sportLabel: string
 ) {
+  if (hasInsufficientEvidence(input)) {
+    return `Capture quality was too weak to trust this ${sportLabel} report. Re-record one person clearly, full-body, doing the actual movement before using this for coaching decisions.`
+  }
   const highSeverityCount = input.visionFaults.filter((fault) => fault.severity === 'high').length
 
   if (summary.status === 'clean') {
@@ -175,6 +193,21 @@ function buildCoachSummary(
 }
 
 function buildRecommendations(input: BuildArtifactsInput): VideoAnalysisRecommendation[] {
+  if (hasInsufficientEvidence(input)) {
+    return [
+      {
+        title: 'Re-scan with a clearer movement clip',
+        reason: 'CREEDA did not capture enough trusted human movement to support a real biomechanical read.',
+        drills: [
+          `Record ${MIN_VIDEO_ANALYSIS_SECONDS}-${MAX_VIDEO_ANALYSIS_SECONDS} seconds with one athlete fully in frame.`,
+          'Use the actual sport movement, not a general or unrelated clip.',
+          'Capture 2-4 clear repetitions from the recommended angle.',
+        ],
+        priority: 'high',
+      },
+    ]
+  }
+
   if (input.visionFaults.length === 0) {
     return [
       {

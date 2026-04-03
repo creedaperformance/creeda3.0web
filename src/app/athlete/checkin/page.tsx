@@ -37,14 +37,64 @@ const sessionCompletions = ['completed', 'competition', 'rest', 'missed'] as con
 const sessionTypes = ['Skill', 'Strength', 'Speed', 'Endurance', 'Recovery'] as const
 const painStatuses = ['none', 'mild', 'moderate', 'severe'] as const
 const painLocations = ['Neck', 'Shoulder', 'Back', 'Hip', 'Knee', 'Ankle'] as const
+const heatLevels = ['normal', 'warm', 'hot', 'extreme'] as const
+const humidityLevels = ['low', 'moderate', 'high'] as const
+const aqiBands = ['good', 'moderate', 'poor', 'very_poor'] as const
+const fastingStates = ['none', 'light', 'strict'] as const
+const scheduleStressOptions = [
+  { label: 'Easy day', value: 0 },
+  { label: 'Light', value: 1 },
+  { label: 'Moderate', value: 2 },
+  { label: 'High', value: 3 },
+  { label: 'Very high', value: 4 },
+  { label: 'Overloaded', value: 5 },
+] as const
+
+type AthleteCheckInFormState = {
+  sleepQuality: '' | (typeof sleepQualities)[number]
+  sleepDuration: '' | (typeof sleepDurations)[number]
+  sleepLatency: '' | (typeof sleepLatencies)[number]
+  energyLevel: '' | (typeof energyLevels)[number]
+  muscleSoreness: '' | (typeof sorenessLevels)[number]
+  lifeStress: '' | (typeof stressLevels)[number]
+  motivation: '' | (typeof motivationLevels)[number]
+  sessionCompletion: '' | (typeof sessionCompletions)[number]
+  sessionType: '' | (typeof sessionTypes)[number]
+  yesterdayDemand: number
+  yesterdayDuration: number
+  painStatus: '' | (typeof painStatuses)[number]
+  painLocation: string[]
+  competitionToday: boolean
+  competitionTomorrow: boolean
+  competitionYesterday: boolean
+  heatLevel: '' | (typeof heatLevels)[number]
+  humidityLevel: '' | (typeof humidityLevels)[number]
+  aqiBand: '' | (typeof aqiBands)[number]
+  commuteMinutes: number
+  examStressScore: number
+  fastingState: '' | (typeof fastingStates)[number]
+  shiftWork: boolean
+  sessionNotes: string
+}
 
 const steps = [
-  { title: 'Recovery Baseline', subtitle: 'Capture how the night actually went.', icon: Moon },
-  { title: 'Body State', subtitle: 'Log the freshness your body is giving you today.', icon: HeartPulse },
-  { title: 'Mental State', subtitle: 'Performance decisions need your stress and drive, not just soreness.', icon: Brain },
-  { title: 'Yesterday Load', subtitle: 'Tell CREEDA what stimulus you actually absorbed.', icon: Flame },
-  { title: 'Pain + Schedule', subtitle: 'Surface red flags and calendar pressure before we dose training.', icon: ShieldAlert },
-  { title: 'Review + Submit', subtitle: 'One final check before CREEDA builds today’s directive.', icon: CheckCircle2 },
+  { title: 'Sleep', subtitle: 'How did last night actually go?', icon: Moon },
+  { title: 'Body', subtitle: 'How fresh or heavy does your body feel today?', icon: HeartPulse },
+  { title: 'Mind', subtitle: 'Stress and motivation change the session as much as soreness does.', icon: Brain },
+  { title: 'Yesterday', subtitle: 'Tell CREEDA what load you actually absorbed yesterday.', icon: Flame },
+  { title: 'Pain + Schedule', subtitle: 'Flag pain and competition pressure before today’s load is set.', icon: ShieldAlert },
+  { title: 'Context', subtitle: 'Optional real-world friction like heat, commute, fasting, and schedule pressure.', icon: Brain },
+  { title: 'Review', subtitle: 'Check the summary, then build today’s plan.', icon: CheckCircle2 },
+] as const
+
+const STEP_PURPOSES = [
+  'Used to estimate recovery quality before today begins.',
+  'Used to update readiness and fatigue state.',
+  'Used to adjust today’s load, complexity, and mental demand.',
+  'Used to understand the real stress your body absorbed yesterday.',
+  'Used to tighten pain protection, injury risk, and competition context.',
+  'Optional. Used only when real-world context like heat, commute, fasting, or schedule stress should help explain the call.',
+  'Used to confirm what CREEDA will score today before it writes the plan.',
 ] as const
 
 type SubmitResult =
@@ -58,23 +108,31 @@ export default function AthleteCheckInPage() {
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SubmitResult | null>(null)
-  const [formData, setFormData] = useState({
-    sleepQuality: 'Good' as (typeof sleepQualities)[number],
-    sleepDuration: '7-8' as (typeof sleepDurations)[number],
-    sleepLatency: '15-30 min' as (typeof sleepLatencies)[number],
-    energyLevel: 'Moderate' as (typeof energyLevels)[number],
-    muscleSoreness: 'Low' as (typeof sorenessLevels)[number],
-    lifeStress: 'Moderate' as (typeof stressLevels)[number],
-    motivation: 'Moderate' as (typeof motivationLevels)[number],
-    sessionCompletion: 'completed' as (typeof sessionCompletions)[number],
-    sessionType: 'Skill' as (typeof sessionTypes)[number],
+  const [answeredFields, setAnsweredFields] = useState<Set<string>>(new Set())
+  const [formData, setFormData] = useState<AthleteCheckInFormState>({
+    sleepQuality: '',
+    sleepDuration: '',
+    sleepLatency: '',
+    energyLevel: '',
+    muscleSoreness: '',
+    lifeStress: '',
+    motivation: '',
+    sessionCompletion: '',
+    sessionType: '',
     yesterdayDemand: 6,
     yesterdayDuration: 60,
-    painStatus: 'none' as (typeof painStatuses)[number],
+    painStatus: '',
     painLocation: [] as string[],
     competitionToday: false,
     competitionTomorrow: false,
     competitionYesterday: false,
+    heatLevel: '',
+    humidityLevel: '',
+    aqiBand: '',
+    commuteMinutes: 0,
+    examStressScore: 0,
+    fastingState: '',
+    shiftWork: false,
     sessionNotes: '',
   })
 
@@ -100,12 +158,57 @@ export default function AthleteCheckInPage() {
   const progress = Math.round(((step + 1) / steps.length) * 100)
   const sessionCaptured = formData.sessionCompletion === 'completed' || formData.sessionCompletion === 'competition'
 
-  function patchForm(values: Partial<typeof formData>) {
+  function patchForm(values: Partial<AthleteCheckInFormState>) {
     setFormData((current) => ({ ...current, ...values }))
+    setAnsweredFields((current) => {
+      const next = new Set(current)
+      Object.keys(values).forEach((key) => next.add(key))
+      return next
+    })
     setError(null)
   }
 
+  function validateStep(currentStep: number) {
+    if (currentStep === 0) {
+      return ['sleepQuality', 'sleepDuration', 'sleepLatency'].every((field) => answeredFields.has(field))
+    }
+
+    if (currentStep === 1) {
+      return ['energyLevel', 'muscleSoreness'].every((field) => answeredFields.has(field))
+    }
+
+    if (currentStep === 2) {
+      return ['lifeStress', 'motivation'].every((field) => answeredFields.has(field))
+    }
+
+    if (currentStep === 3) {
+      if (!answeredFields.has('sessionCompletion')) return false
+      if (!sessionCaptured) return true
+      return ['sessionType', 'yesterdayDemand', 'yesterdayDuration'].every((field) => answeredFields.has(field))
+    }
+
+    if (currentStep === 4) {
+      if (!answeredFields.has('painStatus')) return false
+      if (formData.painStatus !== 'none' && formData.painLocation.length === 0) return false
+      return true
+    }
+
+    if (currentStep === 5) {
+      return true
+    }
+
+    return true
+  }
+
   function handleNext() {
+    if (!validateStep(step)) {
+      setError(
+        step === 4 && formData.painStatus !== 'none'
+          ? 'Add the pain location so CREEDA can adjust today’s decision properly.'
+          : 'Answer the questions on this screen before continuing.'
+      )
+      return
+    }
     setStep((current) => Math.min(steps.length - 1, current + 1))
   }
 
@@ -150,7 +253,7 @@ export default function AthleteCheckInPage() {
             <span className="text-3xl font-black text-white">{result.readinessScore}</span>
           </div>
           <p className="text-[10px] font-black uppercase tracking-[0.35em] text-[var(--saffron)] mb-3">
-            Today&apos;s Directive
+            Today&apos;s Plan
           </p>
           <h1 className="text-4xl font-black text-white tracking-tight mb-3">{result.decision}</h1>
           <p className="text-sm text-slate-300 leading-relaxed mb-4">{result.action}</p>
@@ -194,6 +297,10 @@ export default function AthleteCheckInPage() {
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">{steps[step].title}</h1>
           <p className="text-sm text-slate-400 leading-relaxed mt-2">{steps[step].subtitle}</p>
+          <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--saffron)]">Used For</p>
+            <p className="mt-2 text-xs text-slate-400 leading-relaxed">{STEP_PURPOSES[step]}</p>
+          </div>
         </div>
 
         {step === 0 && (
@@ -308,7 +415,14 @@ export default function AthleteCheckInPage() {
                     key={item}
                     label={titleCase(item)}
                     active={formData.sessionCompletion === item}
-                    onClick={() => patchForm({ sessionCompletion: item })}
+                    onClick={() =>
+                      patchForm({
+                        sessionCompletion: item,
+                        sessionType: item === 'completed' || item === 'competition' ? formData.sessionType : '',
+                        yesterdayDemand: item === 'completed' || item === 'competition' ? formData.yesterdayDemand : 0,
+                        yesterdayDuration: item === 'completed' || item === 'competition' ? formData.yesterdayDuration : 0,
+                      })
+                    }
                   />
                 ))}
               </div>
@@ -379,7 +493,7 @@ export default function AthleteCheckInPage() {
               </CardGrid>
             </Section>
 
-            {formData.painStatus !== 'none' && (
+            {formData.painStatus !== '' && formData.painStatus !== 'none' && (
               <Section label="Pain location" icon={ShieldAlert}>
                 <div className="flex flex-wrap gap-2">
                   {painLocations.map((item) => (
@@ -417,6 +531,110 @@ export default function AthleteCheckInPage() {
         )}
 
         {step === 5 && (
+          <div className="space-y-8">
+            <div className="rounded-3xl border border-blue-500/20 bg-blue-500/10 px-5 py-4 text-sm text-blue-100/80 leading-relaxed">
+              This step is optional. Use it only on days when heat, air quality, commute load, fasting, or schedule stress should help explain the decision.
+            </div>
+
+            <Section label="Heat load" icon={Flame}>
+              <CardGrid>
+                {heatLevels.map((item) => (
+                  <ChoiceCard
+                    key={item}
+                    label={titleCase(item)}
+                    active={formData.heatLevel === item}
+                    onClick={() => patchForm({ heatLevel: formData.heatLevel === item ? '' : item })}
+                  />
+                ))}
+              </CardGrid>
+            </Section>
+
+            <Section label="Humidity" icon={Activity}>
+              <CardGrid columns="grid-cols-3">
+                {humidityLevels.map((item) => (
+                  <ChoiceCard
+                    key={item}
+                    label={titleCase(item)}
+                    active={formData.humidityLevel === item}
+                    onClick={() => patchForm({ humidityLevel: formData.humidityLevel === item ? '' : item })}
+                  />
+                ))}
+              </CardGrid>
+            </Section>
+
+            <Section label="Air quality" icon={ShieldAlert}>
+              <CardGrid>
+                {aqiBands.map((item) => (
+                  <ChoiceCard
+                    key={item}
+                    label={item === 'very_poor' ? 'Very Poor' : titleCase(item)}
+                    active={formData.aqiBand === item}
+                    onClick={() => patchForm({ aqiBand: formData.aqiBand === item ? '' : item })}
+                  />
+                ))}
+              </CardGrid>
+            </Section>
+
+            <RangeBlock
+              label="Commute minutes"
+              icon={Timer}
+              value={formData.commuteMinutes}
+              min={0}
+              max={180}
+              step={5}
+              unit="min"
+              onChange={(value) => patchForm({ commuteMinutes: value })}
+            />
+
+            <Section label="Exam / schedule stress" icon={Brain}>
+              <CardGrid columns="grid-cols-2">
+                {scheduleStressOptions.map((item) => (
+                  <ChoiceCard
+                    key={item.value}
+                    label={item.label}
+                    active={formData.examStressScore === item.value}
+                    onClick={() => patchForm({ examStressScore: item.value })}
+                  />
+                ))}
+              </CardGrid>
+            </Section>
+
+            <Section label="Fasting" icon={Moon}>
+              <CardGrid columns="grid-cols-3">
+                {fastingStates.map((item) => (
+                  <ChoiceCard
+                    key={item}
+                    label={titleCase(item)}
+                    active={formData.fastingState === item}
+                    onClick={() => patchForm({ fastingState: formData.fastingState === item ? '' : item })}
+                  />
+                ))}
+              </CardGrid>
+            </Section>
+
+            <Section label="Shift work or late hours" icon={CalendarDays}>
+              <ToggleRow
+                label="Today includes shift work, night duty, or unusually late hours"
+                active={formData.shiftWork}
+                onClick={() => patchForm({ shiftWork: !formData.shiftWork })}
+              />
+            </Section>
+
+            <Section label="Optional context note" icon={Brain}>
+              <textarea
+                value={formData.sessionNotes}
+                onChange={(event) => patchForm({ sessionNotes: event.target.value.slice(0, 300) })}
+                placeholder="Anything unusual? Travel, exam week, very hot conditions, or unusual fatigue."
+                className="w-full min-h-[100px] rounded-[1.5rem] border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/[0.15] resize-none"
+              />
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                This note is optional and saved as context. It helps explain the call more clearly when the day is unusual.
+              </p>
+            </Section>
+          </div>
+        )}
+
+        {step === 6 && (
           <div className="space-y-4">
             <div className="rounded-[2rem] border border-white/[0.08] bg-white/[0.03] p-6 space-y-4">
               <SummaryRow label="Sleep" value={`${formData.sleepQuality} • ${formData.sleepDuration} hrs`} />
@@ -427,7 +645,7 @@ export default function AthleteCheckInPage() {
                 value={
                   sessionCaptured
                     ? `${titleCase(formData.sessionCompletion)} • ${formData.sessionType} • ${formData.yesterdayDemand}/10 for ${formData.yesterdayDuration} min`
-                    : titleCase(formData.sessionCompletion)
+                    : titleCase(formData.sessionCompletion || 'rest')
                 }
               />
               <SummaryRow
@@ -435,13 +653,14 @@ export default function AthleteCheckInPage() {
                 value={
                   formData.painStatus === 'none'
                     ? 'No pain flagged'
-                    : `${titleCase(formData.painStatus)} • ${formData.painLocation.join(', ')}`
+                    : `${titleCase(formData.painStatus || 'none')} • ${formData.painLocation.join(', ')}`
                 }
               />
+              <SummaryRow label="Context" value={formatAthleteContextSummary(formData)} />
             </div>
 
             <div className="rounded-3xl border border-[var(--saffron)]/20 bg-[var(--saffron)]/8 p-5 text-sm text-slate-300 leading-relaxed">
-              CREEDA will use this log as the only source of truth for today’s athlete decision, update your readiness server-side, and push the same output into the dashboard.
+              CREEDA will use this check-in to set today&apos;s athlete decision and sync the same result into your dashboard.
             </div>
           </div>
         )}
@@ -469,7 +688,7 @@ export default function AthleteCheckInPage() {
               onClick={handleNext}
               className="h-14 flex-[1.6] rounded-2xl bg-[var(--saffron)] text-black font-black uppercase tracking-widest text-[10px]"
             >
-              Continue
+              {step === steps.length - 2 ? 'Review Check-In' : 'Continue'}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
@@ -659,6 +878,24 @@ function RangeBlock({
       </div>
     </Section>
   )
+}
+
+function formatAthleteContextSummary(formData: AthleteCheckInFormState) {
+  const parts = [
+    formData.heatLevel ? titleCase(formData.heatLevel) : '',
+    formData.humidityLevel ? `${titleCase(formData.humidityLevel)} humidity` : '',
+    formData.aqiBand ? `${formData.aqiBand === 'very_poor' ? 'Very poor' : titleCase(formData.aqiBand)} air` : '',
+    formData.commuteMinutes > 0 ? `${formData.commuteMinutes} min commute` : '',
+    formData.examStressScore > 0 ? `${scheduleStressOptions.find((item) => item.value === formData.examStressScore)?.label || 'Stress'} schedule load` : '',
+    formData.fastingState ? `${titleCase(formData.fastingState)} fasting` : '',
+    formData.shiftWork ? 'Shift work' : '',
+  ].filter(Boolean)
+
+  if (!parts.length && !formData.sessionNotes.trim()) {
+    return 'No extra context logged'
+  }
+
+  return [...parts, formData.sessionNotes.trim()].filter(Boolean).join(' • ')
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {

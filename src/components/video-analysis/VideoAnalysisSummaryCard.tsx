@@ -3,6 +3,7 @@ import { ArrowRight, Camera, ShieldAlert, Sparkles, Video } from 'lucide-react'
 
 import type { VideoAnalysisReportSummary } from '@/lib/video-analysis/reporting'
 import { canonicalizeSportId } from '@/lib/video-analysis/catalog'
+import { MAX_VIDEO_ANALYSIS_SECONDS, MIN_VIDEO_ANALYSIS_SECONDS } from '@/lib/video-analysis/clipValidation'
 
 interface Props {
   role: 'athlete' | 'individual'
@@ -31,7 +32,7 @@ export function VideoAnalysisSummaryCard({ role, latestReport, preferredSport, c
             {role === 'athlete' ? 'Scan the movement, not just the stats' : 'See how your body actually moves'}
           </h3>
           <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-xl">
-            CREEDA checks posture, joint control, and sport-specific movement faults from a short clip, then turns them into correction drills and next-session guidance.
+            CREEDA only accepts clips with clear human movement for the selected sport, then turns the usable ones into correction drills and next-session guidance.
           </p>
         </div>
         <div className="hidden sm:flex h-12 w-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 items-center justify-center text-orange-300">
@@ -86,7 +87,7 @@ export function VideoAnalysisSummaryCard({ role, latestReport, preferredSport, c
             <div className="flex-1">
               <p className="text-sm font-semibold text-white">No scan on file yet</p>
               <p className="mt-1 text-xs text-slate-400 leading-relaxed">
-                Record a 5-15 second clip and CREEDA will build a movement report with technical faults, injury-risk signals, and correction drills.
+                Record a {MIN_VIDEO_ANALYSIS_SECONDS}-{MAX_VIDEO_ANALYSIS_SECONDS} second clip and CREEDA will build a movement report with technical faults, injury-risk signals, and correction drills.
               </p>
             </div>
           </div>

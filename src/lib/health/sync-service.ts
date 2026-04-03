@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { HEALTH_CONNECTIONS_TABLE, HEALTH_DAILY_METRICS_TABLE } from './storage'
 import type { ConnectionPreference, HealthDataModel, HealthSyncStatus } from './types'
 
 export class SyncService {
@@ -20,7 +21,7 @@ export class SyncService {
     }))
 
     const { error } = await this.supabase
-      .from('health_daily_metrics')
+      .from(HEALTH_DAILY_METRICS_TABLE)
       .upsert(rows, { onConflict: 'user_id,metric_date,source' })
 
     if (error) throw new Error(error.message)
@@ -51,7 +52,7 @@ export class SyncService {
     if (typeof args.errorMessage !== 'undefined') payload.last_error = args.errorMessage
 
     const { error } = await this.supabase
-      .from('health_connections')
+      .from(HEALTH_CONNECTIONS_TABLE)
       .upsert(payload, { onConflict: 'user_id' })
 
     if (error) throw new Error(error.message)
@@ -59,7 +60,7 @@ export class SyncService {
 
   async fetchConnectionState(userId: string) {
     const { data, error } = await this.supabase
-      .from('health_connections')
+      .from(HEALTH_CONNECTIONS_TABLE)
       .select('*')
       .eq('user_id', userId)
       .maybeSingle()

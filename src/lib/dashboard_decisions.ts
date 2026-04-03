@@ -22,9 +22,12 @@ import {
 import type {
   AdaptationProfile,
   AthleteInput,
+  CreedaDecision,
   OrchestratorOutputV5,
   PerformanceProfile,
   RehabHistoryEntry,
+  TrustSignalSummary,
+  TrustSummary,
   VisionFault,
 } from '@/lib/engine/types'
 import type {
@@ -40,6 +43,34 @@ import type {
 } from '@/lib/individual_performance_engine'
 import { getLatestUserVideoReport } from '@/lib/video-analysis/service'
 import type { VideoAnalysisReportSummary } from '@/lib/video-analysis/reporting'
+import {
+  DAILY_CONTEXT_SIGNALS_TABLE,
+  normalizeDailyContextSignal,
+  selectRecentDailyContextSignals,
+  summarizeDailyContextSignals,
+  type DailyContextSignalRecord,
+  type DailyContextSummary,
+} from '@/lib/context-signals/storage'
+import { HEALTH_CONNECTIONS_TABLE, HEALTH_DAILY_METRICS_TABLE } from '@/lib/health/storage'
+import {
+  normalizeObjectiveTestSession,
+  summarizeObjectiveSignals,
+} from '@/lib/objective-tests/store'
+import { computeObjectiveBaselines } from '@/lib/objective-tests/baselines'
+import type { ObjectiveSignalSummary, ObjectiveTestSession, ObjectiveTestType } from '@/lib/objective-tests/types'
+import {
+  extractDiagnosticMedicalConditions,
+  getNutritionSafetySummary,
+  type NutritionSafetySummary,
+} from '@/lib/nutrition-safety'
+import {
+  buildAthleteIdentityMetrics,
+  buildIndividualIdentityMetrics,
+  buildSquadIdentityMetrics,
+  getIdentityMetricScore,
+  type IdentityMetricSummary,
+  type SquadIdentityMetricSummary,
+} from '@/lib/identity-metrics'
 
 const DEFAULT_ADAPTATION_PROFILE: AdaptationProfile = {
   fatigue_sensitivity: 0.5,
@@ -86,11 +117,15 @@ export interface AthleteDecisionContext {
   visionFaults: VisionFault[]
   rehabHistory: RehabHistoryEntry[]
   healthSummary: AthleteHealthSummary | null
+  contextSignals: DailyContextSignalRecord[]
+  contextSummary: DailyContextSummary | null
 }
 
 export interface AthleteDashboardSnapshot extends AthleteDecisionContext {
   decisionResult: OrchestratorOutputV5 | null
   latestVideoReport: VideoAnalysisReportSummary | null
+  objectiveTest: ObjectiveTestSummary | null
+  nutritionSafety: NutritionSafetySummary
 }
 
 export interface IndividualDashboardSnapshot {
@@ -101,6 +136,9 @@ export interface IndividualDashboardSnapshot {
   primaryGoal: string
   decision: IndividualDashboardDecision | null
   latestVideoReport: VideoAnalysisReportSummary | null
+  objectiveTest: ObjectiveTestSummary | null
+  contextSummary: DailyContextSummary | null
+  nutritionSafety: NutritionSafetySummary
 }
 
 export interface IndividualDashboardDecision {
@@ -108,6 +146,7 @@ export interface IndividualDashboardDecision {
   directionLabel: string
   directionSummary: string
   explanation: string
+  trustSummary: TrustSummary
   today: DailyGuidance
   weekly: WeeklyFeedback
   peak: PeakProjection
@@ -132,6 +171,7 @@ export interface IndividualDashboardDecision {
     manualRecoveryPulse: number | null
     blendedRecoveryPulse: number | null
   }
+  contextSummary: DailyContextSummary | null
   prescriptions: {
     workoutPlan: WorkoutPlan | null
     mealPlan: RecommendedMeal[] | null
@@ -139,6 +179,171 @@ export interface IndividualDashboardDecision {
     trainingFramework: PersonalizedTrainingFramework
     sources: EvidenceReference[]
   }
+}
+
+export interface WeeklyReviewPoint {
+  date: string
+  label: string
+  readinessScore: number
+  loadMinutes?: number
+}
+
+export interface ObjectiveTestSummary {
+  latestSession: ObjectiveTestSession | null
+  latestValidatedScoreMs: number | null
+  previousValidatedScoreMs: number | null
+  deltaVsPreviousMs: number | null
+  trend: 'improving' | 'stable' | 'declining' | 'missing'
+  freshness: 'fresh' | 'stale' | 'missing'
+  trustStatus: TrustSignalSummary['status']
+  classification: string | null
+  completedAt: string | null
+  recentSessionCount: number
+  weekSessionCount: number
+  summary: string
+  nextAction: string
+  primaryProtocolId: ObjectiveTestType | null
+  latestHeadlineMetricValue: number | null
+  latestHeadlineMetricUnit: string | null
+  latestHeadlineMetricLabel: string | null
+  primarySignal: ObjectiveSignalSummary | null
+  signals: ObjectiveSignalSummary[]
+}
+
+function hasObjectiveTestMeasurement(objectiveTest: ObjectiveTestSummary | null) {
+  return Boolean(objectiveTest?.primarySignal?.headlineMetricValue !== null)
+}
+
+function getOptionalObjectiveDetail(objectiveTest: ObjectiveTestSummary | null) {
+  return hasObjectiveTestMeasurement(objectiveTest)
+    ? objectiveTest?.summary || 'Latest objective testing is available.'
+    : 'Objective testing is optional. Add it only if you want one extra measured sharpness anchor in CREEDA.'
+}
+
+function getObjectivePrimaryLabel(objectiveTest: ObjectiveTestSummary | null) {
+  return objectiveTest?.primarySignal?.displayName || 'Objective testing'
+}
+
+function getObjectiveFormattedHeadline(objectiveTest: ObjectiveTestSummary | null) {
+  return objectiveTest?.primarySignal?.formattedHeadline || 'Optional'
+}
+
+function hasMeaningfulObjectiveChange(objectiveTest: ObjectiveTestSummary | null) {
+  return Boolean(
+    objectiveTest?.primarySignal &&
+      objectiveTest.primarySignal.trend !== 'stable' &&
+      objectiveTest.primarySignal.trend !== 'missing'
+  )
+}
+
+function getObjectiveChangeNarrative(
+  objectiveTest: ObjectiveTestSummary | null,
+  tense: 'present' | 'past'
+) {
+  const signal = objectiveTest?.primarySignal
+  if (!signal || !hasMeaningfulObjectiveChange(objectiveTest)) return ''
+
+  const improvingVerb = tense === 'present' ? 'is improving' : 'improved'
+  const decliningVerb = tense === 'present' ? 'is softening' : 'softened'
+  return `${signal.displayName} ${signal.trend === 'improving' ? improvingVerb : decliningVerb} versus the previous saved session.`
+}
+
+function shouldPrioritizeObjectiveRetest(objectiveTest: ObjectiveTestSummary | null) {
+  return Boolean(
+    hasObjectiveTestMeasurement(objectiveTest) &&
+      objectiveTest?.freshness === 'stale'
+  )
+}
+
+export interface AthleteWeeklyReviewSnapshot {
+  periodLabel: string
+  averageReadiness: number
+  adherencePct: number
+  loadMinutes: number
+  trainingDays: number
+  readinessDelta: number
+  bottleneck: string
+  biggestWin: string
+  nextWeekFocus: string
+  trustSummary: TrustSummary | null
+  decision: CreedaDecision | null
+  trend: WeeklyReviewPoint[]
+  objectiveTest: ObjectiveTestSummary | null
+  contextSummary: DailyContextSummary | null
+  identityMetrics: IdentityMetricSummary[]
+}
+
+export interface IndividualWeeklyReviewSnapshot {
+  periodLabel: string
+  averageReadiness: number
+  adherencePct: number
+  readinessDelta: number
+  progressToPeakPct: number
+  streakCount: number
+  bottleneck: string
+  biggestWin: string
+  nextWeekFocus: string
+  trustSummary: TrustSummary
+  decision: IndividualDashboardDecision
+  trend: WeeklyReviewPoint[]
+  objectiveTest: ObjectiveTestSummary | null
+  contextSummary: DailyContextSummary | null
+  identityMetrics: IdentityMetricSummary[]
+}
+
+export interface CoachWeeklyReviewPriority {
+  athleteId: string
+  athleteName: string
+  teamId: string
+  teamName: string
+  queueType: 'intervention' | 'low_data'
+  priority: 'Critical' | 'Warning' | 'Informational'
+  reasons: string[]
+  recommendation: string
+  updatedAt: string | null
+}
+
+export interface CoachGroupSuggestion {
+  title: string
+  detail: string
+  priority: 'High' | 'Watch' | 'Build'
+}
+
+export interface CoachTeamReviewSummary {
+  teamId: string
+  teamName: string
+  athleteCount: number
+  averageReadiness: number
+  compliancePct: number
+  interventionCount: number
+  lowDataCount: number
+  highRiskCount: number
+  objectiveCoveragePct: number
+  consistencyScore: number | null
+  reliabilityScore: number | null
+}
+
+export interface CoachWeeklyReviewSnapshot {
+  periodLabel: string
+  athleteCount: number
+  teamCount: number
+  averageReadiness: number
+  readinessDelta: number
+  squadCompliancePct: number
+  activeInterventions: number
+  lowDataCount: number
+  resolvedThisWeek: number
+  objectiveCoveragePct: number
+  objectiveDecliningCount: number
+  bottleneck: string
+  biggestWin: string
+  highestRiskCluster: string
+  nextWeekFocus: string
+  trend: WeeklyReviewPoint[]
+  topPriorityAthletes: CoachWeeklyReviewPriority[]
+  groupSuggestions: CoachGroupSuggestion[]
+  teamSummaries: CoachTeamReviewSummary[]
+  identityMetrics: SquadIdentityMetricSummary[]
 }
 
 type SupabaseLike = any
@@ -182,6 +387,7 @@ export async function getAthleteDecisionContext(
     visionResult,
     rehabResult,
     healthSummary,
+    contextResult,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -191,7 +397,7 @@ export async function getAthleteDecisionContext(
     supabase
       .from('diagnostics')
       .select(
-        'primary_goal, physiology_profile, reaction_profile, performance_baseline, profile_data, training_reality, sport_context'
+        'primary_goal, physiology_profile, reaction_profile, performance_baseline, profile_data, training_reality, sport_context, recovery_baseline, physical_status'
       )
       .eq('athlete_id', userId)
       .order('created_at', { ascending: false })
@@ -214,6 +420,12 @@ export async function getAthleteDecisionContext(
       (query: any) => query.eq('user_id', userId).order('date', { ascending: false }).limit(12)
     ),
     getHealthSummary(supabase, userId),
+    safeSelect(
+      supabase,
+      DAILY_CONTEXT_SIGNALS_TABLE,
+      'user_id, role, log_date, heat_level, humidity_level, aqi_band, commute_minutes, exam_stress_score, fasting_state, shift_work, context_notes',
+      () => selectRecentDailyContextSignals(supabase, userId, options?.beforeDate ? 7 : 8, options?.beforeDate)
+    ),
   ])
 
   const profile = profileResult.data || null
@@ -225,6 +437,10 @@ export async function getAthleteDecisionContext(
   const historicalRawLogs = options?.beforeDate ? rawLogs : rawLogs.slice(1)
   const historicalLogs = normalizeHistoricalLogs(historicalRawLogs, rawIntelligence)
   const latestIntelligence = options?.beforeDate ? null : rawIntelligence[0] || null
+  const contextSignals = (Array.isArray(contextResult.data) ? contextResult.data : [])
+    .map(normalizeDailyContextSignal)
+    .filter((signal): signal is DailyContextSignalRecord => Boolean(signal))
+  const contextSummary = summarizeDailyContextSignals(contextSignals)
 
   return {
     userId,
@@ -238,6 +454,8 @@ export async function getAthleteDecisionContext(
     visionFaults: normalizeVisionFaults(visionResult.data),
     rehabHistory: normalizeRehabHistory(rehabResult.data),
     healthSummary,
+    contextSignals,
+    contextSummary,
   }
 }
 
@@ -245,10 +463,14 @@ export async function getAthleteDashboardSnapshot(
   supabase: SupabaseLike,
   userId: string
 ): Promise<AthleteDashboardSnapshot> {
-  const [context, latestVideoReport] = await Promise.all([
+  const [context, latestVideoReport, objectiveTest] = await Promise.all([
     getAthleteDecisionContext(supabase, userId),
     getLatestUserVideoReport(supabase, userId),
+    getObjectiveTestSummary(supabase, userId),
   ])
+  const nutritionSafety = await getNutritionSafetySummary(supabase, userId, {
+    fallbackMedicalConditions: extractDiagnosticMedicalConditions(asRecord(context.diagnostic?.physical_status)),
+  })
   const persisted = readPersistedDecision(context.latestIntelligence?.intelligence_trace)
 
   let decisionResult = persisted
@@ -265,10 +487,19 @@ export async function getAthleteDashboardSnapshot(
     decisionResult = await computeAthleteDecisionFromLog(context, context.latestLog)
   }
 
+  if (decisionResult && context.contextSummary) {
+    decisionResult = mergeContextSummaryIntoDecisionResult(decisionResult, context.contextSummary)
+  }
+  if (decisionResult) {
+    decisionResult = mergeNutritionSafetyIntoDecisionResult(decisionResult, nutritionSafety)
+  }
+
   return {
     ...context,
     decisionResult,
     latestVideoReport,
+    objectiveTest,
+    nutritionSafety,
   }
 }
 
@@ -286,13 +517,15 @@ export async function computeAthleteDecisionFromLog(
 export function buildAthleteDecisionTrace(
   result: OrchestratorOutputV5,
   healthSummary: AthleteHealthSummary | null,
-  source = 'athlete_daily_checkin_v1'
+  source = 'athlete_daily_checkin_v1',
+  contextSummary: DailyContextSummary | null = null
 ) {
   return {
     source,
     generatedAt: new Date().toISOString(),
     decisionBundle: result,
     healthSummary,
+    contextSummary,
   }
 }
 
@@ -300,7 +533,7 @@ export async function getIndividualDashboardSnapshot(
   supabase: SupabaseLike,
   userId: string
 ): Promise<IndividualDashboardSnapshot> {
-  const [individualProfileResult, intelligenceResult, healthSummary, latestVideoReport] = await Promise.all([
+  const [individualProfileResult, intelligenceResult, healthSummary, latestVideoReport, objectiveTest, contextResult] = await Promise.all([
     supabase.from('individual_profiles').select('*').eq('id', userId).maybeSingle(),
     supabase
       .from('computed_intelligence')
@@ -310,15 +543,27 @@ export async function getIndividualDashboardSnapshot(
       .limit(14),
     getHealthSummary(supabase, userId),
     getLatestUserVideoReport(supabase, userId),
+    getObjectiveTestSummary(supabase, userId),
+    safeSelect(
+      supabase,
+      DAILY_CONTEXT_SIGNALS_TABLE,
+      'user_id, role, log_date, heat_level, humidity_level, aqi_band, commute_minutes, exam_stress_score, fasting_state, shift_work, context_notes',
+      () => selectRecentDailyContextSignals(supabase, userId, 8)
+    ),
   ])
 
   const individualProfile = individualProfileResult.data || null
   const intelligenceRows = Array.isArray(intelligenceResult.data) ? intelligenceResult.data : []
   const latestIntel = intelligenceRows[0] || null
+  const contextSignals = (Array.isArray(contextResult.data) ? contextResult.data : [])
+    .map(normalizeDailyContextSignal)
+    .filter((signal): signal is DailyContextSignalRecord => Boolean(signal))
+  const contextSummary = summarizeDailyContextSignals(contextSignals)
 
   const sportProfile = asRecord(individualProfile?.sport_profile)
   const goalProfile = asRecord(individualProfile?.goal_profile)
   const currentState = normalizeIndividualCurrentState(asRecord(individualProfile?.current_state), latestIntel)
+  const nutritionSafety = await getNutritionSafetySummary(supabase, userId)
 
   return {
     individualProfile,
@@ -326,9 +571,488 @@ export async function getIndividualDashboardSnapshot(
     readinessScore: currentState.readinessScore,
     sport: String(sportProfile?.selectedSport || 'General Fitness'),
     primaryGoal: String(goalProfile?.primaryGoal || ''),
-    decision: individualProfile ? await buildIndividualDashboardDecision(userId, individualProfile, latestIntel, healthSummary) : null,
+    decision: individualProfile
+      ? await buildIndividualDashboardDecision(
+          userId,
+          individualProfile,
+          latestIntel,
+          healthSummary,
+          objectiveTest,
+          contextSummary,
+          nutritionSafety
+        )
+      : null,
     latestVideoReport,
+    objectiveTest,
+    contextSummary,
+    nutritionSafety,
   }
+}
+
+export async function getAthleteWeeklyReviewSnapshot(
+  supabase: SupabaseLike,
+  userId: string
+): Promise<AthleteWeeklyReviewSnapshot> {
+  const snapshot = await getAthleteDashboardSnapshot(supabase, userId)
+  const review = buildAthleteWeeklyReview(snapshot)
+  await persistWeeklyReviewSnapshot(supabase, {
+    userId,
+    role: 'athlete',
+    weekStart: resolveReviewWeekStart(review.trend),
+    focus: review.nextWeekFocus,
+    summary: serializeAthleteWeeklyReview(review),
+  })
+  return review
+}
+
+export async function getIndividualWeeklyReviewSnapshot(
+  supabase: SupabaseLike,
+  userId: string
+): Promise<IndividualWeeklyReviewSnapshot | null> {
+  const snapshot = await getIndividualDashboardSnapshot(supabase, userId)
+  if (!snapshot.decision) return null
+  const review = buildIndividualWeeklyReview(snapshot)
+  await persistWeeklyReviewSnapshot(supabase, {
+    userId,
+    role: 'individual',
+    weekStart: resolveReviewWeekStart(review.trend),
+    focus: review.nextWeekFocus,
+    summary: serializeIndividualWeeklyReview(review),
+  })
+  return review
+}
+
+export async function getCoachWeeklyReviewSnapshot(
+  supabase: SupabaseLike,
+  coachId: string
+): Promise<CoachWeeklyReviewSnapshot> {
+  const { data: teamsData, error: teamsError } = await supabase
+    .from('teams')
+    .select('id, team_name')
+    .eq('coach_id', coachId)
+
+  if (teamsError) {
+    console.warn('[dashboard_decisions] coach teams query failed', teamsError)
+    return createEmptyCoachWeeklyReviewSnapshot()
+  }
+
+  const teams = Array.isArray(teamsData)
+    ? teamsData
+        .map((row) => ({
+          id: String((row as Record<string, unknown>).id || ''),
+          teamName: String((row as Record<string, unknown>).team_name || 'Team'),
+        }))
+        .filter((row) => row.id)
+    : []
+
+  if (!teams.length) {
+    return createEmptyCoachWeeklyReviewSnapshot()
+  }
+
+  const teamIds = teams.map((team) => team.id)
+  const teamNameById = new Map(teams.map((team) => [team.id, team.teamName]))
+
+  const memberResult = await safeSelect(
+    supabase,
+    'team_members',
+    'team_id,athlete_id,profiles:athlete_id (id, full_name, avatar_url)',
+    (query: any) => query.in('team_id', teamIds).eq('status', 'Active')
+  )
+
+  const athleteMembers = (Array.isArray(memberResult.data) ? memberResult.data : [])
+    .map((row) => {
+      const record = row as Record<string, unknown>
+      const rawProfile = Array.isArray(record.profiles) ? record.profiles[0] : record.profiles
+      const profile = asRecord(rawProfile)
+      const teamId = String(record.team_id || '')
+      const athleteId = String(record.athlete_id || profile?.id || '')
+
+      if (!teamId || !athleteId) return null
+
+      return {
+        teamId,
+        teamName: teamNameById.get(teamId) || 'Team',
+        athleteId,
+        athleteName: String(profile?.full_name || 'Athlete'),
+      }
+    })
+    .filter((member): member is { teamId: string; teamName: string; athleteId: string; athleteName: string } => Boolean(member))
+
+  const athleteIds = Array.from(new Set(athleteMembers.map((member) => member.athleteId)))
+  if (!athleteIds.length) {
+    return createEmptyCoachWeeklyReviewSnapshot(teams.length)
+  }
+
+  const currentWeekStart = getRecentDateIso(6)
+  const trendWindowStart = getRecentDateIso(13)
+
+  const [logResult, intelligenceResult, interventionResult, objectiveResult, rehabResult] = await Promise.all([
+    safeSelect(
+      supabase,
+      'daily_load_logs',
+      'athlete_id,log_date,readiness_score,duration_minutes,session_rpe,current_pain_level,stress_level,sleep_quality',
+      (query: any) =>
+        query
+          .in('athlete_id', athleteIds)
+          .gte('log_date', trendWindowStart)
+          .order('log_date', { ascending: false })
+    ),
+    safeSelect(
+      supabase,
+      'computed_intelligence',
+      'user_id,readiness_score,risk_score,log_date,created_at,intelligence_trace',
+      (query: any) =>
+        query
+          .in('user_id', athleteIds)
+          .order('created_at', { ascending: false })
+    ),
+    safeSelect(
+      supabase,
+      'coach_interventions',
+      'id,athlete_id,team_id,queue_type,status,priority,reason_codes,recommendation,updated_at',
+      (query: any) =>
+        query
+          .eq('coach_id', coachId)
+          .in('athlete_id', athleteIds)
+          .order('updated_at', { ascending: false })
+    ),
+    safeSelect(
+      supabase,
+      'objective_test_sessions',
+      '*',
+      (query: any) =>
+        query
+          .in('user_id', athleteIds)
+          .order('completed_at', { ascending: false })
+    ),
+    safeSelect(
+      supabase,
+      'rehab_history',
+      'user_id,date,injury_type,stage,pain_score,load_tolerance,progression_flag',
+      (query: any) =>
+        query
+          .in('user_id', athleteIds)
+          .order('date', { ascending: false })
+    ),
+  ])
+
+  const logs = Array.isArray(logResult.data) ? logResult.data : []
+  const intelligenceRows = Array.isArray(intelligenceResult.data) ? intelligenceResult.data : []
+  const interventionRows = Array.isArray(interventionResult.data) ? interventionResult.data : []
+  const objectiveRows = Array.isArray(objectiveResult.data) ? objectiveResult.data : []
+  const rehabRows = Array.isArray(rehabResult.data) ? rehabResult.data : []
+
+  const logsByAthlete = new Map<string, Array<Record<string, unknown>>>()
+  logs.forEach((row) => {
+    const record = row as Record<string, unknown>
+    const athleteId = String(record.athlete_id || '')
+    if (!athleteId) return
+    const existing = logsByAthlete.get(athleteId) || []
+    existing.push(record)
+    logsByAthlete.set(athleteId, existing)
+  })
+
+  const weeklyLogsByAthlete = new Map<string, Array<Record<string, unknown>>>()
+  athleteIds.forEach((athleteId) => {
+    weeklyLogsByAthlete.set(
+      athleteId,
+      (logsByAthlete.get(athleteId) || []).filter((row) => String(row.log_date || '').slice(0, 10) >= currentWeekStart)
+    )
+  })
+
+  const latestIntelligenceByAthlete = new Map<string, Record<string, unknown>>()
+  intelligenceRows.forEach((row) => {
+    const record = row as Record<string, unknown>
+    const athleteId = String(record.user_id || '')
+    if (!athleteId || latestIntelligenceByAthlete.has(athleteId)) return
+    latestIntelligenceByAthlete.set(athleteId, record)
+  })
+
+  const objectiveSessionsByAthlete = new Map<string, ObjectiveTestSession[]>()
+  objectiveRows
+    .map(normalizeObjectiveTestSession)
+    .filter((session): session is ObjectiveTestSession => Boolean(session))
+    .forEach((session) => {
+      const existing = objectiveSessionsByAthlete.get(session.userId) || []
+      existing.push(session)
+      objectiveSessionsByAthlete.set(session.userId, existing)
+    })
+
+  const objectiveStatsByAthlete = new Map<string, ReturnType<typeof summarizeCoachObjectiveSessions>>()
+  athleteIds.forEach((athleteId) => {
+    objectiveStatsByAthlete.set(athleteId, summarizeCoachObjectiveSessions(objectiveSessionsByAthlete.get(athleteId) || []))
+  })
+
+  const rehabRowsByAthlete = new Map<string, Array<Record<string, unknown>>>()
+  rehabRows.forEach((row) => {
+    const record = row as Record<string, unknown>
+    const athleteId = String(record.user_id || '')
+    if (!athleteId) return
+    const existing = rehabRowsByAthlete.get(athleteId) || []
+    existing.push(record)
+    rehabRowsByAthlete.set(athleteId, existing)
+  })
+
+  const rehabHistoryByAthlete = new Map<string, RehabHistoryEntry[]>()
+  athleteIds.forEach((athleteId) => {
+    rehabHistoryByAthlete.set(athleteId, normalizeRehabHistory(rehabRowsByAthlete.get(athleteId)))
+  })
+
+  const complianceByAthlete = new Map<string, number>()
+  athleteIds.forEach((athleteId) => {
+    const weeklyLogs = weeklyLogsByAthlete.get(athleteId) || []
+    complianceByAthlete.set(
+      athleteId,
+      clampTo100(Math.round((weeklyLogs.length / 7) * 100))
+    )
+  })
+
+  const athleteIdentityMetricsByAthlete = new Map<string, IdentityMetricSummary[]>()
+  athleteIds.forEach((athleteId) => {
+    const objectiveStats = objectiveStatsByAthlete.get(athleteId)
+    const latestIntelligence = latestIntelligenceByAthlete.get(athleteId) || null
+
+    athleteIdentityMetricsByAthlete.set(
+      athleteId,
+      buildAthleteIdentityMetrics({
+        logs: weeklyLogsByAthlete.get(athleteId) || [],
+        trustSummary: readPersistedTrustSummary(latestIntelligence?.intelligence_trace) || null,
+        objectiveSignal: objectiveStats
+          ? {
+              trend: objectiveStats.primarySignal?.trend || 'missing',
+              freshness: objectiveStats.freshness,
+            }
+          : null,
+        rehabHistory: rehabHistoryByAthlete.get(athleteId) || [],
+        adherencePct: complianceByAthlete.get(athleteId) || 0,
+      })
+    )
+  })
+
+  const squadIdentityMetrics = buildSquadIdentityMetrics(Array.from(athleteIdentityMetricsByAthlete.values()))
+
+  const unresolvedInterventions = interventionRows.filter(
+    (row) => String((row as Record<string, unknown>).status || '') !== 'resolved'
+  )
+  const activeInterventionRows = unresolvedInterventions.filter(
+    (row) => String((row as Record<string, unknown>).queue_type || '') === 'intervention'
+  )
+  const lowDataRows = unresolvedInterventions.filter(
+    (row) => String((row as Record<string, unknown>).queue_type || '') === 'low_data'
+  )
+  const resolvedThisWeek = interventionRows.filter((row) => {
+    const record = row as Record<string, unknown>
+    return String(record.status || '') === 'resolved' && String(record.updated_at || '').slice(0, 10) >= currentWeekStart
+  }).length
+
+  const atRiskAthleteIds = new Set<string>()
+  athleteIds.forEach((athleteId) => {
+    const latestIntelligence = latestIntelligenceByAthlete.get(athleteId)
+    const readiness = numberOr(latestIntelligence?.readiness_score, 0)
+    const risk = numberOr(latestIntelligence?.risk_score, 0)
+    if (risk >= 45 || readiness < 45) {
+      atRiskAthleteIds.add(athleteId)
+    }
+  })
+  activeInterventionRows.forEach((row) => {
+    const athleteId = String((row as Record<string, unknown>).athlete_id || '')
+    if (athleteId) atRiskAthleteIds.add(athleteId)
+  })
+
+  const averageReadiness = Math.round(
+    average(
+      athleteIds
+        .map((athleteId) => numberOr(latestIntelligenceByAthlete.get(athleteId)?.readiness_score, 0))
+        .filter((value) => value > 0)
+    ) ?? 0
+  )
+
+  const trendDates = Array.from({ length: 7 }, (_, index) => getRecentDateIso(6 - index))
+  let lastKnownReadiness = averageReadiness
+  const trend = trendDates.map((date) => {
+    const dayLogs = logs.filter((row) => String((row as Record<string, unknown>).log_date || '').slice(0, 10) === date)
+    const readinessValues = dayLogs
+      .map((row) => toFiniteNumber((row as Record<string, unknown>).readiness_score))
+      .filter(isFiniteNumber)
+    const readinessScore = readinessValues.length
+      ? Math.round(average(readinessValues) ?? lastKnownReadiness)
+      : lastKnownReadiness
+
+    lastKnownReadiness = readinessScore
+
+    return {
+      date,
+      label: formatReviewDayLabel(date),
+      readinessScore,
+      loadMinutes: dayLogs.reduce((total, row) => total + numberOr((row as Record<string, unknown>).duration_minutes, 0), 0),
+    }
+  })
+
+  const readinessDelta =
+    trend.length >= 2 ? trend[trend.length - 1].readinessScore - trend[0].readinessScore : 0
+  const squadCompliancePct = Math.round(
+    average(athleteIds.map((athleteId) => complianceByAthlete.get(athleteId) || 0)) ?? 0
+  )
+
+  const teamSummaries = teams
+    .map((team) => {
+      const teamMembers = athleteMembers.filter((member) => member.teamId === team.id)
+      const memberIds = teamMembers.map((member) => member.athleteId)
+      const teamInterventionCount = activeInterventionRows.filter((row) => String((row as Record<string, unknown>).team_id || '') === team.id).length
+      const teamLowDataCount = lowDataRows.filter((row) => String((row as Record<string, unknown>).team_id || '') === team.id).length
+      const objectiveCoverageCount = memberIds.filter((athleteId) => objectiveStatsByAthlete.get(athleteId)?.hasMeasurement).length
+      const highRiskCount = memberIds.filter((athleteId) => atRiskAthleteIds.has(athleteId)).length
+      const teamIdentityMetrics = buildSquadIdentityMetrics(
+        memberIds
+          .map((athleteId) => athleteIdentityMetricsByAthlete.get(athleteId) || [])
+          .filter((metrics) => metrics.length > 0)
+      )
+
+      return {
+        teamId: team.id,
+        teamName: team.teamName,
+        athleteCount: memberIds.length,
+        averageReadiness: Math.round(
+          average(
+            memberIds
+              .map((athleteId) => numberOr(latestIntelligenceByAthlete.get(athleteId)?.readiness_score, 0))
+              .filter((value) => value > 0)
+          ) ?? 0
+        ),
+        compliancePct: Math.round(
+          average(memberIds.map((athleteId) => complianceByAthlete.get(athleteId) || 0)) ?? 0
+        ),
+        interventionCount: teamInterventionCount,
+        lowDataCount: teamLowDataCount,
+        highRiskCount,
+        objectiveCoveragePct: clampTo100(
+          Math.round((objectiveCoverageCount / Math.max(memberIds.length, 1)) * 100)
+        ),
+        consistencyScore: getIdentityMetricScore(teamIdentityMetrics, 'training_consistency'),
+        reliabilityScore: getIdentityMetricScore(teamIdentityMetrics, 'readiness_reliability'),
+      }
+    })
+    .sort((left, right) => {
+      if (right.highRiskCount !== left.highRiskCount) return right.highRiskCount - left.highRiskCount
+      if (right.interventionCount !== left.interventionCount) return right.interventionCount - left.interventionCount
+      return left.averageReadiness - right.averageReadiness
+    })
+
+  const highestRiskTeam = teamSummaries.find((team) => team.highRiskCount > 0) || null
+  const highestRiskCluster =
+    highestRiskTeam
+      ? `${highestRiskTeam.teamName} has the tightest risk cluster right now with ${highestRiskTeam.highRiskCount} athletes needing controlled loading or close review.`
+      : activeInterventionRows.length > 0
+        ? `${activeInterventionRows.length} athletes are still sitting in the active intervention lane this week.`
+        : 'No concentrated high-risk cluster is standing out across the squad right now.'
+
+  const objectiveCoveragePct = clampTo100(
+    Math.round(
+      (athleteIds.filter((athleteId) => objectiveStatsByAthlete.get(athleteId)?.hasMeasurement).length / Math.max(athleteIds.length, 1)) * 100
+    )
+  )
+  const objectiveDecliningCount = athleteIds.filter((athleteId) => objectiveStatsByAthlete.get(athleteId)?.declining).length
+
+  const biggestWin =
+    resolvedThisWeek >= 3
+      ? `Coach follow-up closed ${resolvedThisWeek} queue items this week, which reduced live intervention pressure.`
+      : readinessDelta >= 4
+        ? `Squad readiness improved by ${readinessDelta} points across the last seven days.`
+        : squadCompliancePct >= 75
+          ? `Squad compliance held at ${squadCompliancePct}%, which keeps coaching decisions believable.`
+          : objectiveDecliningCount === 0 && objectiveCoveragePct >= 25
+            ? 'Athletes using optional objective testing stayed stable enough to trust sharpness signals this week.'
+            : 'Signal quality stayed alive across enough of the squad to support meaningful weekly adjustments.'
+
+  const bottleneck =
+    lowDataRows.length >= Math.max(3, activeInterventionRows.length) && lowDataRows.length > 0
+      ? `Low-data pressure is still the main bottleneck: ${lowDataRows.length} athletes are limiting decision confidence.`
+      : highestRiskTeam
+        ? highestRiskCluster
+        : readinessDelta <= -4
+          ? `Squad readiness dropped by ${Math.abs(readinessDelta)} points, so the current microcycle may be outrunning recovery.`
+          : squadCompliancePct < 55
+            ? 'Logging compliance is still too soft, so progression calls are leaning on partial signal quality.'
+            : 'No single bottleneck dominates, but signal quality and recovery discipline still need protecting.'
+
+  const groupSuggestions = buildCoachGroupSuggestions({
+    athleteCount: athleteIds.length,
+    activeInterventions: activeInterventionRows.length,
+    lowDataCount: lowDataRows.length,
+    readinessDelta,
+    highestRiskTeam,
+    objectiveDecliningCount,
+    objectiveCoveragePct,
+    identityMetrics: squadIdentityMetrics,
+  })
+
+  const topPriorityAthletes = unresolvedInterventions
+    .map((row) => {
+      const record = row as Record<string, unknown>
+      const athleteId = String(record.athlete_id || '')
+      const teamId = String(record.team_id || '')
+      const member = athleteMembers.find((item) => item.athleteId === athleteId && item.teamId === teamId)
+      const queueType: CoachWeeklyReviewPriority['queueType'] =
+        String(record.queue_type || '') === 'low_data' ? 'low_data' : 'intervention'
+      const priority =
+        String(record.priority || '') === 'Critical' ||
+        String(record.priority || '') === 'Warning' ||
+        String(record.priority || '') === 'Informational'
+          ? (String(record.priority) as CoachWeeklyReviewPriority['priority'])
+          : 'Informational'
+
+      return {
+        athleteId,
+        athleteName: member?.athleteName || 'Athlete',
+        teamId,
+        teamName: member?.teamName || teamNameById.get(teamId) || 'Team',
+        queueType,
+        priority,
+        reasons: Array.isArray(record.reason_codes)
+          ? record.reason_codes.map((reason) => String(reason || '').trim()).filter(Boolean)
+          : [],
+        recommendation: String(record.recommendation || 'Review athlete context and adjust the plan.'),
+        updatedAt: record.updated_at ? String(record.updated_at) : null,
+      }
+    })
+    .sort((left, right) => {
+      const priorityDelta = getCoachPriorityWeight(right.priority) - getCoachPriorityWeight(left.priority)
+      if (priorityDelta !== 0) return priorityDelta
+      if (left.queueType !== right.queueType) return left.queueType === 'intervention' ? -1 : 1
+      return new Date(right.updatedAt || 0).getTime() - new Date(left.updatedAt || 0).getTime()
+    })
+    .slice(0, 5)
+
+  const review = {
+    periodLabel: buildReviewPeriodLabel(trend.map((entry) => entry.date)),
+    athleteCount: athleteIds.length,
+    teamCount: teams.length,
+    averageReadiness,
+    readinessDelta,
+    squadCompliancePct,
+    activeInterventions: activeInterventionRows.length,
+    lowDataCount: lowDataRows.length,
+    resolvedThisWeek,
+    objectiveCoveragePct,
+    objectiveDecliningCount,
+    bottleneck,
+    biggestWin,
+    highestRiskCluster,
+    nextWeekFocus: groupSuggestions[0]?.detail || 'Use this week’s squad pressure to shape the next microcycle, not just tomorrow’s session.',
+    trend,
+    topPriorityAthletes,
+    groupSuggestions,
+    teamSummaries,
+    identityMetrics: squadIdentityMetrics,
+  }
+  await persistWeeklyReviewSnapshot(supabase, {
+    userId: coachId,
+    role: 'coach',
+    weekStart: resolveReviewWeekStart(review.trend),
+    focus: review.nextWeekFocus,
+    summary: serializeCoachWeeklyReview(review),
+  })
+  return review
 }
 
 function buildAthleteEngineInput(
@@ -340,6 +1064,8 @@ function buildAthleteEngineInput(
   const trainingReality = asRecord(context.diagnostic?.training_reality) || {}
   const reactionProfile = asRecord(context.diagnostic?.reaction_profile) || {}
   const sportContext = asRecord(context.diagnostic?.sport_context) || {}
+  const physicalStatus = asRecord(context.diagnostic?.physical_status) || {}
+  const recoveryBaseline = asRecord(context.diagnostic?.recovery_baseline) || {}
 
   const sessionRpe = numberOr(currentLog.session_rpe, 0)
   const durationMinutes = numberOr(currentLog.duration_minutes, 0)
@@ -350,16 +1076,29 @@ function buildAthleteEngineInput(
   const energyInput = readLogField(currentLog, ['energy_level', 'energy'])
   const sorenessInput = readLogField(currentLog, ['muscle_soreness', 'soreness'])
   const stressInput = readLogField(currentLog, ['stress_level', 'stress', 'life_stress'])
+  const sleepLatencyInput = readLogField(currentLog, ['sleep_latency'])
+  const painLocation = Array.isArray(currentLog.pain_location)
+    ? currentLog.pain_location.map((item) => String(item))
+    : []
+  const latestContextSignal =
+    context.contextSummary?.latestSignal?.logDate === getLogDate(currentLog)
+      ? context.contextSummary.latestSignal
+      : null
 
   return {
     userId: context.userId,
     wellness: {
       sleep_quality: typeof sleepInput === 'string' || typeof sleepInput === 'number' ? sleepInput : 3,
+      sleep_latency:
+        typeof sleepLatencyInput === 'string' || typeof sleepLatencyInput === 'number'
+          ? sleepLatencyInput
+          : undefined,
       energy_level: normalizeEnergyLevel(energyInput),
       muscle_soreness: typeof sorenessInput === 'string' || typeof sorenessInput === 'number' ? sorenessInput : 2,
       stress_level: normalizeStressScore(stressInput),
       motivation,
       current_pain_level: numberOr(currentLog.current_pain_level, 0),
+      pain_location: painLocation,
       reaction_time_ms: numberOr(reactionProfile.reaction_time_ms, 0) || undefined,
     },
     session:
@@ -378,13 +1117,26 @@ function buildAthleteEngineInput(
       heightCm: numberOr(profileData.heightCm, 0) || undefined,
       weightKg: numberOr(profileData.weightKg, 0) || undefined,
       primaryGoal: String(context.diagnostic?.primary_goal || ''),
-      activityLevel: inferActivityLevel(trainingReality.trainingFrequency || trainingReality.training_frequency),
+      activityLevel: inferActivityLevel(
+        trainingReality.trainingFrequency || trainingReality.training_frequency,
+        trainingReality.avgIntensity || trainingReality.avg_intensity,
+        sportContext.playingLevel || sportContext.playing_level
+      ),
+      wakeTime: String(recoveryBaseline.usualWakeUpTime || recoveryBaseline.usual_wake_up_time || ''),
     },
+    baseline_injuries: normalizeAthleteBaselineInjuries(physicalStatus),
     context: {
       sport: String(sportContext.primarySport || context.profile?.primary_sport || 'General'),
       position: String(sportContext.position || context.profile?.position || ''),
       is_match_day: Boolean(currentLog.is_match_day || currentLog.competition_today),
       travel_day: String(currentLog.day_type || '').toLowerCase() === 'travel',
+      heat_level: latestContextSignal?.heatLevel || null,
+      humidity_level: latestContextSignal?.humidityLevel || null,
+      aqi_band: latestContextSignal?.aqiBand || null,
+      commute_minutes: latestContextSignal?.commuteMinutes || 0,
+      exam_stress_score: latestContextSignal?.examStressScore || 0,
+      fasting_state: latestContextSignal?.fastingState || null,
+      shift_work: latestContextSignal?.shiftWork || false,
     },
     history,
     adaptation_profile: context.adaptationProfile,
@@ -412,11 +1164,28 @@ function buildAthleteEngineInput(
   }
 }
 
+function normalizeAthleteBaselineInjuries(physicalStatus: Record<string, unknown>) {
+  const currentIssue = String(physicalStatus.currentIssue || '').toLowerCase()
+  if (currentIssue !== 'yes') return []
+
+  const activeInjuries = Array.isArray(physicalStatus.activeInjuries) ? physicalStatus.activeInjuries : []
+  return activeInjuries
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null
+      const region = String((entry as Record<string, unknown>).region || '').trim()
+      return region || null
+    })
+    .filter((region): region is string => Boolean(region))
+}
+
 async function buildIndividualDashboardDecision(
   userId: string,
   individualProfile: Record<string, unknown>,
   latestIntel: Record<string, unknown> | null,
-  healthSummary: AthleteHealthSummary | null
+  healthSummary: AthleteHealthSummary | null,
+  objectiveTest: ObjectiveTestSummary | null,
+  contextSummary: DailyContextSummary | null,
+  nutritionSafety: NutritionSafetySummary
 ): Promise<IndividualDashboardDecision> {
   const basicProfile = asRecord(individualProfile.basic_profile) || {}
   const physiologyProfile = asRecord(individualProfile.physiology_profile) || {}
@@ -435,6 +1204,7 @@ async function buildIndividualDashboardDecision(
   const weekly = normalizeIndividualWeeklyFeedback(asRecord(latestGuidance.weekly), currentState, journeyState, plan)
   const peak = normalizeIndividualPeakProjection(asRecord(latestGuidance.peak), currentState, peakState, journeyState)
   const recommendations = normalizeIndividualRecommendations(sportProfile.recommendations)
+  const primaryGap = gapAnalysis.primaryGap
   const pathwayType = normalizeIndividualPathwayType(sportProfile.selectedPathwayType)
   const activityLevel = normalizeIndividualActivityLevel(basicProfile.activityLevel)
   const goal = normalizeIndividualGoal(goalProfile.primaryGoal)
@@ -471,29 +1241,52 @@ async function buildIndividualDashboardDecision(
       sessionCount: Math.max(0, numberOr(individualProfile.updated_at ? 1 : 0, 0)),
     },
   })
-  const mealPlan = await nutritionGenerator.buildDailyNutrition(
-    userId,
-    goal,
-    numberOr(basicProfile.weightKg, 70),
-    numberOr(basicProfile.heightCm, 170),
-    numberOr(basicProfile.age, 28),
-    inferTimingPreference(lifestyleProfile.scheduleConstraints),
-    activityLevel,
-    String(basicProfile.gender || 'unknown'),
-    pathwayType
-  )
+  const mealPlan = nutritionSafety.blocksDetailedAdvice
+    ? null
+    : await nutritionGenerator.buildDailyNutrition(
+        userId,
+        goal,
+        numberOr(basicProfile.weightKg, 70),
+        numberOr(basicProfile.heightCm, 170),
+        numberOr(basicProfile.age, 28),
+        inferTimingPreference(lifestyleProfile.scheduleConstraints),
+        activityLevel,
+        String(basicProfile.gender || 'unknown'),
+        pathwayType
+      )
   const prescriptionSources = mergeEvidenceReferences(
     nutritionFramework.references,
     trainingFramework.references
   )
+  const trustSummary = mergeNutritionSafetyIntoTrustSummary(
+    buildIndividualTrustSummary({
+      individualProfile,
+      latestIntel,
+      healthSummary,
+      objectiveTest,
+      contextSummary,
+      healthIntegration,
+      currentState,
+      weekly,
+      journeyState,
+      pathwayTitle: String(sportProfile.selectedRecommendationTitle || sportProfile.selectedSport || 'Recommended path'),
+      primaryGap,
+    }),
+    nutritionSafety
+  )
 
   const direction = getIndividualDirection(currentState.readinessScore)
-  const primaryGap = gapAnalysis.primaryGap
   const explanationBits = [
     primaryGap.gap > 0 ? `Your biggest opportunity right now is ${primaryGap.pillar.toLowerCase()}.` : '',
     today.adaptationNote,
     healthIntegration.usedInDecision
       ? `Device data influenced today's guidance by ${numberOr(healthIntegration.influencePct, 0)}%.`
+      : '',
+    objectiveTest?.freshness === 'fresh' && objectiveTest.primarySignal
+      ? `Latest measured signal is ${getObjectiveFormattedHeadline(objectiveTest)} from ${getObjectivePrimaryLabel(objectiveTest)}.`
+      : '',
+    contextSummary?.highContextLoad
+      ? contextSummary.summary
       : '',
   ].filter(Boolean)
 
@@ -502,6 +1295,7 @@ async function buildIndividualDashboardDecision(
     directionLabel: direction.label,
     directionSummary: direction.summary,
     explanation: explanationBits.join(' '),
+    trustSummary,
     today,
     weekly,
     peak,
@@ -530,6 +1324,7 @@ async function buildIndividualDashboardDecision(
       manualRecoveryPulse: toFiniteNumber(healthIntegration.manualRecoveryPulse),
       blendedRecoveryPulse: toFiniteNumber(healthIntegration.blendedRecoveryPulse),
     },
+    contextSummary,
     prescriptions: {
       workoutPlan,
       mealPlan,
@@ -537,6 +1332,924 @@ async function buildIndividualDashboardDecision(
       trainingFramework,
       sources: prescriptionSources,
     },
+  }
+}
+
+function buildAthleteWeeklyReview(snapshot: AthleteDashboardSnapshot): AthleteWeeklyReviewSnapshot {
+  const logs = getRecentAthleteLogs(snapshot.latestLog, snapshot.historicalLogs)
+  const trend = logs.map((log) => ({
+    date: getLogDate(log),
+    label: formatReviewDayLabel(getLogDate(log)),
+    readinessScore: numberOr(log.readinessScore, numberOr(log.readiness_score, 0)),
+    loadMinutes: numberOr(log.duration_minutes, 0),
+  }))
+  const readinessValues = trend.map((entry) => entry.readinessScore).filter((value) => Number.isFinite(value))
+  const averageReadiness = average(readinessValues) ?? numberOr(snapshot.decisionResult?.creedaDecision?.intensity, 0)
+  const adherencePct = average(
+    logs.map((log) => clampTo100(Math.round(numberOr(log.adherenceScore, 0) * 100)))
+  ) ?? clampTo100(Math.round(numberOr(snapshot.decisionResult?.creedaDecision?.adherence?.adherenceScore, 0.8) * 100))
+  const loadMinutes = logs.reduce((total, log) => total + numberOr(log.duration_minutes, 0), 0)
+  const trainingDays = logs.filter((log) => numberOr(log.duration_minutes, 0) > 0 || numberOr(log.session_rpe, 0) > 0).length
+  const readinessDelta =
+    trend.length >= 2 ? trend[trend.length - 1].readinessScore - trend[0].readinessScore : 0
+  const trustSummary = snapshot.decisionResult?.creedaDecision?.trustSummary || null
+  const sleepAverage = average(logs.map((log) => mapSleepValueToScore(log.sleep_quality)).filter(isFiniteNumber)) ?? 0
+  const stressAverage = average(logs.map((log) => mapStressValueToScore(log.stress_level)).filter(isFiniteNumber)) ?? 0
+  const painAverage = average(logs.map((log) => toFiniteNumber(log.current_pain_level, 0)).filter(isFiniteNumber)) ?? 0
+
+  let bottleneck = 'Consistency is building, but the biggest unlock is still a steadier recovery rhythm.'
+  if (logs.length < 4) {
+    bottleneck = 'This week has too few trusted check-ins. More daily logs will make next week’s decision much stronger.'
+  } else if (snapshot.contextSummary?.highLoadDays && snapshot.contextSummary.highLoadDays >= 3) {
+    bottleneck = snapshot.contextSummary.summary
+  } else if (snapshot.objectiveTest?.trend === 'declining' && hasMeaningfulObjectiveChange(snapshot.objectiveTest)) {
+    bottleneck = `${getObjectivePrimaryLabel(snapshot.objectiveTest)} softened enough this week to justify more caution before pushing load.`
+  } else if (painAverage >= 4) {
+    bottleneck = 'Pain stayed elevated enough this week to limit how aggressively load should progress.'
+  } else if (stressAverage >= 65) {
+    bottleneck = 'Life and mental stress looked high enough to blunt adaptation this week.'
+  } else if (sleepAverage > 0 && sleepAverage < 3.2) {
+    bottleneck = 'Sleep quality was the main recovery bottleneck this week.'
+  } else if (adherencePct < 70) {
+    bottleneck = 'Execution drifted enough this week that plan adherence became the main limiter.'
+  }
+
+  let biggestWin = 'You kept the loop alive, which protects decision quality and lets CREEDA adapt faster.'
+  if (snapshot.objectiveTest?.trend === 'improving' && hasMeaningfulObjectiveChange(snapshot.objectiveTest)) {
+    biggestWin = `${getObjectivePrimaryLabel(snapshot.objectiveTest)} improved across recent testing, which adds confidence to the current progression.`
+  } else if (readinessDelta >= 8) {
+    biggestWin = `Readiness climbed by ${readinessDelta} points across the week.`
+  } else if (adherencePct >= 85) {
+    biggestWin = `Adherence stayed high at ${Math.round(adherencePct)}%, which is exactly what compounds progress.`
+  } else if (trainingDays >= 4) {
+    biggestWin = `You stacked ${trainingDays} meaningful training days this week.`
+  } else if ((trustSummary?.confidenceScore || 0) >= 80) {
+    biggestWin = 'You gave CREEDA enough signal quality this week to make higher-confidence calls.'
+  }
+
+  const nextWeekFocus =
+    ((snapshot.contextSummary?.highContextLoad || snapshot.contextSummary?.freshness === 'stale') ? snapshot.contextSummary?.nextAction : '') ||
+    (shouldPrioritizeObjectiveRetest(snapshot.objectiveTest) ? snapshot.objectiveTest?.nextAction : '') ||
+    trustSummary?.nextBestInputs[0] ||
+    snapshot.decisionResult?.creedaDecision?.components.recovery.priority ||
+    snapshot.decisionResult?.creedaDecision?.explanation.primaryDrivers[0]?.reason ||
+    'Protect recovery first, then build load only after trusted check-ins stay stable.'
+  const identityMetrics = buildAthleteIdentityMetrics({
+    logs,
+    trustSummary,
+    objectiveSignal: snapshot.objectiveTest
+      ? {
+          trend: snapshot.objectiveTest.primarySignal?.trend || snapshot.objectiveTest.trend,
+          freshness: snapshot.objectiveTest.freshness,
+        }
+      : null,
+    rehabHistory: snapshot.rehabHistory,
+    adherencePct: Math.round(adherencePct ?? 0),
+  })
+
+  return {
+    periodLabel: buildReviewPeriodLabel(trend.map((entry) => entry.date)),
+    averageReadiness: Math.round(averageReadiness ?? 0),
+    adherencePct: Math.round(adherencePct ?? 0),
+    loadMinutes,
+    trainingDays,
+    readinessDelta,
+    bottleneck,
+    biggestWin,
+    nextWeekFocus,
+    trustSummary,
+    decision: snapshot.decisionResult?.creedaDecision || null,
+    trend,
+    objectiveTest: snapshot.objectiveTest,
+    contextSummary: snapshot.contextSummary,
+    identityMetrics,
+  }
+}
+
+function buildIndividualWeeklyReview(snapshot: IndividualDashboardSnapshot): IndividualWeeklyReviewSnapshot {
+  const decision = snapshot.decision as IndividualDashboardDecision
+  const trend = getRecentIndividualTrend(snapshot.intelligenceRows, decision)
+  const readinessValues = trend.map((entry) => entry.readinessScore).filter((value) => Number.isFinite(value))
+  const averageReadiness = average(readinessValues) ?? decision.weekly.averageReadiness
+  const readinessDelta =
+    trend.length >= 2 ? trend[trend.length - 1].readinessScore - trend[0].readinessScore : 0
+
+  let bottleneck = `${decision.gapAnalysis.primaryGap.pillar} is still the primary gap to close.`
+  if (decision.trustSummary.dataQuality === 'WEAK') {
+    bottleneck = 'Decision trust is still weak because CREEDA needs more recent inputs from your daily loop.'
+  } else if (snapshot.contextSummary?.highLoadDays && snapshot.contextSummary.highLoadDays >= 3) {
+    bottleneck = snapshot.contextSummary.summary
+  } else if (snapshot.objectiveTest?.trend === 'declining' && hasMeaningfulObjectiveChange(snapshot.objectiveTest)) {
+    bottleneck = `${getObjectivePrimaryLabel(snapshot.objectiveTest)} softened recently, so recovery deserves extra attention.`
+  } else if (decision.weekly.trend === 'declining') {
+    bottleneck = 'The weekly trend softened, so recovery and consistency should lead before harder progression.'
+  } else if (decision.health.usedInDecision === false && !decision.health.summary?.connected) {
+    bottleneck = 'Recovery guidance is still running without device support, so daily self-report quality matters more.'
+  }
+
+  let biggestWin = `You are ${Math.round(decision.journeyState.progressToPeakPct)}% of the way to your current peak plan.`
+  if (snapshot.objectiveTest?.trend === 'improving' && hasMeaningfulObjectiveChange(snapshot.objectiveTest)) {
+    biggestWin = `${getObjectivePrimaryLabel(snapshot.objectiveTest)} improved across recent sessions.`
+  } else if (readinessDelta >= 6) {
+    biggestWin = `Readiness improved by ${readinessDelta} points over the week.`
+  } else if (decision.weekly.adherencePct >= 85) {
+    biggestWin = `Consistency stayed strong at ${Math.round(decision.weekly.adherencePct)}% adherence.`
+  } else if (decision.journeyState.streakCount >= 5) {
+    biggestWin = `You built a ${decision.journeyState.streakCount}-day momentum streak.`
+  }
+  const identityMetrics = buildIndividualIdentityMetrics({
+    readinessValues,
+    trustSummary: decision.trustSummary,
+    objectiveSignal: snapshot.objectiveTest
+      ? {
+          trend: snapshot.objectiveTest.primarySignal?.trend || snapshot.objectiveTest.trend,
+          freshness: snapshot.objectiveTest.freshness,
+        }
+      : null,
+    adherencePct: Math.round(decision.weekly.adherencePct),
+    streakCount: decision.journeyState.streakCount,
+    progressToPeakPct: Math.round(decision.journeyState.progressToPeakPct),
+  })
+
+  return {
+    periodLabel: buildReviewPeriodLabel(trend.map((entry) => entry.date)),
+    averageReadiness: Math.round(averageReadiness ?? 0),
+    adherencePct: Math.round(decision.weekly.adherencePct),
+    readinessDelta,
+    progressToPeakPct: Math.round(decision.journeyState.progressToPeakPct),
+    streakCount: decision.journeyState.streakCount,
+    bottleneck,
+    biggestWin,
+    nextWeekFocus:
+      ((snapshot.contextSummary?.highContextLoad || snapshot.contextSummary?.freshness === 'stale') ? snapshot.contextSummary?.nextAction : '') ||
+      (shouldPrioritizeObjectiveRetest(snapshot.objectiveTest) ? snapshot.objectiveTest?.nextAction : '') ||
+      decision.weekly.adjustments[0] ||
+      decision.trustSummary.nextBestInputs[0] ||
+      decision.today.whatToDo[0],
+    trustSummary: decision.trustSummary,
+    decision,
+    trend,
+    objectiveTest: snapshot.objectiveTest,
+    contextSummary: snapshot.contextSummary,
+    identityMetrics,
+  }
+}
+
+function createEmptyCoachWeeklyReviewSnapshot(teamCount = 0): CoachWeeklyReviewSnapshot {
+  return {
+    periodLabel: buildReviewPeriodLabel([]),
+    athleteCount: 0,
+    teamCount,
+    averageReadiness: 0,
+    readinessDelta: 0,
+    squadCompliancePct: 0,
+    activeInterventions: 0,
+    lowDataCount: 0,
+    resolvedThisWeek: 0,
+    objectiveCoveragePct: 0,
+    objectiveDecliningCount: 0,
+    bottleneck: 'No squad trend is available yet because there are no active athletes linked to this coach.',
+    biggestWin: 'Invite athletes to the squad so CREEDA can begin building weekly coaching intelligence.',
+    highestRiskCluster: 'No risk cluster is available until the first athletes begin logging and syncing.',
+    nextWeekFocus: 'Start by linking athletes, collecting daily signals, and creating the first believable trend line.',
+    trend: Array.from({ length: 7 }, (_, index) => {
+      const date = getRecentDateIso(6 - index)
+      return {
+        date,
+        label: formatReviewDayLabel(date),
+        readinessScore: 0,
+        loadMinutes: 0,
+      }
+    }),
+    topPriorityAthletes: [],
+    groupSuggestions: [
+      {
+        title: 'Start the squad loop',
+        detail: 'Invite athletes, collect daily check-ins, and let CREEDA build the first reliable squad trend.',
+        priority: 'Build',
+      },
+    ],
+    teamSummaries: [],
+    identityMetrics: buildSquadIdentityMetrics([]),
+  }
+}
+
+function resolveReviewWeekStart(trend: WeeklyReviewPoint[]) {
+  return trend[0]?.date || getTodayInIndia()
+}
+
+function serializeAthleteWeeklyReview(review: AthleteWeeklyReviewSnapshot) {
+  return {
+    periodLabel: review.periodLabel,
+    averageReadiness: review.averageReadiness,
+    adherencePct: review.adherencePct,
+    loadMinutes: review.loadMinutes,
+    trainingDays: review.trainingDays,
+    readinessDelta: review.readinessDelta,
+    bottleneck: review.bottleneck,
+    biggestWin: review.biggestWin,
+    nextWeekFocus: review.nextWeekFocus,
+    decision: review.decision?.decision || null,
+    trustSummary: review.trustSummary,
+    trend: review.trend,
+    objectiveTest: review.objectiveTest,
+    contextSummary: review.contextSummary,
+    identityMetrics: review.identityMetrics,
+  }
+}
+
+function serializeIndividualWeeklyReview(review: IndividualWeeklyReviewSnapshot) {
+  return {
+    periodLabel: review.periodLabel,
+    averageReadiness: review.averageReadiness,
+    adherencePct: review.adherencePct,
+    readinessDelta: review.readinessDelta,
+    progressToPeakPct: review.progressToPeakPct,
+    streakCount: review.streakCount,
+    bottleneck: review.bottleneck,
+    biggestWin: review.biggestWin,
+    nextWeekFocus: review.nextWeekFocus,
+    directionLabel: review.decision.directionLabel,
+    pathwayTitle: review.decision.pathway.title,
+    trustSummary: review.trustSummary,
+    trend: review.trend,
+    objectiveTest: review.objectiveTest,
+    contextSummary: review.contextSummary,
+    identityMetrics: review.identityMetrics,
+  }
+}
+
+function serializeCoachWeeklyReview(review: CoachWeeklyReviewSnapshot) {
+  return {
+    periodLabel: review.periodLabel,
+    athleteCount: review.athleteCount,
+    teamCount: review.teamCount,
+    averageReadiness: review.averageReadiness,
+    readinessDelta: review.readinessDelta,
+    squadCompliancePct: review.squadCompliancePct,
+    activeInterventions: review.activeInterventions,
+    lowDataCount: review.lowDataCount,
+    resolvedThisWeek: review.resolvedThisWeek,
+    objectiveCoveragePct: review.objectiveCoveragePct,
+    objectiveDecliningCount: review.objectiveDecliningCount,
+    bottleneck: review.bottleneck,
+    biggestWin: review.biggestWin,
+    highestRiskCluster: review.highestRiskCluster,
+    nextWeekFocus: review.nextWeekFocus,
+    trend: review.trend,
+    topPriorityAthletes: review.topPriorityAthletes,
+    groupSuggestions: review.groupSuggestions,
+    teamSummaries: review.teamSummaries,
+    identityMetrics: review.identityMetrics,
+  }
+}
+
+function summarizeCoachObjectiveSessions(sessions: ObjectiveTestSession[]) {
+  const signals = summarizeObjectiveSignals(sessions, computeObjectiveBaselines(sessions))
+  const primarySignal = signals[0] || null
+  const freshness = primarySignal?.freshness || 'missing'
+  const declining = Boolean(primarySignal && primarySignal.freshness === 'fresh' && primarySignal.trend === 'declining')
+
+  return {
+    hasMeasurement: Boolean(primarySignal?.headlineMetricValue !== null),
+    freshness,
+    declining,
+    primarySignal,
+  }
+}
+
+function buildCoachGroupSuggestions(args: {
+  athleteCount: number
+  activeInterventions: number
+  lowDataCount: number
+  readinessDelta: number
+  highestRiskTeam: CoachTeamReviewSummary | null
+  objectiveDecliningCount: number
+  objectiveCoveragePct: number
+  identityMetrics: SquadIdentityMetricSummary[]
+}): CoachGroupSuggestion[] {
+  const suggestions: CoachGroupSuggestion[] = []
+  const squadConsistency = getIdentityMetricScore(args.identityMetrics, 'training_consistency')
+  const squadReliability = getIdentityMetricScore(args.identityMetrics, 'readiness_reliability')
+  const squadRecoveryDiscipline = getIdentityMetricScore(args.identityMetrics, 'recovery_discipline')
+
+  if (args.highestRiskTeam && args.highestRiskTeam.highRiskCount > 0) {
+    suggestions.push({
+      title: 'Protect the highest-risk cluster',
+      detail: `Keep ${args.highestRiskTeam.teamName}'s ${args.highestRiskTeam.highRiskCount}-athlete risk subgroup in modified or technique-biased work until readiness stabilizes.`,
+      priority: 'High',
+    })
+  }
+
+  if (args.lowDataCount > 0) {
+    suggestions.push({
+      title: 'Reset signal quality',
+      detail: `Ask the ${args.lowDataCount} athletes in the low-data queue for same-day check-ins before the next hard loading day.`,
+      priority: args.lowDataCount >= Math.max(3, Math.round(args.athleteCount * 0.25)) ? 'High' : 'Watch',
+    })
+  }
+
+  if (squadReliability !== null && squadReliability < 60) {
+    suggestions.push({
+      title: 'Tighten readiness reliability',
+      detail: 'Too much of the squad is still driving the week on partial signal quality. Protect the daily loop before making harder progression calls.',
+      priority: 'High',
+    })
+  }
+
+  if (squadRecoveryDiscipline !== null && squadRecoveryDiscipline < 60) {
+    suggestions.push({
+      title: 'Reset recovery discipline',
+      detail: 'The squad is not recovering consistently enough between loading days. Make sleep, hydration, and recovery follow-through a team rule this week.',
+      priority: 'Watch',
+    })
+  }
+
+  if (squadConsistency !== null && squadConsistency < 60) {
+    suggestions.push({
+      title: 'Protect training rhythm',
+      detail: 'The weekly pattern is too stop-start. Reduce long gaps and make the next microcycle easier to actually complete.',
+      priority: 'Watch',
+    })
+  }
+
+  if (args.readinessDelta >= 3 && args.activeInterventions <= Math.max(1, Math.round(args.athleteCount * 0.15))) {
+    suggestions.push({
+      title: 'Use the green window',
+      detail: 'The squad trend is stable enough to place one higher-quality loading session mid-week, then reassess the next day.',
+      priority: 'Build',
+    })
+  }
+
+  if (args.objectiveDecliningCount >= 2) {
+    suggestions.push({
+      title: 'Optional sharpness audit',
+      detail: `Invite the ${args.objectiveDecliningCount} athletes with declining recent measured signals to use optional retesting before high-speed exposure.`,
+      priority: 'Watch',
+    })
+  } else if (args.objectiveCoveragePct < 30 && args.athleteCount >= 4) {
+    suggestions.push({
+      title: 'Optional measured anchor',
+      detail: 'Consider inviting a small subgroup to use optional objective testing so weekly comparisons are not purely subjective.',
+      priority: 'Build',
+    })
+  }
+
+  if (!suggestions.length) {
+    suggestions.push({
+      title: 'Keep the loop steady',
+      detail: 'No urgent squad-wide change is obvious, so protect compliance and let the next check-in cycle confirm whether progression should continue.',
+      priority: 'Build',
+    })
+  }
+
+  return suggestions.slice(0, 3)
+}
+
+function getCoachPriorityWeight(priority: CoachWeeklyReviewPriority['priority']) {
+  if (priority === 'Critical') return 3
+  if (priority === 'Warning') return 2
+  return 1
+}
+
+function buildIndividualTrustSummary({
+  individualProfile,
+  latestIntel,
+  healthSummary,
+  objectiveTest,
+  contextSummary,
+  healthIntegration,
+  currentState,
+  weekly,
+  journeyState,
+  pathwayTitle,
+  primaryGap,
+}: {
+  individualProfile: Record<string, unknown>
+  latestIntel: Record<string, unknown> | null
+  healthSummary: AthleteHealthSummary | null
+  objectiveTest: ObjectiveTestSummary | null
+  contextSummary: DailyContextSummary | null
+  healthIntegration: Record<string, unknown>
+  currentState: IndividualCurrentState
+  weekly: WeeklyFeedback
+  journeyState: IndividualJourneyState
+  pathwayTitle: string
+  primaryGap: IndividualGapAnalysis['primaryGap']
+}): TrustSummary {
+  const persisted = readPersistedTrustSummary(latestIntel?.intelligence_trace)
+  if (persisted) {
+    return mergeContextSummaryIntoTrustSummary(
+      mergeObjectiveTestIntoTrustSummary(persisted, objectiveTest),
+      contextSummary
+    )
+  }
+
+  const hasFitStart =
+    Boolean(asRecord(individualProfile.basic_profile)) ||
+    Boolean(asRecord(individualProfile.current_state)) ||
+    Boolean(asRecord(individualProfile.goal_profile))
+  const checkInDate = latestIntel?.log_date ? String(latestIntel.log_date) : null
+  const isFreshCheckIn = Boolean(checkInDate && checkInDate >= getRecentDateIso(2))
+  const connectedMetricDays = numberOr(healthIntegration.connectedMetricDays, healthSummary?.sampleDays || 0)
+
+  const signals: TrustSignalSummary[] = [
+    {
+      label: 'FitStart baseline',
+      type: 'estimated',
+      status: hasFitStart ? 'active' : 'limited',
+      detail: hasFitStart ? 'Baseline profile and goal context are available.' : 'Baseline still needs stronger profile detail.',
+    },
+    {
+      label: 'Daily check-in',
+      type: 'self_reported',
+      status: isFreshCheckIn ? 'active' : latestIntel ? 'limited' : 'missing',
+      detail: isFreshCheckIn
+        ? 'Today’s decision includes a recent self-report.'
+        : latestIntel
+          ? 'Recent self-report is getting stale.'
+          : 'No recent daily loop is attached.',
+    },
+    {
+      label: 'Device recovery',
+      type: 'measured',
+      status:
+        Boolean(healthIntegration.usedInDecision) || connectedMetricDays >= 5
+          ? 'active'
+          : healthSummary?.connected
+            ? 'limited'
+            : 'missing',
+      detail:
+        Boolean(healthIntegration.usedInDecision) || connectedMetricDays >= 5
+          ? `${connectedMetricDays} connected metric days are shaping recovery guidance.`
+          : healthSummary?.connected
+            ? 'Device sync exists, but there is not enough recent data to lean on it heavily.'
+            : 'Recovery guidance is currently driven by manual signals.',
+    },
+    {
+      label: 'Daily context',
+      type: 'self_reported',
+      status: contextSummary?.trustStatus || 'missing',
+      detail: contextSummary?.summary || 'No optional heat, commute, fasting, or air-quality context is attached yet.',
+    },
+    {
+      label: 'Objective testing',
+      type: 'measured',
+      status: hasObjectiveTestMeasurement(objectiveTest) ? objectiveTest?.trustStatus || 'limited' : 'building',
+      detail: getOptionalObjectiveDetail(objectiveTest),
+    },
+    {
+      label: 'Weekly trend',
+      type: 'estimated',
+      status: journeyState.currentWeek > 1 || journeyState.streakCount > 0 ? 'active' : 'building',
+      detail:
+        weekly.trend === 'declining'
+          ? 'Recent trend is softening, so CREEDA is protecting recovery.'
+          : weekly.trend === 'improving'
+            ? 'Recent trend is improving, which supports progression.'
+            : 'Recent trend is stable and helps hold the plan steady.',
+    },
+    {
+      label: 'Pathway model',
+      type: 'estimated',
+      status: pathwayTitle ? 'active' : 'limited',
+      detail: `Your current pathway is ${pathwayTitle}.`,
+    },
+  ]
+
+  const requiredSignals = signals.filter((signal) => {
+    if (signal.label === 'Objective testing') return hasObjectiveTestMeasurement(objectiveTest)
+    if (signal.label === 'Daily context') return Boolean(contextSummary?.recentSignalDays)
+    return true
+  })
+  const signalWeights: Record<TrustSignalSummary['status'], number> = {
+    active: 1,
+    limited: 0.65,
+    building: 0.45,
+    missing: 0,
+  }
+  const dataCompleteness = clampTo100(
+    Math.round((requiredSignals.reduce((sum, signal) => sum + signalWeights[signal.status], 0) / Math.max(requiredSignals.length, 1)) * 100)
+  )
+  const confidenceScore = clampTo100(
+    Math.round(
+      dataCompleteness * 0.55 +
+      (isFreshCheckIn ? 16 : latestIntel ? 9 : 0) +
+      (Boolean(healthIntegration.usedInDecision) ? 12 : healthSummary?.connected ? 6 : 0) +
+      (journeyState.streakCount >= 5 ? 8 : journeyState.streakCount > 0 ? 4 : 0) +
+      (currentState.readinessScore >= 80 || currentState.readinessScore <= 45 ? 6 : 3)
+    )
+  )
+  const confidenceLevel =
+    confidenceScore >= 80 ? 'HIGH' : confidenceScore >= 55 ? 'MEDIUM' : 'LOW'
+  const dataQuality =
+    dataCompleteness >= 80 ? 'COMPLETE' : dataCompleteness >= 55 ? 'PARTIAL' : 'WEAK'
+
+  const whyTodayChanged = [
+    Boolean(healthIntegration.usedInDecision) && numberOr(healthIntegration.influencePct, 0) > 0
+      ? `Device recovery data shifted today's guidance by ${numberOr(healthIntegration.influencePct, 0)}%.`
+      : '',
+    contextSummary?.highContextLoad ? contextSummary.summary : '',
+    objectiveTest?.trend === 'declining' && hasMeaningfulObjectiveChange(objectiveTest)
+      ? getObjectiveChangeNarrative(objectiveTest, 'past')
+      : objectiveTest?.trend === 'improving' && hasMeaningfulObjectiveChange(objectiveTest)
+        ? getObjectiveChangeNarrative(objectiveTest, 'past')
+        : '',
+    currentState.readinessScore < 45
+      ? 'Readiness is low enough that recovery is taking priority over progression today.'
+      : currentState.readinessScore >= 80
+        ? 'Readiness is high, so today can support a more ambitious progression step.'
+        : '',
+    primaryGap.gap > 0
+      ? `The biggest gap right now is ${primaryGap.pillar.toLowerCase()}, so today is biased toward closing that first.`
+      : 'The recent trend is stable, so CREEDA kept the plan steady instead of forcing a change.',
+  ].filter(Boolean)
+
+  const nextBestInputs = [
+    !isFreshCheckIn ? 'Complete a quick daily check-in tomorrow so the next call is based on fresher signals.' : '',
+    connectedMetricDays < 3 ? 'Sync 3 to 5 days of device recovery data to strengthen guidance reliability.' : '',
+    contextSummary?.freshness === 'stale'
+      ? contextSummary.nextAction
+      : '',
+    shouldPrioritizeObjectiveRetest(objectiveTest)
+      ? objectiveTest?.nextAction || 'Optional: refresh objective testing this week if you want CREEDA to keep comparing measured signals against your daily loop.'
+      : '',
+    journeyState.streakCount < 3 ? 'Keep the daily loop going for a few more days so trend-based guidance becomes sharper.' : '',
+    Number(weekly.adherencePct) < 70 ? 'Log what you actually completed so next week’s adjustments reflect reality.' : '',
+  ].filter(Boolean)
+
+  if (!nextBestInputs.length) {
+    nextBestInputs.push('Keep logging your daily effort and recovery so CREEDA can tighten progression week over week.')
+  }
+
+  return {
+    confidenceLevel,
+    confidenceScore,
+    dataCompleteness,
+    dataQuality,
+    signals,
+    whyTodayChanged,
+    nextBestInputs: nextBestInputs.slice(0, 3),
+  }
+}
+
+function mergeObjectiveTestIntoTrustSummary(
+  trustSummary: TrustSummary,
+  objectiveTest: ObjectiveTestSummary | null
+): TrustSummary {
+  if (!objectiveTest) return trustSummary
+
+  const objectiveSignal: TrustSignalSummary = {
+    label: 'Objective testing',
+    type: 'measured',
+    status: hasObjectiveTestMeasurement(objectiveTest) ? objectiveTest.trustStatus : 'building',
+    detail: getOptionalObjectiveDetail(objectiveTest),
+  }
+  const signals = [
+    ...trustSummary.signals.filter((signal) => signal.label !== objectiveSignal.label),
+    objectiveSignal,
+  ]
+  const whyTodayChanged = [...trustSummary.whyTodayChanged]
+  const nextBestInputs = [...trustSummary.nextBestInputs]
+
+  if (
+    objectiveTest.trend === 'declining' &&
+    hasMeaningfulObjectiveChange(objectiveTest) &&
+    whyTodayChanged.length < 4
+  ) {
+    whyTodayChanged.push(getObjectiveChangeNarrative(objectiveTest, 'past'))
+  }
+
+  if (
+    objectiveTest.trend === 'improving' &&
+    hasMeaningfulObjectiveChange(objectiveTest) &&
+    whyTodayChanged.length < 4
+  ) {
+    whyTodayChanged.push(getObjectiveChangeNarrative(objectiveTest, 'past'))
+  }
+
+  if (shouldPrioritizeObjectiveRetest(objectiveTest)) {
+    nextBestInputs.push(objectiveTest.nextAction)
+  }
+
+  return {
+    ...trustSummary,
+    signals,
+    whyTodayChanged: whyTodayChanged.slice(0, 4),
+    nextBestInputs: Array.from(new Set(nextBestInputs)).slice(0, 3),
+  }
+}
+
+function mergeContextSummaryIntoTrustSummary(
+  trustSummary: TrustSummary,
+  contextSummary: DailyContextSummary | null
+): TrustSummary {
+  if (!contextSummary) return trustSummary
+
+  const contextSignal: TrustSignalSummary = {
+    label: 'Daily context',
+    type: 'self_reported',
+    status: contextSummary.trustStatus,
+    detail: contextSummary.summary,
+  }
+  const signals = [
+    ...trustSummary.signals.filter((signal) => signal.label !== contextSignal.label),
+    contextSignal,
+  ]
+  const whyTodayChanged = [...trustSummary.whyTodayChanged]
+  const nextBestInputs = [...trustSummary.nextBestInputs]
+
+  if (contextSummary.highContextLoad && whyTodayChanged.length < 4) {
+    whyTodayChanged.push(contextSummary.summary)
+  }
+
+  if ((contextSummary.highContextLoad || contextSummary.freshness === 'stale') && nextBestInputs.length < 4) {
+    nextBestInputs.push(contextSummary.nextAction)
+  }
+
+  return {
+    ...trustSummary,
+    signals,
+    whyTodayChanged: Array.from(new Set(whyTodayChanged)).slice(0, 4),
+    nextBestInputs: Array.from(new Set(nextBestInputs)).slice(0, 3),
+  }
+}
+
+function mergeNutritionSafetyIntoTrustSummary(
+  trustSummary: TrustSummary,
+  nutritionSafety: NutritionSafetySummary
+): TrustSummary {
+  const nutritionSignal: TrustSignalSummary = {
+    label: 'Nutrition safety',
+    type: 'self_reported',
+    status: nutritionSafety.trustStatus,
+    detail: nutritionSafety.summary,
+  }
+  const signals = [
+    ...trustSummary.signals.filter((signal) => signal.label !== nutritionSignal.label),
+    nutritionSignal,
+  ]
+  const whyTodayChanged = [...trustSummary.whyTodayChanged]
+  const nextBestInputs = [...trustSummary.nextBestInputs]
+
+  if (nutritionSafety.needsClinicalReview && whyTodayChanged.length < 4) {
+    whyTodayChanged.push('Detailed nutrition guidance is paused because medical-health context needs extra caution.')
+  }
+
+  if (nutritionSafety.blocksDetailedAdvice) {
+    nextBestInputs.unshift(nutritionSafety.nextAction)
+  }
+
+  return {
+    ...trustSummary,
+    signals,
+    whyTodayChanged: Array.from(new Set(whyTodayChanged)).slice(0, 4),
+    nextBestInputs: Array.from(new Set(nextBestInputs)).slice(0, 3),
+  }
+}
+
+function mergeContextSummaryIntoDecisionResult(
+  result: OrchestratorOutputV5,
+  contextSummary: DailyContextSummary | null
+): OrchestratorOutputV5 {
+  if (!contextSummary) return result
+
+  const decision = result.creedaDecision
+  const fallbackTrustSummary: TrustSummary = decision.trustSummary || {
+    confidenceLevel: decision.confidenceLevel,
+    confidenceScore: decision.confidenceScore,
+    dataCompleteness: decision.dataCompleteness,
+    dataQuality:
+      decision.dataCompleteness >= 80 ? 'COMPLETE' : decision.dataCompleteness >= 55 ? 'PARTIAL' : 'WEAK',
+    signals: [],
+    whyTodayChanged: decision.confidenceReasons || [],
+    nextBestInputs: [],
+  }
+
+  return {
+    ...result,
+    creedaDecision: {
+      ...decision,
+      trustSummary: mergeContextSummaryIntoTrustSummary(fallbackTrustSummary, contextSummary),
+    },
+  }
+}
+
+function mergeNutritionSafetyIntoDecisionResult(
+  result: OrchestratorOutputV5,
+  nutritionSafety: NutritionSafetySummary
+): OrchestratorOutputV5 {
+  const decision = result.creedaDecision
+  const fallbackTrustSummary: TrustSummary = decision.trustSummary || {
+    confidenceLevel: decision.confidenceLevel,
+    confidenceScore: decision.confidenceScore,
+    dataCompleteness: decision.dataCompleteness,
+    dataQuality:
+      decision.dataCompleteness >= 80 ? 'COMPLETE' : decision.dataCompleteness >= 55 ? 'PARTIAL' : 'WEAK',
+    signals: [],
+    whyTodayChanged: decision.confidenceReasons || [],
+    nextBestInputs: [],
+  }
+
+  if (!nutritionSafety.blocksDetailedAdvice) {
+    return {
+      ...result,
+      creedaDecision: {
+        ...decision,
+        trustSummary: mergeNutritionSafetyIntoTrustSummary(fallbackTrustSummary, nutritionSafety),
+      },
+    }
+  }
+
+  return {
+    ...result,
+    creedaDecision: {
+      ...decision,
+      components: {
+        ...decision.components,
+        nutrition: {
+          ...decision.components.nutrition,
+          meals: null,
+          fueling: null,
+          totalPortionGrams: 0,
+        },
+        training: {
+          ...decision.components.training,
+          sessionProtocol: decision.components.training.sessionProtocol
+            ? {
+                ...decision.components.training.sessionProtocol,
+                nutrition: null,
+              }
+            : null,
+        },
+      },
+      trustSummary: mergeNutritionSafetyIntoTrustSummary(fallbackTrustSummary, nutritionSafety),
+    },
+  }
+}
+
+function getRecentAthleteLogs(
+  latestLog: Record<string, unknown> | null,
+  historicalLogs: Record<string, unknown>[]
+) {
+  const byDate = new Map<string, Record<string, unknown>>()
+  ;[latestLog, ...historicalLogs].forEach((entry) => {
+    if (!entry) return
+    const date = getLogDate(entry)
+    if (!date || byDate.has(date)) return
+    byDate.set(date, entry)
+  })
+
+  return Array.from(byDate.values())
+    .sort((a, b) => getLogDate(a).localeCompare(getLogDate(b)))
+    .slice(-7)
+}
+
+function getRecentIndividualTrend(
+  intelligenceRows: Array<Record<string, unknown>>,
+  decision: IndividualDashboardDecision
+): WeeklyReviewPoint[] {
+  const rows = intelligenceRows
+    .slice()
+    .sort((a, b) => String(a.log_date || '').localeCompare(String(b.log_date || '')))
+    .slice(-7)
+
+  if (!rows.length) {
+    const today = getTodayInIndia()
+    return [
+      {
+        date: today,
+        label: formatReviewDayLabel(today),
+        readinessScore: Math.round(decision.readinessScore),
+      },
+    ]
+  }
+
+  return rows.map((row) => {
+    const date = String(row.log_date || getTodayInIndia())
+    return {
+      date,
+      label: formatReviewDayLabel(date),
+      readinessScore: numberOr(row.readiness_score, Math.round(decision.readinessScore)),
+    }
+  })
+}
+
+function getLogDate(log: Record<string, unknown>) {
+  const raw = String(log.log_date || log.created_at || '').slice(0, 10)
+  return raw || getTodayInIndia()
+}
+
+function buildReviewPeriodLabel(dates: string[]) {
+  const sorted = dates.filter(Boolean).slice().sort()
+  if (!sorted.length) return 'Last 7 days'
+  const format = (date: string) =>
+    new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Kolkata' }).format(
+      new Date(`${date}T00:00:00+05:30`)
+    )
+  if (sorted.length === 1) return format(sorted[0])
+  return `${format(sorted[0])} - ${format(sorted[sorted.length - 1])}`
+}
+
+function formatReviewDayLabel(date: string) {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Kolkata' }).format(
+    new Date(`${date}T00:00:00+05:30`)
+  )
+}
+
+function getRecentDateIso(daysBack: number) {
+  const date = new Date()
+  date.setDate(date.getDate() - daysBack)
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(date)
+}
+
+function mapSleepValueToScore(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value <= 5) return value
+    if (value >= 8) return 5
+    if (value >= 7) return 4
+    if (value >= 6) return 3
+    if (value >= 5) return 2
+    return 1
+  }
+
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!normalized) return null
+  if (normalized.includes('excellent')) return 5
+  if (normalized.includes('good')) return 4
+  if (normalized.includes('okay') || normalized.includes('fair')) return 3
+  if (normalized.includes('poor') || normalized.includes('bad')) return 2
+  return null
+}
+
+function mapStressValueToScore(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value <= 10) return value * 10
+    return value
+  }
+
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!normalized) return null
+  if (normalized.includes('low')) return 25
+  if (normalized.includes('moderate') || normalized.includes('medium')) return 55
+  if (normalized.includes('high')) return 80
+  if (normalized.includes('severe')) return 90
+  return null
+}
+
+function readPersistedTrustSummary(trace: unknown): TrustSummary | null {
+  const trust = readPersistedDecision(trace)?.creedaDecision?.trustSummary as Record<string, unknown> | undefined
+  if (!trust) return null
+
+  const signals = Array.isArray(trust.signals)
+    ? trust.signals.reduce<TrustSignalSummary[]>((items, signal) => {
+          const record = asRecord(signal)
+          if (!record) return items
+          const status =
+            record.status === 'active' ||
+            record.status === 'limited' ||
+            record.status === 'missing' ||
+            record.status === 'building'
+              ? record.status
+              : 'limited'
+          const type =
+            record.type === 'measured' ||
+            record.type === 'estimated' ||
+            record.type === 'self_reported'
+              ? record.type
+              : 'estimated'
+
+          items.push({
+            label: String(record.label || 'Signal'),
+            type,
+            status,
+            detail: record.detail ? String(record.detail) : undefined,
+          })
+          return items
+        }, [])
+    : []
+
+  const confidenceLevel =
+    trust.confidenceLevel === 'LOW' ||
+    trust.confidenceLevel === 'MEDIUM' ||
+    trust.confidenceLevel === 'HIGH'
+      ? trust.confidenceLevel
+      : 'MEDIUM'
+  const dataQuality =
+    trust.dataQuality === 'COMPLETE' ||
+    trust.dataQuality === 'PARTIAL' ||
+    trust.dataQuality === 'WEAK'
+      ? trust.dataQuality
+      : 'PARTIAL'
+
+  return {
+    confidenceLevel,
+    confidenceScore: clampTo100(numberOr(trust.confidenceScore, 70)),
+    dataCompleteness: clampTo100(numberOr(trust.dataCompleteness, 70)),
+    dataQuality,
+    signals,
+    whyTodayChanged: readStringArray(trust.whyTodayChanged, []),
+    nextBestInputs: readStringArray(trust.nextBestInputs, []),
   }
 }
 
@@ -1031,17 +2744,99 @@ function readPersistedDecision(trace: unknown): OrchestratorOutputV5 | null {
   return null
 }
 
+async function getObjectiveTestSummary(
+  supabase: SupabaseLike,
+  userId: string
+): Promise<ObjectiveTestSummary | null> {
+  const result = await safeSelect(
+    supabase,
+    'objective_test_sessions',
+    '*',
+    (query: any) =>
+      query
+        .eq('user_id', userId)
+        .order('completed_at', { ascending: false })
+        .limit(32)
+  )
+
+  if (!result.available) return null
+
+  const sessions = (Array.isArray(result.data) ? result.data : [])
+    .map(normalizeObjectiveTestSession)
+    .filter((session): session is ObjectiveTestSession => Boolean(session))
+  const baselines = computeObjectiveBaselines(sessions)
+  const signals = summarizeObjectiveSignals(sessions, baselines)
+  const primarySignal = signals[0] || null
+  const primarySessions = primarySignal
+    ? sessions.filter((session) => session.testType === primarySignal.protocolId)
+    : []
+  const latestSession = primarySessions[0] || null
+  const previousSession = primarySessions[1] || null
+  const latestValidatedScoreMs =
+    primarySignal?.headlineMetricUnit === 'ms'
+      ? Math.round(primarySignal.headlineMetricValue ?? latestSession?.validatedScoreMs ?? 0)
+      : null
+  const previousValidatedScoreMs =
+    previousSession?.headlineMetricUnit === 'ms'
+      ? Math.round(previousSession.headlineMetricValue ?? previousSession?.validatedScoreMs ?? 0)
+      : null
+  const deltaVsPreviousMs =
+    latestValidatedScoreMs !== null && previousValidatedScoreMs !== null
+      ? latestValidatedScoreMs - previousValidatedScoreMs
+      : null
+  const freshness: ObjectiveTestSummary['freshness'] = primarySignal?.freshness || 'missing'
+  const trend: ObjectiveTestSummary['trend'] = primarySignal?.trend || 'missing'
+
+  const weekSessionCount = sessions.filter((session) => {
+    const date = session.completedAt?.slice(0, 10)
+    return Boolean(date && date >= getRecentDateIso(7))
+  }).length
+
+  const trustStatus: TrustSignalSummary['status'] =
+    !primarySignal
+      ? 'building'
+      : freshness === 'fresh'
+        ? latestSession?.validityStatus === 'accepted'
+          ? 'active'
+          : 'limited'
+        : 'limited'
+
+  return {
+    latestSession,
+    latestValidatedScoreMs,
+    previousValidatedScoreMs,
+    deltaVsPreviousMs,
+    trend,
+    freshness,
+    trustStatus,
+    classification: primarySignal?.classification || latestSession?.classification || null,
+    completedAt: latestSession?.completedAt || null,
+    recentSessionCount: sessions.length,
+    weekSessionCount,
+    summary: primarySignal?.summary || 'Objective testing is optional. No saved objective session is attached yet.',
+    nextAction:
+      primarySignal?.nextAction ||
+      'Optional: run a measured test if you want CREEDA to compare a fresh objective signal against your daily loop.',
+    primaryProtocolId: primarySignal?.protocolId || null,
+    latestHeadlineMetricValue: primarySignal?.headlineMetricValue ?? null,
+    latestHeadlineMetricUnit: primarySignal?.headlineMetricUnit || null,
+    latestHeadlineMetricLabel: primarySignal?.headlineMetricLabel || null,
+    primarySignal,
+    signals,
+  }
+}
+
 async function getHealthSummary(supabase: SupabaseLike, userId: string): Promise<AthleteHealthSummary | null> {
   const [connectionResult, metricsResult] = await Promise.all([
     safeSelect(
       supabase,
-      'health_connections',
+      HEALTH_CONNECTIONS_TABLE,
       'apple_connected,android_connected,last_sync_at,last_sync_status,last_error',
       (query: any) => query.eq('user_id', userId).maybeSingle()
     ),
     safeSelect(
       supabase,
-      'health_daily_metrics',
+      HEALTH_DAILY_METRICS_TABLE,
       'metric_date,steps,sleep_hours,heart_rate_avg,hrv,source',
       (query: any) => query.eq('user_id', userId).order('metric_date', { ascending: false }).limit(7)
     ),
@@ -1096,6 +2891,40 @@ async function safeSelect(
   return { available: true, data: null }
 }
 
+async function persistWeeklyReviewSnapshot(
+  supabase: SupabaseLike,
+  args: {
+    userId: string
+    role: 'athlete' | 'individual' | 'coach'
+    weekStart: string
+    focus: string
+    summary: Record<string, unknown>
+  }
+) {
+  const payload = {
+    user_id: args.userId,
+    role: args.role,
+    week_start: args.weekStart,
+    summary_json: args.summary,
+    focus: args.focus,
+    completed_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+
+  try {
+    const result = await supabase
+      .from('weekly_reviews')
+      .upsert(payload, { onConflict: 'user_id,role,week_start' })
+
+    if (!result.error) return
+    if (isMissingRelationError(result.error, 'weekly_reviews')) return
+    console.warn('[dashboard_decisions] weekly_reviews upsert failed', result.error)
+  } catch (error) {
+    if (isMissingRelationError(error, 'weekly_reviews')) return
+    console.warn('[dashboard_decisions] weekly_reviews upsert failed', error)
+  }
+}
+
 function isMissingRelationError(error: any, table: string) {
   const message = String(error?.message || '').toLowerCase()
   return (
@@ -1129,10 +2958,24 @@ function mapSessionType(value: unknown): SessionType | undefined {
   return undefined
 }
 
-function inferActivityLevel(trainingFrequency: unknown) {
-  const normalized = String(trainingFrequency || '').trim().toLowerCase()
-  if (normalized === 'daily') return 'athlete'
-  if (normalized === '4-6 days') return 'active'
+function inferActivityLevel(trainingFrequency: unknown, avgIntensity?: unknown, playingLevel?: unknown) {
+  const frequency = String(trainingFrequency || '').trim().toLowerCase()
+  const intensity = String(avgIntensity || '').trim().toLowerCase()
+  const level = String(playingLevel || '').trim().toLowerCase()
+
+  let score = 0
+  if (frequency === 'daily') score += 3
+  else if (frequency === '4-6 days') score += 2
+  else if (frequency === '1-3 days') score += 1
+
+  if (intensity === 'high') score += 2
+  else if (intensity === 'moderate') score += 1
+
+  if (['national', 'professional'].includes(level)) score += 2
+  else if (['state', 'district'].includes(level)) score += 1
+
+  if (score >= 5) return 'athlete'
+  if (score >= 3) return 'active'
   return 'moderate'
 }
 

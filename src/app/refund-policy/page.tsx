@@ -1,21 +1,30 @@
-import LegalLayout from '@/components/LegalLayout';
+import LegalLayout from '@/components/LegalLayout'
+import { CREEDA_SUPPORT_EMAIL, LEGAL_LAST_UPDATED_LABEL } from '@/lib/legal/constants'
 
 export default function RefundPage() {
   return (
-    <LegalLayout title="Refund Policy">
-      <p>Last Updated: March 19, 2026</p>
-      
-      <h3>1. Billing Errors & Verified Charges</h3>
-      <p>CREEDA currently offers the core platform without subscription tiers. If you are charged in error, billed twice, or encounter a verified payment-processing issue, contact creedaperformance@gmail.com with your account details and transaction receipt so we can investigate and issue a refund when appropriate.</p>
-      
-      <h3>2. Refund Process</h3>
-      <p>To request a refund, please email creedaperformance@gmail.com with your account details and transaction receipt. Refunds are processed back to the original payment method via Razorpay within 5-7 business days of approval.</p>
-      
-      <h3>3. Future Paid Services</h3>
-      <p>If CREEDA introduces optional paid services in the future, any service-specific billing terms, trial periods, and refund windows will be presented clearly at the time of purchase.</p>
-      
-      <h3>4. Transaction Disputes</h3>
-      <p>If you encounter a payment error, double-billing, or unauthorized transaction, please notify us immediately at creedaperformance@gmail.com for prompt resolution.</p>
+    <LegalLayout title="Refund Policy" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+      <h3>1. Billing Errors and Unauthorized Charges</h3>
+      <p>
+        If you experience duplicate billing, unauthorized charges, or payment processing errors, contact{' '}
+        {CREEDA_SUPPORT_EMAIL} with transaction details for investigation.
+      </p>
+
+      <h3>2. Refund Review Process</h3>
+      <p>
+        Verified billing issues are reviewed and, where applicable, refunded to the original payment method within
+        commercially reasonable timelines.
+      </p>
+
+      <h3>3. Future Paid Features</h3>
+      <p>
+        If paid subscriptions or add-ons are launched, pricing, trial windows, cancellation terms, and refund
+        conditions will be shown clearly at purchase.
+      </p>
+
+      <h3>4. Contact</h3>
+      <p>For payment and refund support: {CREEDA_SUPPORT_EMAIL}</p>
     </LegalLayout>
-  );
+  )
 }
+

@@ -3,8 +3,12 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { ShieldCheck, Trophy, ArrowRight, Star } from 'lucide-react'
 
-export default async function JoinPage({ params }: { params: { lockerCode: string } }) {
-  const { lockerCode } = params
+export default async function JoinPage({
+  params,
+}: {
+  params: Promise<{ lockerCode: string }> | { lockerCode: string }
+}) {
+  const { lockerCode } = await params
   const invite = await getInviteData(lockerCode)
 
   if (invite.error) {
@@ -52,7 +56,7 @@ export default async function JoinPage({ params }: { params: { lockerCode: strin
             Join <span className="text-blue-500">{invite.teamName}</span>
           </h1>
           <p className="text-xl text-muted-foreground font-medium max-w-lg mx-auto leading-relaxed">
-            You've been invited by <span className="text-white font-bold">Coach {invite.coachName}</span> to join their elite digital squad.
+            You&apos;ve been invited by <span className="text-white font-bold">Coach {invite.coachName}</span> to join their elite digital squad.
           </p>
         </div>
 
@@ -90,7 +94,7 @@ export default async function JoinPage({ params }: { params: { lockerCode: strin
           </Button>
 
           <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">
-            Don't have an account? Create one in <span className="text-muted-foreground">less than 2 minutes</span>.
+            Don&apos;t have an account? Create one in <span className="text-muted-foreground">less than 2 minutes</span>.
           </p>
         </div>
       </div>

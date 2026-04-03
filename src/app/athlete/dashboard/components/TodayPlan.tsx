@@ -4,6 +4,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Dumbbell, Brain, Leaf, Apple, Heart, CheckCircle2 } from "lucide-react";
 import type { CreedaDecision } from "@/lib/engine/types";
+import type { NutritionSafetySummary } from "@/lib/nutrition-safety";
 import { WorkoutPrescriptionView } from "./WorkoutPrescriptionView";
 import { NutritionPrescriptionView } from "./NutritionPrescriptionView";
 
@@ -11,6 +12,7 @@ interface Props {
   components: CreedaDecision['components'];
   sessionType: string;
   duration: number;
+  nutritionSafety: NutritionSafetySummary;
   isPinned?: boolean;
   onTogglePin?: () => void;
 }
@@ -19,6 +21,7 @@ export const TodayPlan: React.FC<Props> = ({
   components,
   sessionType,
   duration,
+  nutritionSafety,
   isPinned = false,
   onTogglePin,
 }) => {
@@ -125,12 +128,14 @@ export const TodayPlan: React.FC<Props> = ({
           color="orange"
           customContent={showDetails ? (
             <NutritionPrescriptionView
+              role="athlete"
               meals={nutrition.meals}
               fuelingGuidance={nutrition.fueling}
+              nutritionSafety={nutritionSafety}
             />
           ) : null}
-          items={!showDetails ? [nutrition.meals?.[0]?.name || "Balanced Nutrition"] : []}
-          meta={!showDetails ? 'Tap for Meals' : ''}
+          items={!showDetails ? [nutritionSafety.blocksDetailedAdvice ? nutritionSafety.gateTitle : nutrition.meals?.[0]?.name || "Balanced Nutrition"] : []}
+          meta={!showDetails ? (nutritionSafety.blocksDetailedAdvice ? "Safety first" : 'Tap for Meals') : ''}
           onClick={() => !isPinned && setShowDetails(!showDetails)}
         />
       </div>

@@ -175,9 +175,7 @@ const STAGE_LABELS: Record<number, RehabStage['label']> = {
 export function calculateRehab(input: RehabInput): RehabOutput {
   const {
     painScore,
-    soreness,
     movementQuality,
-    loadTolerance,
     injuryContext,
     rehabHistory,
     visionFaults,
@@ -332,7 +330,8 @@ export function inferInjuryContext(
   soreness: number,
   sport: string,
   visionFaults: VisionFault[],
-  rehabHistory: RehabHistoryEntry[]
+  rehabHistory: RehabHistoryEntry[],
+  baselineInjuries: string[] = []
 ): InjuryContext {
   // If currently in rehab, continue with same injury type
   if (rehabHistory.length > 0) {
@@ -340,6 +339,11 @@ export function inferInjuryContext(
     if (latest.injury_type && latest.pain_score > 0) {
       return { type: latest.injury_type, confidence: 0.85 };
     }
+  }
+
+  const baselineInjury = inferBaselineInjuryType(baselineInjuries)
+  if (baselineInjury) {
+    return { type: baselineInjury, confidence: painScore >= 3 ? 0.72 : 0.58 }
   }
 
   // If pain is low and no prior injury, no injury context
@@ -379,4 +383,19 @@ export function inferInjuryContext(
   }
 
   return { type: null, confidence: 0.7 };
+}
+
+function inferBaselineInjuryType(regions: string[]): InjuryType {
+  for (const region of regions) {
+    const normalized = region.toLowerCase()
+    if (normalized.includes('hamstring')) return 'HAMSTRING'
+    if (normalized.includes('knee')) return 'KNEE'
+    if (normalized.includes('ankle') || normalized.includes('foot') || normalized.includes('achilles')) return 'ANKLE'
+    if (normalized.includes('shoulder') || normalized.includes('elbow') || normalized.includes('wrist') || normalized.includes('hand')) return 'SHOULDER'
+    if (normalized.includes('lower back') || normalized.includes('upper back') || normalized.includes('back') || normalized.includes('neck')) return 'LOWER_BACK'
+    if (normalized.includes('hip') || normalized.includes('groin') || normalized.includes('quad') || normalized.includes('oblique') || normalized.includes('side')) return 'GROIN'
+    if (normalized.includes('calf') || normalized.includes('shin')) return 'CALF'
+  }
+
+  return null
 }

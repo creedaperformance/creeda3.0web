@@ -1,6 +1,6 @@
 import {
   ReadinessOutput, RiskOutput, ConfidenceOutput, DecisionOutput, UncertaintyOutput,
-  CreedaDecision, DecisionVerdict, DominantFactor, RehabOutput, VisionFault, AdherenceData, AthleteInput
+  CreedaDecision, DecisionVerdict, DominantFactor, RehabOutput, VisionFault, AdherenceData, AthleteInput, TrustSummary
 } from './types';
 
 /**
@@ -39,10 +39,11 @@ export async function generateCreedaDecision(params: {
   profile?: AthleteInput['profile'];
   adherence: AdherenceData;
   userId: string;
+  dailyContext?: AthleteInput['context'];
 }): Promise<CreedaDecision> {
   const {
     readiness, risk, confidence, history, uncertainty,
-    painLevel, adaptation, rehab, visionFaults, sport, position, profile, adherence, userId
+    painLevel, adaptation, rehab, visionFaults, sport, position, profile, adherence, userId, dailyContext
   } = params;
 
   const timestamp = new Date().toISOString();
@@ -204,7 +205,7 @@ export async function generateCreedaDecision(params: {
     sanitizePositiveMetric(profile?.weightKg, 75, 30, 250),
     sanitizePositiveMetric(profile?.heightCm, 175, 120, 230),
     sanitizePositiveMetric(profile?.age, 28, 8, 90),
-    'EARLY',
+    inferAthleteTimingPreference(profile?.wakeTime),
     normalizeActivityLevel(profile?.activityLevel, sport),
     profile?.biologicalSex || profile?.gender || 'unknown',
     undefined,
@@ -249,6 +250,23 @@ export async function generateCreedaDecision(params: {
     progressionReadiness: rehab?.shouldProgress || false,
   };
 
+  const confidenceScore = Math.round(confidence.total_confidence * 100);
+  const confidenceLevel =
+    confidence.total_confidence < 0.4 ? 'LOW' : confidence.total_confidence < 0.7 ? 'MEDIUM' : 'HIGH';
+  const trustSummary = buildTrustSummary({
+    confidence,
+    confidenceScore,
+    confidenceLevel,
+    dataCompleteness,
+    historyLength: history.length,
+    dominantFactor,
+    painLevel,
+    rehab,
+    visionFaults: params.visionFaults || [],
+    feedbackInsight: feedback.insight,
+    dailyContext,
+  });
+
   return {
     decision,
     intensity,
@@ -266,13 +284,31 @@ export async function generateCreedaDecision(params: {
     feedback,
     adherence,
     dataCompleteness,
-    confidenceScore: Math.round(confidence.total_confidence * 100),
-    confidenceLevel: confidence.total_confidence < 0.4 ? 'LOW' : confidence.total_confidence < 0.7 ? 'MEDIUM' : 'HIGH',
+    confidenceScore,
+    confidenceLevel,
     confidenceReasons: confidence.reasons,
+    trustSummary,
     visionFaults: params.visionFaults || [],
     scientificContext,
     timestamp,
   };
+}
+
+function inferAthleteTimingPreference(wakeTime?: string): 'EARLY' | 'LATE' | 'IF' {
+  const normalized = String(wakeTime || '').trim()
+  if (!normalized) return 'EARLY'
+
+  const [hourRaw, minuteRaw] = normalized.split(':')
+  const hour = Number(hourRaw)
+  const minute = Number(minuteRaw || 0)
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23 || !Number.isFinite(minute) || minute < 0 || minute > 59) {
+    return 'EARLY'
+  }
+
+  const totalMinutes = hour * 60 + minute
+  if (totalMinutes >= 9 * 60 + 30) return 'LATE'
+  if (totalMinutes <= 6 * 60) return 'EARLY'
+  return 'EARLY'
 }
 
 function sanitizePositiveMetric(value: unknown, fallback: number, min: number, max: number) {
@@ -474,6 +510,154 @@ function buildFuelingGuidance(
 
 function uniqueStrings(items: Array<string | null | undefined>) {
   return [...new Set(items.map((item) => String(item || '').trim()).filter(Boolean))];
+}
+
+function getDailyContextDrivers(context?: AthleteInput['context']) {
+  if (!context) return [];
+
+  const drivers: string[] = [];
+
+  if (context.heat_level === 'extreme') drivers.push('extreme heat');
+  else if (context.heat_level === 'hot') drivers.push('high heat');
+
+  if (context.humidity_level === 'high') drivers.push('high humidity');
+  if (context.aqi_band === 'very_poor') drivers.push('very poor air quality');
+  else if (context.aqi_band === 'poor') drivers.push('poor air quality');
+
+  if ((context.commute_minutes || 0) >= 90) drivers.push('a long commute');
+  else if ((context.commute_minutes || 0) >= 45) drivers.push('a moderate commute');
+
+  if ((context.exam_stress_score || 0) >= 4) drivers.push('heavy schedule stress');
+  else if ((context.exam_stress_score || 0) >= 2) drivers.push('extra schedule stress');
+
+  if (context.fasting_state === 'strict') drivers.push('strict fasting');
+  else if (context.fasting_state === 'light') drivers.push('light fasting');
+
+  if (context.shift_work) drivers.push('shift-work fatigue');
+
+  return drivers;
+}
+
+function hasDailyContextSignal(context?: AthleteInput['context']) {
+  if (!context) return false;
+
+  return Boolean(
+    context.heat_level ||
+    context.humidity_level ||
+    context.aqi_band ||
+    (context.commute_minutes || 0) > 0 ||
+    (context.exam_stress_score || 0) > 0 ||
+    context.fasting_state ||
+    context.shift_work
+  );
+}
+
+function formatHumanList(items: string[]) {
+  if (items.length <= 1) return items[0] || '';
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+function buildTrustSummary(params: {
+  confidence: ConfidenceOutput;
+  confidenceScore: number;
+  confidenceLevel: TrustSummary['confidenceLevel'];
+  dataCompleteness: number;
+  historyLength: number;
+  dominantFactor: DominantFactor;
+  painLevel: number;
+  rehab: RehabOutput | null;
+  visionFaults: VisionFault[];
+  feedbackInsight: string;
+  dailyContext?: AthleteInput['context'];
+}): TrustSummary {
+  const dataQuality: TrustSummary['dataQuality'] =
+    params.dataCompleteness >= 80 ? 'COMPLETE' : params.dataCompleteness >= 50 ? 'PARTIAL' : 'WEAK';
+  const contextDrivers = getDailyContextDrivers(params.dailyContext);
+  const hasContextSignal = hasDailyContextSignal(params.dailyContext);
+
+  const signals: TrustSummary['signals'] = [
+    {
+      label: 'Daily check-in',
+      type: 'self_reported',
+      status: 'active',
+      detail: 'Sleep, soreness, stress, pain, and prior session load are included.',
+    },
+    {
+      label: 'Recent training history',
+      type: 'estimated',
+      status: params.historyLength >= 7 ? 'active' : params.historyLength >= 3 ? 'limited' : 'building',
+      detail:
+        params.historyLength >= 7
+          ? `${params.historyLength} recent sessions are stabilizing trend context.`
+          : params.historyLength > 0
+            ? `${params.historyLength} recent sessions are available, but the trend is still building.`
+            : 'No recent history is available yet.',
+    },
+    {
+      label: 'Pain and rehab context',
+      type: 'self_reported',
+      status: params.painLevel > 0 || Boolean(params.rehab) ? 'active' : 'limited',
+      detail:
+        params.painLevel > 0 || params.rehab
+          ? 'Pain protection and rehab state are actively influencing the call.'
+          : 'No active pain or rehab override is shaping the session today.',
+    },
+    {
+      label: 'Daily context',
+      type: 'self_reported',
+      status: contextDrivers.length > 0 ? 'active' : hasContextSignal ? 'limited' : 'building',
+      detail:
+        contextDrivers.length > 0
+          ? `Extra day load is coming from ${formatHumanList(contextDrivers.slice(0, 3))}.`
+          : hasContextSignal
+            ? 'Optional context was logged, but it is not adding much friction to the session today.'
+            : 'No optional heat, commute, air-quality, or fasting context was logged today.',
+    },
+    {
+      label: 'Movement scan',
+      type: 'measured',
+      status: params.visionFaults.length > 0 ? 'active' : 'missing',
+      detail:
+        params.visionFaults.length > 0
+          ? `${params.visionFaults.length} recent movement faults are informing biomechanical safeguards.`
+          : 'No recent objective movement scan is attached to today’s decision.',
+    },
+    {
+      label: 'Baseline calibration',
+      type: 'estimated',
+      status: params.confidence.mode === 'normal' ? 'active' : 'building',
+      detail:
+        params.confidence.mode === 'normal'
+          ? 'The model has enough stable history to trust deeper prescription logic.'
+          : 'The model is still stabilizing around this athlete’s baseline.',
+    },
+  ];
+
+  const whyTodayChanged = uniqueStrings([
+    params.feedbackInsight,
+    `Dominant factor today: ${params.dominantFactor.toLowerCase()}.`,
+    params.confidence.reasons[0],
+    contextDrivers.length > 0 ? `Daily context added extra friction through ${formatHumanList(contextDrivers.slice(0, 2))}.` : null,
+  ]).slice(0, 3);
+
+  const nextBestInputs = uniqueStrings([
+    params.dataCompleteness < 80 ? 'Complete a full daily check-in tomorrow to strengthen the recommendation.' : null,
+    params.historyLength < 7 ? 'Keep logging consistently for a full week to stabilize trend confidence.' : null,
+    params.visionFaults.length === 0 ? 'Add a movement scan when you want objective technique context in the plan.' : null,
+    params.confidence.mode !== 'normal' ? 'Finish the current calibration block before trusting maximal progression.' : null,
+    !hasContextSignal ? 'Optional: log heat, commute, air quality, or fasting only when the day is unusual so CREEDA can explain the call more precisely.' : null,
+  ]).slice(0, 3);
+
+  return {
+    confidenceLevel: params.confidenceLevel,
+    confidenceScore: params.confidenceScore,
+    dataCompleteness: params.dataCompleteness,
+    dataQuality,
+    signals,
+    whyTodayChanged,
+    nextBestInputs,
+  };
 }
 
 function buildConstraints(

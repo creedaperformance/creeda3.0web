@@ -39,14 +39,23 @@ export function calculateReadiness(
 
   // 2. Metric Normalization (Categorical to 0-100)
   const subjectiveSleep = mapToScore(wellness.sleep_quality, 'sleep');
+  const sleepLatency = mapToScore(wellness.sleep_latency, 'sleep_latency');
   const energy = mapToScore(wellness.energy_level, 'energy');
   const soreness = mapToScore(wellness.muscle_soreness, 'soreness');
   const stress = mapToScore(wellness.stress_level, 'stress');
   const motivation = wellness.motivation ?? 75;
   const pain = wellness.current_pain_level || 0;
+  const heatPenalty = getHeatPenalty(context.heat_level, context.humidity_level);
+  const airPenalty = getAirQualityPenalty(context.aqi_band);
+  const commutePenalty = getCommutePenalty(context.commute_minutes);
+  const schedulePenalty = getSchedulePenalty(context.exam_stress_score);
+  const fastingPenalty = getFastingPenalty(context.fasting_state);
+  const shiftPenalty = context.shift_work ? 7 : 0;
+  const metabolicContextPenalty = heatPenalty + Math.round(airPenalty * 0.45) + Math.round(fastingPenalty * 0.9);
+  const mentalContextPenalty = commutePenalty + schedulePenalty + shiftPenalty + Math.round(airPenalty * 0.35);
 
   // 2b. CNS / Diagnostic Comparison (Accuracy Pivot)
-  const sleep = subjectiveSleep;
+  const sleep = Math.round((subjectiveSleep * 0.78) + (sleepLatency * 0.22));
   let reality_bridge = "";
   let felt_reality_gap = 0;
 
@@ -90,10 +99,10 @@ export function calculateReadiness(
   const nmRaw = (soreness * 0.5 + (100 - (loadOutput.neuromuscular)) * 0.3 + (100 - cns_fatigue) * 0.2);
   const nmReadiness = Math.max(0, Math.min(100, nmRaw - (soreness_penalty * fatigue_sensitivity * 0.5)));
 
-  const metRaw = (sleep * weight_sleep + energy * weight_energy + (100 - loadOutput.metabolic) * 0.2);
+  const metRaw = (sleep * weight_sleep + energy * weight_energy + (100 - loadOutput.metabolic) * 0.2) - metabolicContextPenalty;
   const metabolicReadiness = Math.max(0, Math.min(100, metRaw));
 
-  const mentalRaw = (motivation * 0.6 + stress * 0.4);
+  const mentalRaw = (motivation * 0.6 + stress * 0.4) - mentalContextPenalty;
   const mentalReadiness = Math.max(0, Math.min(100, mentalRaw));
 
   // 6. Final Aggregation
@@ -124,6 +133,16 @@ export function calculateReadiness(
 function mapToScore(val: unknown, type: string): number {
   const MAP: Record<string, Record<string, number>> = {
     sleep: { 'Excellent': 100, 'Good': 80, 'Okay': 50, 'Poor': 20, '5': 100, '4': 80, '3': 50, '2': 30, '1': 10 },
+    sleep_latency: {
+      '<15 min': 100,
+      '15-30 min': 78,
+      '30-60 min': 48,
+      '>60 min': 20,
+      '1': 100,
+      '2': 78,
+      '3': 48,
+      '4': 20,
+    },
     energy: { 'Peak': 100, 'High': 80, 'Moderate': 50, 'Low': 30, 'Drained': 10, '5': 100, '4': 80, '3': 50, '2': 30, '1': 10 },
     soreness: {
       'Light/Fresh': 100, 'Normal': 75, 'Heavy': 40, 'Stiff/Sore': 20,
@@ -136,6 +155,7 @@ function mapToScore(val: unknown, type: string): number {
   const numeric = Number(val)
   if (Number.isFinite(numeric)) {
     if (numeric >= 0 && numeric <= 5) {
+      if (type === 'sleep_latency') return Math.max(0, Math.min(100, 115 - (numeric * 23)));
       if (type === 'stress' || type === 'soreness') return Math.max(0, Math.min(100, 100 - ((numeric - 1) * 22.5)))
       return Math.max(0, Math.min(100, Math.round((numeric / 5) * 100)))
     }
@@ -151,4 +171,46 @@ function mapToScore(val: unknown, type: string): number {
 
   const strVal = String(val);
   return MAP[type]?.[strVal] || 50;
+}
+
+function getHeatPenalty(heatLevel?: string | null, humidityLevel?: string | null) {
+  const heatScore =
+    heatLevel === 'extreme' ? 18 :
+    heatLevel === 'hot' ? 11 :
+    heatLevel === 'warm' ? 5 :
+    0
+  const humidityScore =
+    humidityLevel === 'high' ? 6 :
+    humidityLevel === 'moderate' ? 2 :
+    0
+  return heatScore + humidityScore
+}
+
+function getAirQualityPenalty(aqiBand?: string | null) {
+  if (aqiBand === 'very_poor') return 12
+  if (aqiBand === 'poor') return 8
+  if (aqiBand === 'moderate') return 3
+  return 0
+}
+
+function getCommutePenalty(commuteMinutes?: number) {
+  const minutes = Number(commuteMinutes || 0)
+  if (!Number.isFinite(minutes) || minutes <= 0) return 0
+  if (minutes >= 120) return 11
+  if (minutes >= 90) return 8
+  if (minutes >= 60) return 5
+  if (minutes >= 30) return 2
+  return 0
+}
+
+function getSchedulePenalty(examStressScore?: number) {
+  const score = Number(examStressScore || 0)
+  if (!Number.isFinite(score) || score <= 0) return 0
+  return Math.max(0, Math.min(14, Math.round(score * 2.6)))
+}
+
+function getFastingPenalty(fastingState?: string | null) {
+  if (fastingState === 'strict') return 9
+  if (fastingState === 'light') return 4
+  return 0
 }

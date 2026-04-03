@@ -1,27 +1,26 @@
 'use client'
 
 import { useEffect, useCallback, useRef } from 'react'
-import { encryptData, decryptData, clearSecureStorage } from '@/lib/secure_storage'
-import { toast } from 'sonner'
+import { encryptData, clearSecureStorage } from '@/lib/secure_storage'
 
-const PERSISTENCE_KEY = 'creeda_onboarding_draft';
+type PersistableOnboardingValues = {
+  fullName?: string
+}
 
 export function useOnboardingPersistence(
-  values: any, 
+  values: PersistableOnboardingValues,
   currentStep: number, 
-  setValues: (vals: any) => void, 
-  setCurrentStep: (step: number) => void,
   isReady: boolean,
   userId: string | null
 ) {
-  const isInitialized = useRef(false);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialized = useRef(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const persistenceKey = userId ? `creeda_onboarding_draft_${userId}` : null;
+  const persistenceKey = userId ? `creeda_onboarding_draft_${userId}` : null
 
   useEffect(() => {
-    if (isReady) isInitialized.current = true;
-  }, [isReady]);
+    if (isReady) isInitialized.current = true
+  }, [isReady])
 
   // Persist Stage: Debounced Save
   useEffect(() => {
@@ -34,22 +33,22 @@ export function useOnboardingPersistence(
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const payload = JSON.stringify({ values, step: currentStep });
-        const encrypted = await encryptData(payload);
-        localStorage.setItem(persistenceKey, encrypted);
+        const payload = JSON.stringify({ values, step: currentStep })
+        const encrypted = await encryptData(payload)
+        localStorage.setItem(persistenceKey, encrypted)
       } catch (err) {
-        console.error("Persistence failure:", err);
+        console.error("Persistence failure:", err)
       }
-    }, 1000); 
+    }, 1000)
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [values, currentStep, persistenceKey]);
+  }, [values, currentStep, persistenceKey, isReady])
 
   const clearDraft = useCallback(() => {
-    if (persistenceKey) clearSecureStorage(persistenceKey);
-  }, [persistenceKey]);
+    if (persistenceKey) clearSecureStorage(persistenceKey)
+  }, [persistenceKey])
 
-  return { clearDraft };
+  return { clearDraft }
 }

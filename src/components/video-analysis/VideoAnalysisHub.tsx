@@ -9,6 +9,7 @@ import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { listVideoAnalysisSports, canonicalizeSportId, type VideoAnalysisRole } from '@/lib/video-analysis/catalog'
 import { normalizeVideoAnalysisReport, type VideoAnalysisReportSummary } from '@/lib/video-analysis/reporting'
+import { MAX_VIDEO_ANALYSIS_SECONDS, MIN_VIDEO_ANALYSIS_SECONDS } from '@/lib/video-analysis/clipValidation'
 
 interface Props {
   role: VideoAnalysisRole
@@ -160,7 +161,7 @@ export function VideoAnalysisHub({ role, dashboardHref, preferredSport }: Props)
                   <div className="flex-1 text-left">
                     <p className="text-sm font-bold text-white">Analyze clip</p>
                     <p className="text-[11px] text-white/35">
-                      Upload or record a 5-30 second clip, then let CREEDA build your correction report.
+                      Upload or record a {MIN_VIDEO_ANALYSIS_SECONDS}-{MAX_VIDEO_ANALYSIS_SECONDS} second clip. CREEDA will reject clips that do not show a clear human movement for the selected sport.
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-white/20" />

@@ -8,6 +8,7 @@
 import { WorkoutPlan } from './Prescription/WorkoutGenerator';
 import { RecommendedMeal } from './Prescription/NutritionGenerator';
 import { AthleteScientificContext } from './Prescription/AthleteScienceContext';
+import type { AQIBand, FastingState, HeatLevel, HumidityLevel } from '@/lib/context-signals/storage';
 
 export type EngineVersion = "v3" | "v4" | "v5";
 
@@ -150,6 +151,27 @@ export interface LegacyHistoryLog {
   intelligence_meta?: LegacyHistoryIntelligenceMeta;
 }
 
+export type TrustSignalType = 'measured' | 'estimated' | 'self_reported';
+export type TrustSignalStatus = 'active' | 'limited' | 'missing' | 'building';
+export type DataQualityLevel = 'COMPLETE' | 'PARTIAL' | 'WEAK';
+
+export interface TrustSignalSummary {
+  label: string;
+  type: TrustSignalType;
+  status: TrustSignalStatus;
+  detail?: string;
+}
+
+export interface TrustSummary {
+  confidenceLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  confidenceScore: number;
+  dataCompleteness: number;
+  dataQuality: DataQualityLevel;
+  signals: TrustSignalSummary[];
+  whyTodayChanged: string[];
+  nextBestInputs: string[];
+}
+
 // ─── CREEDA DECISION (UNIFIED OUTPUT) ────────────────────────────────────
 // This is the SINGLE object that drives ALL UI rendering.
 // DecisionService is the FINAL AUTHORITY. No other service outputs to UI.
@@ -225,6 +247,7 @@ export interface CreedaDecision {
   confidenceScore: number; // 0-100 based on adherence & completeness
   confidenceLevel: 'LOW' | 'MEDIUM' | 'HIGH'; // Fix #1: Qualitative level
   confidenceReasons: string[]; // Fix #1: Multi-factor reasons
+  trustSummary: TrustSummary;
   visionFaults: VisionFault[]; // Fix #4: Propagate vision faults to UI
   scientificContext: AthleteScientificContext;
   timestamp: string;
@@ -236,12 +259,14 @@ export interface AthleteInput {
   userId?: string;
   wellness: {
     sleep_quality: string | number;
+    sleep_latency?: string | number;
     energy_level: number;
     muscle_soreness: string | number;
     stress_level: number;
     motivation?: number;
     health_status?: string;
     current_pain_level: number;
+    pain_location?: string[];
     reaction_time_ms?: number;
   };
   session?: {
@@ -264,12 +289,21 @@ export interface AthleteInput {
     weightKg?: number;
     primaryGoal?: string;
     activityLevel?: string;
+    wakeTime?: string;
   };
+  baseline_injuries?: string[];
   context: {
     sport: string;
     position?: string;
     is_match_day: boolean;
     travel_day: boolean;
+    heat_level?: HeatLevel | null;
+    humidity_level?: HumidityLevel | null;
+    aqi_band?: AQIBand | null;
+    commute_minutes?: number;
+    exam_stress_score?: number;
+    fasting_state?: FastingState | null;
+    shift_work?: boolean;
   };
   history: LegacyHistoryLog[]; // Legacy history logs
   adaptation_profile: AdaptationProfile;

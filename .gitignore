@@ -14,6 +14,9 @@
 /coverage
 /test-results
 /artifacts
+/.auth
+/.playwright-cli
+/playwright-report
 
 # next.js
 /.next/

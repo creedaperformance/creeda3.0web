@@ -17,23 +17,14 @@ export default function AuthLayout({
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-creeda-teal rounded-full blur-[120px] opacity-20 mix-blend-screen" />
         
         <div className="relative z-10 flex flex-col items-start justify-center px-16 text-primary-foreground max-w-xl">
-          <div className="flex items-center gap-4 mb-6 shrink-0">
+          <div className="mb-6 shrink-0">
             <Image
-              src="/logo.png"
-              alt="Creeda Flame Logo"
-              width={120}
-              height={120}
+              src="/creeda-performance-bgr.png"
+              alt="Creeda Performance"
+              width={720}
+              height={360}
               priority
-              className="h-24 w-auto object-contain shrink-0"
-            />
-            <Image
-              src="/creeda-performance-logo.png"
-              alt="Creeda Performance Text Logo"
-              width={280}
-              height={56}
-              priority
-              className="h-14 w-auto object-contain shrink-0 brightness-0 invert"
-              style={{ filter: 'brightness(0) invert(1)' }}
+              className="h-28 w-auto object-contain shrink-0"
             />
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-6 leading-tight">
@@ -63,20 +54,12 @@ export default function AuthLayout({
       <div className="flex w-full flex-col justify-center px-8 sm:px-16 lg:w-1/2 xl:px-32 relative">
         <div className="absolute top-8 left-8 lg:hidden flex items-center gap-3 shrink-0">
           <Image
-            src="/logo.png"
-            alt="Creeda Flame Logo"
-            width={48}
-            height={48}
+            src="/creeda-performance-bgr.png"
+            alt="Creeda Performance"
+            width={320}
+            height={160}
             priority
-            className="h-10 w-auto object-contain shrink-0"
-          />
-          <Image
-            src="/creeda-performance-logo.png"
-            alt="Creeda Performance Text Logo"
-            width={160}
-            height={24}
-            priority
-            className="h-6 w-auto object-contain shrink-0"
+            className="h-12 w-auto object-contain shrink-0"
           />
         </div>
         <div className="mx-auto w-full max-w-sm">

@@ -4,7 +4,18 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { verifyRole } from '@/lib/auth_utils'
 import {
+  createDailyContextSignalRecord,
+  saveDailyContextSignal,
+  summarizeDailyContextSignals,
+  type AQIBand,
+  type FastingState,
+  type HeatLevel,
+  type HumidityLevel,
+} from '@/lib/context-signals/storage'
+import { isHealthStorageMissingError, selectRecentHealthMetrics } from '@/lib/health/storage'
+import {
   computeFitStartJourney,
+  normalizeIndividualOccupation,
   recomputeDailyJourney,
   type NormalIndividualFitStartInput,
   type IndividualCurrentState,
@@ -24,6 +35,13 @@ type IndividualSignalPayload = {
   session_rpe: number
   steps: number
   hydration_liters: number
+  heat_level?: HeatLevel | ''
+  humidity_level?: HumidityLevel | ''
+  aqi_band?: AQIBand | ''
+  commute_minutes?: number
+  exam_stress_score?: number
+  fasting_state?: FastingState | ''
+  shift_work?: boolean
   session_notes?: string
 }
 
@@ -274,7 +292,7 @@ function normalizeRawFitStartInput(raw: unknown): NormalIndividualFitStartInput 
       gender: String(basic.gender || 'Prefer not to say'),
       heightCm: Number(basic.heightCm) || 170,
       weightKg: Number(basic.weightKg) || 70,
-      occupation: String(basic.occupation || 'General'),
+      occupation: normalizeIndividualOccupation(String(basic.occupation || '')) || 'hybrid',
       activityLevel: (['sedentary', 'moderate', 'active'].includes(String(basic.activityLevel))
         ? String(basic.activityLevel)
         : 'moderate') as NormalIndividualFitStartInput['basic']['activityLevel'],
@@ -433,14 +451,9 @@ export async function logIndividualSignal(payload: IndividualSignalPayload) {
     .order('log_date', { ascending: false })
     .limit(14)
 
-  const { data: healthRows, error: healthRowsError } = await supabase
-    .from('health_daily_metrics')
-    .select('metric_date,steps,sleep_hours,heart_rate_avg,hrv,source')
-    .eq('user_id', user.id)
-    .order('metric_date', { ascending: false })
-    .limit(14)
+  const { data: healthRows, error: healthRowsError } = await selectRecentHealthMetrics(supabase, user.id, 14)
 
-  if (healthRowsError && !healthRowsError.message.includes('health_daily_metrics')) {
+  if (healthRowsError && !isHealthStorageMissingError(healthRowsError)) {
     return { error: healthRowsError.message }
   }
 
@@ -470,6 +483,20 @@ export async function logIndividualSignal(payload: IndividualSignalPayload) {
   const effectiveTrainingMinutes = missedSession ? 0 : rawTrainingMinutes
   const effectiveSessionRpe = missedSession ? 0 : rawSessionRpe
   const sessionNotes = String(payload.session_notes || '').trim().slice(0, 300)
+  const contextSignal = createDailyContextSignalRecord({
+    userId: user.id,
+    role: 'individual',
+    logDate,
+    heatLevel: payload.heat_level,
+    humidityLevel: payload.humidity_level,
+    aqiBand: payload.aqi_band,
+    commuteMinutes: payload.commute_minutes,
+    examStressScore: payload.exam_stress_score,
+    fastingState: payload.fasting_state,
+    shiftWork: payload.shift_work,
+    contextNotes: sessionNotes,
+  })
+  const contextSummary = summarizeDailyContextSignals(contextSignal ? [contextSignal] : [])
 
   const recomputed = recomputeDailyJourney({
     baseInput,
@@ -486,6 +513,17 @@ export async function logIndividualSignal(payload: IndividualSignalPayload) {
       sorenessLevel,
       completedSession,
       missedSession,
+      trainingMinutes: effectiveTrainingMinutes,
+      sessionRpe: effectiveSessionRpe,
+      steps: sanitizedSteps,
+      hydrationLiters: sanitizedHydration,
+      heatLevel: contextSignal?.heatLevel || null,
+      humidityLevel: contextSignal?.humidityLevel || null,
+      aqiBand: contextSignal?.aqiBand || null,
+      commuteMinutes: contextSignal?.commuteMinutes || 0,
+      examStressScore: contextSignal?.examStressScore || 0,
+      fastingState: contextSignal?.fastingState || null,
+      shiftWork: contextSignal?.shiftWork || false,
     },
   })
 
@@ -517,6 +555,7 @@ export async function logIndividualSignal(payload: IndividualSignalPayload) {
       sessionNotes,
       steps: sanitizedSteps,
       hydrationLiters: sanitizedHydration,
+      contextSummary,
     },
     healthIntegration: {
       connectedMetricDays: aggregatedHealthMetrics.length,
@@ -537,7 +576,18 @@ export async function logIndividualSignal(payload: IndividualSignalPayload) {
           }
         : null,
     },
+    contextSignals: contextSummary,
     generatedAt: new Date().toISOString(),
+  }
+
+  const contextError = await saveDailyContextSignal(supabase, contextSignal, {
+    userId: user.id,
+    role: 'individual',
+    logDate,
+  })
+
+  if (contextError?.error) {
+    return { error: contextError.error.message || 'Failed to save daily context.' }
   }
 
   const { error: intelligenceError } = await supabase

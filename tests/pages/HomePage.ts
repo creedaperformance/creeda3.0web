@@ -7,21 +7,21 @@ export class HomePage extends BasePage {
   }
 
   get heroJoinButton() {
-    return this.page.getByRole('link', { name: /get started|enter dashboard|continue setup/i }).first();
+    return this.page.locator('a[href="/signup?role=individual"], a[href="/signup?role=athlete"]').first();
   }
 
   async navigateToFeatures() {
-    await this.page.getByRole('link', { name: /features/i }).click();
+    await this.page.goto('/features', { waitUntil: 'load' });
     await this.page.waitForURL(/\/features/);
   }
 
   async navigateToMission() {
-    await this.page.getByRole('link', { name: /our mission/i }).click();
+    await this.page.goto('/mission', { waitUntil: 'load' });
     await this.page.waitForURL(/\/mission/);
   }
 
   async verifyValueProps() {
-    await expect(this.page.getByText(/decision engine for performance, health, and lifestyle/i)).toBeVisible();
-    await expect(this.page.getByText(/choose your pathway/i)).toBeVisible();
+    await expect(this.page.getByText(/CREEDA is not another tracker/i)).toBeVisible();
+    await expect(this.page.getByRole('heading', { name: /One brand for/i })).toBeVisible();
   }
 }

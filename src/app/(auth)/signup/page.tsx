@@ -39,11 +39,22 @@ function SignupForm() {
   })
   
   const [showPassword, setShowPassword] = useState(false)
-  const [consent, setConsent] = useState(false)
+  const [consentState, setConsentState] = useState({
+    termsPrivacy: false,
+    medicalDisclaimer: false,
+    dataProcessing: false,
+    aiAcknowledgement: false,
+    marketing: false,
+  })
   const [isVerifyingCode, setIsVerifyingCode] = useState(false)
   const [isCodeValid, setIsCodeValid] = useState<boolean | null>(null)
   const [codeError, setCodeError] = useState<string | null>(null)
   const [verifiedCoach, setVerifiedCoach] = useState<{ name: string } | null>(null)
+  const requiredConsentComplete =
+    consentState.termsPrivacy &&
+    consentState.medicalDisclaimer &&
+    consentState.dataProcessing &&
+    consentState.aiAcknowledgement
 
   const roleMeta = {
     individual: {
@@ -84,7 +95,11 @@ function SignupForm() {
     submission.append('email', formData.email)
     submission.append('password', formData.password)
     submission.append('role', formData.role)
-    submission.append('consent', consent ? 'on' : 'off')
+    submission.append('terms_privacy_consent', consentState.termsPrivacy ? 'on' : 'off')
+    submission.append('medical_disclaimer_consent', consentState.medicalDisclaimer ? 'on' : 'off')
+    submission.append('data_processing_consent', consentState.dataProcessing ? 'on' : 'off')
+    submission.append('ai_acknowledgement_consent', consentState.aiAcknowledgement ? 'on' : 'off')
+    submission.append('marketing_consent', consentState.marketing ? 'on' : 'off')
     if (formData.coach_locker_code) {
       submission.append('coach_locker_code', formData.coach_locker_code)
     }
@@ -126,7 +141,15 @@ function SignupForm() {
   }
 
   return (
-    <div className="relative max-w-xl mx-auto py-12 px-6 lg:px-8 z-10 animate-fade-up">
+    <form
+      className="relative max-w-xl mx-auto py-12 px-6 lg:px-8 z-10 animate-fade-up"
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (step === 2 && !loading && formData.email && formData.password && formData.full_name && requiredConsentComplete) {
+          void handleSubmit()
+        }
+      }}
+    >
       {/* HUD Background Glow */}
       <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none opacity-40">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 blur-[150px] rounded-full" />
@@ -158,6 +181,7 @@ function SignupForm() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
+              type="button"
               onClick={() => { updateForm({ role: 'individual' }); setStep(2); }}
               className={`group p-8 rounded-[2rem] border-2 text-left transition-all relative overflow-hidden backdrop-blur-xl ${
                 formData.role === 'individual' ? 'border-primary bg-primary/10' : 'border-white/10 bg-white/5 hover:border-white/20'
@@ -175,6 +199,7 @@ function SignupForm() {
             </button>
 
             <button
+              type="button"
               onClick={() => { updateForm({ role: 'athlete' }); setStep(2); }}
               className={`group p-8 rounded-[2rem] border-2 text-left transition-all relative overflow-hidden backdrop-blur-xl ${
                 formData.role === 'athlete' ? 'border-primary bg-primary/10' : 'border-white/10 bg-white/5 hover:border-white/20'
@@ -192,6 +217,7 @@ function SignupForm() {
             </button>
 
             <button
+              type="button"
               onClick={() => { updateForm({ role: 'coach' }); setStep(2); }}
               className={`group p-8 rounded-[2rem] border-2 text-left transition-all relative overflow-hidden backdrop-blur-xl ${
                 formData.role === 'coach' ? 'border-primary bg-primary/10' : 'border-white/10 bg-white/5 hover:border-white/20'
@@ -330,17 +356,87 @@ function SignupForm() {
               </div>
             )}
 
-            <div className="flex items-start gap-4 p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl">
-              <input 
-                type="checkbox" 
-                id="consent" 
-                checked={consent}
-                onChange={e => setConsent(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary accent-primary cursor-pointer shrink-0"
-              />
-              <label htmlFor="consent" className="text-[9px] font-bold text-white/40 leading-relaxed uppercase tracking-tight cursor-pointer">
-                I agree to the <Link href="/terms" target="_blank" className="text-primary underline hover:text-primary/80">Terms</Link> & <Link href="/privacy" target="_blank" className="text-primary underline hover:text-primary/80">Privacy Policy</Link>. CREEDA provides guidance and decision support, not medical diagnosis or treatment.
-              </label>
+            <div className="space-y-4 p-6 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">
+                Legal Acknowledgements (Required)
+              </p>
+
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="terms_privacy_consent"
+                  checked={consentState.termsPrivacy}
+                  onChange={(event) =>
+                    setConsentState((prev) => ({ ...prev, termsPrivacy: event.target.checked }))
+                  }
+                  className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary accent-primary cursor-pointer shrink-0"
+                />
+                <label htmlFor="terms_privacy_consent" className="text-[10px] font-bold text-white/55 leading-relaxed tracking-tight cursor-pointer">
+                  I agree to the <Link href="/terms" target="_blank" className="text-primary underline hover:text-primary/80">Terms</Link> and <Link href="/privacy" target="_blank" className="text-primary underline hover:text-primary/80">Privacy Policy</Link>.
+                </label>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="medical_disclaimer_consent"
+                  checked={consentState.medicalDisclaimer}
+                  onChange={(event) =>
+                    setConsentState((prev) => ({ ...prev, medicalDisclaimer: event.target.checked }))
+                  }
+                  className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary accent-primary cursor-pointer shrink-0"
+                />
+                <label htmlFor="medical_disclaimer_consent" className="text-[10px] font-bold text-white/55 leading-relaxed tracking-tight cursor-pointer">
+                  I acknowledge the <Link href="/disclaimer" target="_blank" className="text-primary underline hover:text-primary/80">Medical Disclaimer</Link>. CREEDA is decision-support, not diagnosis or treatment.
+                </label>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="data_processing_consent"
+                  checked={consentState.dataProcessing}
+                  onChange={(event) =>
+                    setConsentState((prev) => ({ ...prev, dataProcessing: event.target.checked }))
+                  }
+                  className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary accent-primary cursor-pointer shrink-0"
+                />
+                <label htmlFor="data_processing_consent" className="text-[10px] font-bold text-white/55 leading-relaxed tracking-tight cursor-pointer">
+                  I provide explicit consent for processing my performance and wellness data under the DPDP Act and GDPR standards described in the <Link href="/consent" target="_blank" className="text-primary underline hover:text-primary/80">Consent Acknowledgement</Link>.
+                </label>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="ai_acknowledgement_consent"
+                  checked={consentState.aiAcknowledgement}
+                  onChange={(event) =>
+                    setConsentState((prev) => ({ ...prev, aiAcknowledgement: event.target.checked }))
+                  }
+                  className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary accent-primary cursor-pointer shrink-0"
+                />
+                <label htmlFor="ai_acknowledgement_consent" className="text-[10px] font-bold text-white/55 leading-relaxed tracking-tight cursor-pointer">
+                  I understand CREEDA uses AI and rules-based models for advisory outputs as explained in <Link href="/ai-transparency" target="_blank" className="text-primary underline hover:text-primary/80">AI Transparency</Link>.
+                </label>
+              </div>
+
+              <div className="pt-2 border-t border-white/10">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="marketing_consent"
+                    checked={consentState.marketing}
+                    onChange={(event) =>
+                      setConsentState((prev) => ({ ...prev, marketing: event.target.checked }))
+                    }
+                    className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-primary focus:ring-primary accent-primary cursor-pointer shrink-0"
+                  />
+                  <label htmlFor="marketing_consent" className="text-[10px] font-bold text-white/45 leading-relaxed tracking-tight cursor-pointer">
+                    Optional: I want product updates and educational emails. I can opt out anytime from Legal & Privacy settings.
+                  </label>
+                </div>
+              </div>
             </div>
 
             {error && (
@@ -350,15 +446,15 @@ function SignupForm() {
             )}
 
             <Button 
-              onClick={handleSubmit}
+              type="submit"
               className="w-full h-16 rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 font-black uppercase tracking-widest shadow-2xl shadow-primary/10 active:scale-95 transition-all mt-4"
-              disabled={loading || !formData.email || !formData.password || !formData.full_name || !consent}
+              disabled={loading || !formData.email || !formData.password || !formData.full_name || !requiredConsentComplete}
             >
               {loading ? 'Completing Signup...' : activeRoleMeta.cta}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             
-            <Button variant="ghost" onClick={prevStep} className="w-full text-muted-foreground hover:text-primary hover:bg-primary/5 uppercase text-[10px] font-black tracking-widest">
+            <Button type="button" variant="ghost" onClick={prevStep} className="w-full text-muted-foreground hover:text-primary hover:bg-primary/5 uppercase text-[10px] font-black tracking-widest">
               <ArrowLeft className="mr-2 h-4 w-4" /> Change Journey
             </Button>
           </div>
@@ -371,7 +467,7 @@ function SignupForm() {
           Log in
         </Link>
       </p>
-    </div>
+    </form>
   )
 }
 

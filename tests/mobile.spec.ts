@@ -21,8 +21,7 @@ test.describe('Mobile Responsiveness (375x667)', () => {
 
   test('mobile navigation accessibility', async ({ page }) => {
     await page.goto('/');
-    // 'Pricing' is hidden on mobile in the current Navbar implementation
-    // Using 'Log in' which is always visible
+    await page.getByRole('button', { name: /Toggle menu/i }).click();
     await page.getByRole('link', { name: /Log in/i }).first().click();
     await expect(page).toHaveURL(/\/login/);
   });

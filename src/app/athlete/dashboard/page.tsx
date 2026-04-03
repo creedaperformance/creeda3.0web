@@ -39,6 +39,9 @@ export default async function AthletePage() {
       performanceProfile={snapshot.performanceProfile}
       healthSummary={snapshot.healthSummary}
       latestVideoReport={snapshot.latestVideoReport}
+      objectiveTest={snapshot.objectiveTest}
+      contextSummary={snapshot.contextSummary}
+      nutritionSafety={snapshot.nutritionSafety}
     />
   )
 }

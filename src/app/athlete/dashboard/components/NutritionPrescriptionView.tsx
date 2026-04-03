@@ -1,17 +1,63 @@
 "use client";
 
+import Link from "next/link";
 import React from "react";
-import { Beef, Coffee, Cookie, Droplets, Gauge, Sparkles, UtensilsCrossed } from "lucide-react";
+import { ArrowRight, Beef, Coffee, Cookie, Droplets, Gauge, ShieldAlert, Sparkles, UtensilsCrossed } from "lucide-react";
 
 import type { RecommendedMeal } from "@/lib/engine/Prescription/NutritionGenerator";
 import type { CreedaDecision } from "@/lib/engine/types";
+import type { NutritionSafetySummary } from "@/lib/nutrition-safety";
 
 interface Props {
+  role: "athlete" | "individual";
   meals: RecommendedMeal[] | null;
   fuelingGuidance?: CreedaDecision["components"]["nutrition"]["fueling"];
+  nutritionSafety: NutritionSafetySummary;
 }
 
-export const NutritionPrescriptionView: React.FC<Props> = ({ meals, fuelingGuidance }) => {
+export const NutritionPrescriptionView: React.FC<Props> = ({
+  role,
+  meals,
+  fuelingGuidance,
+  nutritionSafety,
+}) => {
+  if (nutritionSafety.blocksDetailedAdvice) {
+    return (
+      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 p-4 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2 text-amber-300">
+            <ShieldAlert className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-200">
+              {nutritionSafety.gateTitle}
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-300">
+              {nutritionSafety.summary}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            Next step
+          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-300">
+            {nutritionSafety.nextAction}
+          </p>
+        </div>
+
+        <Link
+          href={`/${role}/nutrition-safety`}
+          className="inline-flex items-center gap-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-100 transition-all hover:bg-amber-500/15"
+        >
+          Open Nutrition Safety
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+    );
+  }
+
   if (!meals) return <div className="text-slate-500 text-xs italic">No nutrition plan generated.</div>;
 
   return (

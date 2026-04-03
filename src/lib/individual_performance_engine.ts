@@ -2,6 +2,7 @@ import {
   buildNutritionFramework,
   buildTrainingFramework,
 } from '@/lib/engine/Prescription/SportsScienceKnowledge'
+import type { AQIBand, FastingState, HeatLevel, HumidityLevel } from '@/lib/context-signals/storage'
 
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(value)))
 
@@ -14,6 +15,78 @@ type GoalType = 'fat_loss' | 'muscle_gain' | 'endurance' | 'general_fitness' | '
 type TimeHorizon = '4_weeks' | '8_weeks' | '12_weeks' | 'long_term'
 type IntensityPreference = 'low' | 'moderate' | 'high'
 type RecommendationType = 'sport' | 'training' | 'lifestyle'
+
+export const INDIVIDUAL_OCCUPATION_OPTIONS = [
+  {
+    id: 'desk',
+    label: 'Desk / laptop work',
+    description: 'Mostly seated, screen-based, or office-style work.',
+  },
+  {
+    id: 'student',
+    label: 'Student routine',
+    description: 'Classes, study, campus walking, and variable energy days.',
+  },
+  {
+    id: 'shift',
+    label: 'Shift work',
+    description: 'Rotating hours, late nights, or sleep-disrupting work.',
+  },
+  {
+    id: 'manual',
+    label: 'Physical work',
+    description: 'Lifting, carrying, field work, delivery, or manual labor.',
+  },
+  {
+    id: 'caregiver',
+    label: 'Home / caregiving',
+    description: 'Looking after home, family, or caregiving responsibilities.',
+  },
+  {
+    id: 'hybrid',
+    label: 'Mixed / on your feet',
+    description: 'Teaching, retail, sales, field work, or changing day patterns.',
+  },
+] as const
+
+export function formatIndividualOccupationLabel(occupation: string) {
+  const normalized = normalizeIndividualOccupation(occupation)
+  const matched = INDIVIDUAL_OCCUPATION_OPTIONS.find((option) => option.id === normalized)
+  if (matched) return matched.label
+  return 'Mixed / on your feet'
+}
+
+export function normalizeIndividualOccupation(occupation: string) {
+  const normalized = occupation.trim().toLowerCase()
+
+  if (!normalized) return ''
+
+  if (['desk', 'desk_job'].includes(normalized)) return 'desk'
+  if (['student'].includes(normalized)) return 'student'
+  if (['shift', 'shift_worker'].includes(normalized)) return 'shift'
+  if (['manual', 'manual_job'].includes(normalized)) return 'manual'
+  if (['caregiver', 'homemaker', 'homemaker_caregiver'].includes(normalized)) return 'caregiver'
+  if (['hybrid', 'active_job'].includes(normalized)) return 'hybrid'
+
+  if (/(student|college|school|university|campus|exam)/.test(normalized)) return 'student'
+  if (/(shift|night|rotating|hospital|nurse|doctor|surgeon|paramedic|call center|bpo|hotel|hospitality)/.test(normalized)) {
+    return 'shift'
+  }
+  if (/(driver|delivery|security|police|chef|cook|warehouse|construction|labou?r|mechanic|electrician|plumber|factory|manufacturing|firefighter|technician|operator)/.test(normalized)) {
+    return 'manual'
+  }
+  if (/(caregiver|carer|homemaker|housewife|house husband|stay at home|stay-at-home|parenting|parent|childcare|home maker)/.test(normalized)) {
+    return 'caregiver'
+  }
+  if (/(teacher|sales|retail|manager|founder|entrepreneur|consultant|lawyer|advocate|customer support|reception|bank|finance|accountant|field|travel|store|shop)/.test(normalized)) {
+    return 'hybrid'
+  }
+  if (/(software|developer|engineer|designer|analyst|product|marketing|writer|office|desk|admin|administrator|clerk|corporate)/.test(normalized)) {
+    return 'desk'
+  }
+
+  return ''
+}
 
 export type NormalIndividualFitStartInput = {
   basic: {
@@ -371,6 +444,72 @@ function bmi(heightCm: number, weightKg: number) {
   return Number((weightKg / (heightM * heightM)).toFixed(1))
 }
 
+function inferOccupationLoad(occupation: string) {
+  const normalized = normalizeIndividualOccupation(occupation)
+
+  if (!normalized) {
+    return {
+      loadScore: 52,
+      recoveryPenalty: 0,
+      activityModifier: 0,
+    }
+  }
+
+  if (normalized === 'manual') {
+    return {
+      loadScore: 76,
+      recoveryPenalty: 7,
+      activityModifier: 4,
+    }
+  }
+
+  if (normalized === 'shift') {
+    return {
+      loadScore: 69,
+      recoveryPenalty: 6,
+      activityModifier: 1,
+    }
+  }
+
+  if (normalized === 'caregiver') {
+    return {
+      loadScore: 63,
+      recoveryPenalty: 4,
+      activityModifier: 1,
+    }
+  }
+
+  if (normalized === 'student') {
+    return {
+      loadScore: 56,
+      recoveryPenalty: 2,
+      activityModifier: -1,
+    }
+  }
+
+  if (normalized === 'desk') {
+    return {
+      loadScore: 47,
+      recoveryPenalty: 1,
+      activityModifier: -3,
+    }
+  }
+
+  if (normalized === 'hybrid') {
+    return {
+      loadScore: 60,
+      recoveryPenalty: 3,
+      activityModifier: 1,
+    }
+  }
+
+  return {
+    loadScore: 54,
+    recoveryPenalty: 2,
+    activityModifier: 0,
+  }
+}
+
 function horizonWeeks(horizon: TimeHorizon) {
   if (horizon === '4_weeks') return 4
   if (horizon === '8_weeks') return 8
@@ -400,8 +539,10 @@ function deriveCurrentState(input: NormalIndividualFitStartInput): IndividualCur
   const mobilityBase = MOBILITY_SCORES[input.physiology.mobilityLimitations]
   const nutritionScore = NUTRITION_SCORES[input.lifestyle.nutritionHabits]
   const injuryPenalty = INJURY_PENALTY[input.physiology.injuryHistory]
+  const occupationLoad = inferOccupationLoad(input.basic.occupation)
   const equipmentBonus = input.lifestyle.equipmentAccess.includes('gym') ? 8 : input.lifestyle.equipmentAccess.includes('bodyweight') ? 4 : 0
   const sedentaryPenalty = Math.max(0, input.lifestyle.sedentaryHours - 7) * 1.6
+  const reactionScore = mapDomainToScore(input.physiology.reaction_self_perception)
 
   const readinessRaw =
     mapLikertToScore(input.physiology.sleepQuality) * 0.14 +
@@ -411,15 +552,17 @@ function deriveCurrentState(input: NormalIndividualFitStartInput): IndividualCur
     mapDomainToScore(input.physiology.recovery_efficiency) * 0.16 +
     mapDomainToScore(input.physiology.fatigue_resistance) * 0.14 +
     mapDomainToScore(input.physiology.load_tolerance) * 0.09 +
+    reactionScore * 0.06 +
     nutritionScore * 0.12 -
     injuryPenalty -
-    sedentaryPenalty * 0.3
+    sedentaryPenalty * 0.3 -
+    occupationLoad.recoveryPenalty
 
   const strengthRaw =
     mapDomainToScore(input.physiology.strength_capacity) * 0.64 +
     mapDomainToScore(input.physiology.explosive_power) * 0.16 +
     experienceScore * 0.12 +
-    activityScore * 0.08 +
+    (activityScore + occupationLoad.activityModifier) * 0.08 +
     equipmentBonus +
     (input.goals.primaryGoal === 'muscle_gain' ? 6 : 0) -
     injuryPenalty * 0.45
@@ -427,15 +570,16 @@ function deriveCurrentState(input: NormalIndividualFitStartInput): IndividualCur
   const enduranceRaw =
     mapDomainToScore(input.physiology.endurance_capacity) * 0.64 +
     mapDomainToScore(input.physiology.fatigue_resistance) * 0.14 +
-    activityScore * 0.12 +
+    (activityScore + occupationLoad.activityModifier) * 0.12 +
     mapLikertToScore(input.physiology.recoveryRate) * 0.1 -
     sedentaryPenalty
 
   const mobilityRaw =
     mobilityBase * 0.42 +
     mapDomainToScore(input.physiology.movement_robustness) * 0.28 +
-    mapDomainToScore(input.physiology.agility_control) * 0.16 +
-    mapDomainToScore(input.physiology.coordination_control) * 0.14 -
+    mapDomainToScore(input.physiology.agility_control) * 0.14 +
+    mapDomainToScore(input.physiology.coordination_control) * 0.12 +
+    reactionScore * 0.08 -
     injuryPenalty * 0.35 +
     (input.lifestyle.scheduleConstraints.includes('shift_work') ? -5 : 0)
 
@@ -446,7 +590,8 @@ function deriveCurrentState(input: NormalIndividualFitStartInput): IndividualCur
     mapDomainToScore(input.physiology.recovery_efficiency) * 0.22 +
     mapDomainToScore(input.physiology.load_tolerance) * 0.12 +
     nutritionScore * 0.1 -
-    injuryPenalty * 0.4
+    injuryPenalty * 0.4 -
+    occupationLoad.recoveryPenalty * 1.2
 
   const bmiNow = bmi(input.basic.heightCm, input.basic.weightKg)
   const compositionIndex = clamp(100 - Math.abs(23 - bmiNow) * 8)
@@ -458,7 +603,7 @@ function deriveCurrentState(input: NormalIndividualFitStartInput): IndividualCur
     mobilityStatus: clamp(mobilityRaw),
     recoveryCapacity: clamp(recoveryRaw),
     bodyCompositionIndex: compositionIndex,
-    fatigueIndex: clamp(100 - readinessRaw + injuryPenalty + sedentaryPenalty * 1.5),
+    fatigueIndex: clamp(100 - readinessRaw + injuryPenalty + sedentaryPenalty * 1.5 + (occupationLoad.loadScore - 50) * 0.45),
   }
 }
 
@@ -652,6 +797,9 @@ function buildGapAnalysis(
   }
   if (input.lifestyle.sedentaryHours >= 9) {
     riskAreas.push('Lifestyle inertia risk: high sedentary hours can suppress adaptation.')
+  }
+  if (inferOccupationLoad(input.basic.occupation).loadScore >= 70) {
+    riskAreas.push('Lifestyle load risk: your occupation already creates fatigue, so training progression needs a tighter recovery margin.')
   }
   if (current.mobilityStatus < 55) {
     riskAreas.push('Mobility bottleneck: reduced movement quality can limit comfort, confidence, and progress.')
@@ -997,6 +1145,17 @@ export function recomputeDailyJourney(args: {
     sorenessLevel: number
     completedSession: boolean
     missedSession: boolean
+    trainingMinutes: number
+    sessionRpe: number
+    steps: number
+    hydrationLiters: number
+    heatLevel?: HeatLevel | null
+    humidityLevel?: HumidityLevel | null
+    aqiBand?: AQIBand | null
+    commuteMinutes?: number
+    examStressScore?: number
+    fastingState?: FastingState | null
+    shiftWork?: boolean
   }
   deviceSignal?: DeviceRecoverySignal | null
   readinessHistory: number[]
@@ -1013,14 +1172,37 @@ export function recomputeDailyJourney(args: {
     usedDeviceSignal: boolean
   }
 } {
-  const recoveryPulse =
+  const subjectiveRecoveryPulse =
     mapLikertToScore(args.dailySignal.sleepQuality) * 0.26 +
     mapLikertToScore(args.dailySignal.energyLevel) * 0.24 +
     (100 - mapLikertToScore(args.dailySignal.stressLevel)) * 0.2 +
     mapLikertToScore(args.dailySignal.recoveryFeel) * 0.2 +
     (100 - mapLikertToScore(args.dailySignal.sorenessLevel)) * 0.1
-
-  const boundedManualRecoveryPulse = clamp(recoveryPulse)
+  const stepTarget = Math.max(3000, Number(args.planEngine.lifestylePlan.stepTarget) || 8000)
+  const hydrationTarget = Math.max(1.5, Number(args.planEngine.lifestylePlan.hydrationLiters) || 2.5)
+  const stepsScore = clamp((Math.max(0, args.dailySignal.steps) / stepTarget) * 100)
+  const hydrationScore = clamp((Math.max(0, args.dailySignal.hydrationLiters) / hydrationTarget) * 100)
+  const sessionStrainScore = clamp((Math.max(0, args.dailySignal.trainingMinutes) * Math.max(0, args.dailySignal.sessionRpe)) / 4)
+  const contextPenalty = getIndividualContextPenalty({
+    heatLevel: args.dailySignal.heatLevel,
+    humidityLevel: args.dailySignal.humidityLevel,
+    aqiBand: args.dailySignal.aqiBand,
+    commuteMinutes: args.dailySignal.commuteMinutes,
+    examStressScore: args.dailySignal.examStressScore,
+    fastingState: args.dailySignal.fastingState,
+    shiftWork: args.dailySignal.shiftWork,
+  })
+  const movementSupportScore = args.dailySignal.missedSession
+    ? clamp(stepsScore * 0.8, 20, 90)
+    : clamp((stepsScore * 0.35) + ((100 - Math.max(0, sessionStrainScore - 45)) * 0.65))
+  const manualRecoveryPulse = clamp(
+    subjectiveRecoveryPulse * 0.78 +
+      movementSupportScore * 0.12 +
+      hydrationScore * 0.1 +
+      (args.dailySignal.completedSession ? 4 : args.dailySignal.missedSession ? -6 : 0) -
+      contextPenalty
+  )
+  const boundedManualRecoveryPulse = clamp(manualRecoveryPulse)
   const rawDeviceInfluence = args.deviceSignal?.available ? Number(args.deviceSignal.influenceWeight) : 0
   const deviceInfluence = Math.max(0, Math.min(0.45, Number.isFinite(rawDeviceInfluence) ? rawDeviceInfluence : 0))
   const hasDeviceContribution = Boolean(args.deviceSignal?.available && deviceInfluence > 0)
@@ -1028,8 +1210,9 @@ export function recomputeDailyJourney(args: {
     ? (boundedManualRecoveryPulse * (1 - deviceInfluence)) + ((args.deviceSignal?.recoveryPulse ?? boundedManualRecoveryPulse) * deviceInfluence)
     : boundedManualRecoveryPulse
 
-  const nextReadiness = clamp((args.currentState.readinessScore * 0.55) + (blendedRecoveryPulse * 0.45))
-  const fatigueShift = clamp(100 - blendedRecoveryPulse)
+  const loadPenalty = args.dailySignal.missedSession ? 6 : Math.round(sessionStrainScore * 0.18)
+  const nextReadiness = clamp((args.currentState.readinessScore * 0.5) + (blendedRecoveryPulse * 0.5) - (loadPenalty * 0.18))
+  const fatigueShift = clamp(100 - blendedRecoveryPulse + loadPenalty)
   const nextState: IndividualCurrentState = {
     ...args.currentState,
     readinessScore: nextReadiness,
@@ -1080,4 +1263,48 @@ export function recomputeDailyJourney(args: {
       usedDeviceSignal: hasDeviceContribution,
     },
   }
+}
+
+function getIndividualContextPenalty(args: {
+  heatLevel?: HeatLevel | null
+  humidityLevel?: HumidityLevel | null
+  aqiBand?: AQIBand | null
+  commuteMinutes?: number
+  examStressScore?: number
+  fastingState?: FastingState | null
+  shiftWork?: boolean
+}) {
+  const heatPenalty =
+    args.heatLevel === 'extreme' ? 9 :
+    args.heatLevel === 'hot' ? 6 :
+    args.heatLevel === 'warm' ? 2 :
+    0
+  const humidityPenalty =
+    args.humidityLevel === 'high' ? 3 :
+    args.humidityLevel === 'moderate' ? 1 :
+    0
+  const airPenalty =
+    args.aqiBand === 'very_poor' ? 7 :
+    args.aqiBand === 'poor' ? 5 :
+    args.aqiBand === 'moderate' ? 2 :
+    0
+  const commuteMinutes = Number(args.commuteMinutes || 0)
+  const commutePenalty =
+    !Number.isFinite(commuteMinutes) || commuteMinutes <= 0
+      ? 0
+      : commuteMinutes >= 120
+        ? 7
+        : commuteMinutes >= 90
+          ? 5
+          : commuteMinutes >= 45
+            ? 3
+            : 0
+  const schedulePenalty = Math.max(0, Math.min(7, Math.round((Number(args.examStressScore || 0) || 0) * 1.4)))
+  const fastingPenalty =
+    args.fastingState === 'strict' ? 6 :
+    args.fastingState === 'light' ? 3 :
+    0
+  const shiftPenalty = args.shiftWork ? 4 : 0
+
+  return Math.max(0, Math.min(18, heatPenalty + humidityPenalty + airPenalty + commutePenalty + schedulePenalty + fastingPenalty + shiftPenalty))
 }

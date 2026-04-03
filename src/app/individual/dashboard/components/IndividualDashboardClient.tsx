@@ -1,21 +1,27 @@
 'use client'
 
+import Link from 'next/link'
 import React from 'react'
 import { motion } from 'framer-motion'
 import {
   Activity,
   Apple,
+  BarChart3,
   Brain,
   CalendarRange,
+  CheckCircle2,
   Dumbbell,
   Flag,
   Gauge,
+  HeartPulse,
   Moon,
   Droplets,
   ShieldCheck,
   Sparkles,
   Target,
+  Timer,
   TrendingUp,
+  Video,
 } from 'lucide-react'
 
 import { DashboardLayout } from '@/components/DashboardLayout'
@@ -36,10 +42,13 @@ export function IndividualDashboardClient({
   profile,
   snapshot,
 }: IndividualDashboardClientProps) {
+  const [showDeeperView, setShowDeeperView] = React.useState(false)
   const decision = snapshot.decision
   const current = decision?.currentState
   const peak = decision?.peakState
   const pathway = decision?.pathway
+  const nutritionSafety = snapshot.nutritionSafety
+  const nutritionAdviceBlocked = nutritionSafety.blocksDetailedAdvice
 
   return (
     <DashboardLayout type="individual" user={profile}>
@@ -53,7 +62,7 @@ export function IndividualDashboardClient({
                 className="bg-primary/10 text-primary border-primary/20 px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm"
               >
                 <Sparkles className="h-3 w-3 mr-2" />
-                Digital Sports Scientist For Daily Life
+                Daily health and performance guidance
               </Badge>
 
               <h1 className="mt-6 text-4xl sm:text-5xl font-black tracking-tight text-white leading-[0.95]">
@@ -84,12 +93,12 @@ export function IndividualDashboardClient({
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 <CompactStat
-                  label="Current Path"
+                  label="Recommended Path"
                   value={pathway?.title || 'Guided path'}
                   detail={pathway?.rationale || 'CREEDA is matching your physiology to the right next step.'}
                 />
                 <CompactStat
-                  label="Decision Trust"
+                  label="Built From"
                   value={decision?.health.usedInDecision ? 'Blended' : 'Manual'}
                   detail={
                     decision?.health.usedInDecision
@@ -145,7 +154,39 @@ export function IndividualDashboardClient({
           </SurfacePanel>
         </section>
 
+        <JourneyRail decision={decision} />
+
+        <DecisionTrustPanel
+          decision={decision}
+          latestVideoReport={snapshot.latestVideoReport}
+          objectiveTest={snapshot.objectiveTest}
+          contextSummary={snapshot.contextSummary}
+        />
+
+        <SectionIntro
+          eyebrow="Today"
+          title="Start with the next step"
+          body="This section answers the only thing most users need right now: what to do today and how hard to push."
+          icon={CheckCircle2}
+        />
+
         <IndividualDecisionHUD decision={decision} />
+
+        <section className="grid gap-3 sm:grid-cols-3">
+          <QuickActionLink href="/individual/logging" icon={CalendarRange} label="Daily Check-In" />
+          <QuickActionLink href="/individual/review" icon={BarChart3} label="Weekly Review" />
+          <QuickActionLink href="/individual/tests" icon={Timer} label="Objective Tests" />
+          {nutritionAdviceBlocked ? (
+            <QuickActionLink href="/individual/nutrition-safety" icon={ShieldCheck} label="Nutrition Safety" />
+          ) : null}
+        </section>
+
+        <SectionIntro
+          eyebrow="Technique"
+          title="Use video only when you want movement feedback"
+          body="Video analysis is optional. It adds technique clarity without becoming extra daily work."
+          icon={Video}
+        />
 
         <VideoAnalysisSummaryCard
           role="individual"
@@ -155,15 +196,24 @@ export function IndividualDashboardClient({
 
         {decision?.prescriptions && (
           <section className="space-y-6">
+            <SectionIntro
+              eyebrow="Plan"
+              title="Your weekly movement and nutrition plan"
+              body="Once the daily direction is clear, CREEDA shows the plan that keeps the week coherent and realistic."
+              icon={CalendarRange}
+            />
+
             <section className="grid gap-6 xl:grid-cols-[1.04fr_0.96fr]">
               <SurfacePanel className="p-8 sm:p-9">
                 <div className="relative">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Actionable Prescription</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Today&apos;s Plan</p>
                   <h2 className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                    Exactly what to do and how to fuel it
+                    {nutritionAdviceBlocked ? 'Exactly what to do while nutrition stays safety-gated' : 'Exactly what to do and how to fuel it'}
                   </h2>
                   <p className="mt-3 max-w-2xl text-sm text-slate-400 leading-relaxed">
-                    This block is generated on the server from your physiology, pathway, daily readiness, and connected health signals. It uses research-backed movement and nutrition targets instead of generic dashboard filler.
+                    {nutritionAdviceBlocked
+                      ? 'Movement guidance is ready. Detailed nutrition stays paused until allergies and medical health are explicitly confirmed.'
+                      : 'This plan comes from your FitStart baseline, daily check-ins, and optional device data. It is meant to be simple enough to follow today.'}
                   </p>
 
                   <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -174,16 +224,24 @@ export function IndividualDashboardClient({
                       detail={`Build around ${decision.prescriptions.trainingFramework.weeklyAerobicMinutes} aerobic min/week.`}
                     />
                     <PrescriptionMetric
-                      icon={Apple}
-                      label="Protein"
-                      value={`${decision.prescriptions.nutritionFramework.proteinTarget}g`}
-                      detail={`Split into ${decision.prescriptions.nutritionFramework.proteinFeedings} feedings of ~${decision.prescriptions.nutritionFramework.proteinPerFeeding}g.`}
+                      icon={nutritionAdviceBlocked ? ShieldCheck : Apple}
+                      label={nutritionAdviceBlocked ? 'Nutrition Gate' : 'Protein'}
+                      value={
+                        nutritionAdviceBlocked
+                          ? nutritionSafety.statusLabel
+                          : `${decision.prescriptions.nutritionFramework.proteinTarget}g`
+                      }
+                      detail={
+                        nutritionAdviceBlocked
+                          ? nutritionSafety.gateTitle
+                          : `Split into ${decision.prescriptions.nutritionFramework.proteinFeedings} feedings of ~${decision.prescriptions.nutritionFramework.proteinPerFeeding}g.`
+                      }
                     />
                     <PrescriptionMetric
-                      icon={Droplets}
-                      label="Hydration"
-                      value={`${decision.prescriptions.nutritionFramework.hydrationLiters}L`}
-                      detail="Baseline fluid target before adding sweat-loss needs."
+                      icon={nutritionAdviceBlocked ? HeartPulse : Droplets}
+                      label={nutritionAdviceBlocked ? 'Next Step' : 'Hydration'}
+                      value={nutritionAdviceBlocked ? 'Safety first' : `${decision.prescriptions.nutritionFramework.hydrationLiters}L`}
+                      detail={nutritionAdviceBlocked ? nutritionSafety.nextAction : 'Baseline fluid target before adding sweat-loss needs.'}
                     />
                     <PrescriptionMetric
                       icon={Moon}
@@ -199,8 +257,12 @@ export function IndividualDashboardClient({
                       items={decision.prescriptions.trainingFramework.rationale}
                     />
                     <ResearchList
-                      title="Nutrition logic"
-                      items={decision.prescriptions.nutritionFramework.rationale}
+                      title={nutritionAdviceBlocked ? 'Nutrition safety' : 'Nutrition logic'}
+                      items={
+                        nutritionAdviceBlocked
+                          ? [nutritionSafety.summary, nutritionSafety.nextAction]
+                          : decision.prescriptions.nutritionFramework.rationale
+                      }
                     />
                   </div>
                 </div>
@@ -208,24 +270,21 @@ export function IndividualDashboardClient({
 
               <SurfacePanel className="p-8 sm:p-9">
                 <div className="relative">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Research Anchors</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Keep It Simple</p>
                   <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">
-                    Why CREEDA is recommending this
+                    Start with the action, not the science notes
                   </h2>
                   <p className="mt-3 text-sm text-slate-400 leading-relaxed">
-                    These are the baseline evidence sources shaping your movement dose, progressive overload, recovery floor, and macro targets.
+                    If you just want the next step, follow the movement, recovery, and food plan above. Open the deeper view only when you want the extra science and estimated physiology map.
                   </p>
 
-                  <div className="mt-6 space-y-3">
-                    {decision.prescriptions.sources.map((source) => (
-                      <SourceCard
-                        key={source.id}
-                        label={source.shortLabel}
-                        title={source.title}
-                        detail={source.application}
-                      />
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeeperView((currentValue) => !currentValue)}
+                    className="mt-6 inline-flex items-center rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-200 hover:bg-white/[0.06] transition-all"
+                  >
+                    {showDeeperView ? 'Hide deeper view' : 'Show deeper view'}
+                  </button>
                 </div>
               </SurfacePanel>
             </section>
@@ -235,7 +294,7 @@ export function IndividualDashboardClient({
                 <div className="relative">
                   <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Today&apos;s Movement Prescription</p>
                   <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">
-                    Train for real life, not a fake athlete template
+                    Movement built for real life
                   </h2>
                   <div className="mt-5 flex flex-wrap gap-2">
                     <InfoTag icon={Activity} text={`${decision.prescriptions.trainingFramework.weeklyAerobicMinutes} min/week`} />
@@ -252,15 +311,28 @@ export function IndividualDashboardClient({
                 <div className="relative">
                   <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Today&apos;s Nutrition Prescription</p>
                   <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">
-                    Fuel matched to your goal and actual demand
+                    {nutritionAdviceBlocked ? 'Clear safety first, then unlock nutrition' : 'Fuel matched to your goal and actual demand'}
                   </h2>
                   <div className="mt-5 flex flex-wrap gap-2">
-                    <InfoTag icon={Apple} text={`${decision.prescriptions.nutritionFramework.calories} kcal`} />
-                    <InfoTag icon={Target} text={`${decision.prescriptions.nutritionFramework.carbTarget}g carbs`} />
-                    <InfoTag icon={Droplets} text={`${decision.prescriptions.nutritionFramework.hydrationLiters}L baseline`} />
+                    {nutritionAdviceBlocked ? (
+                      <>
+                        <InfoTag icon={ShieldCheck} text={nutritionSafety.statusLabel} />
+                        <InfoTag icon={HeartPulse} text={nutritionSafety.needsClinicalReview ? 'Medical caution' : 'Screening required'} />
+                      </>
+                    ) : (
+                      <>
+                        <InfoTag icon={Apple} text={`${decision.prescriptions.nutritionFramework.calories} kcal`} />
+                        <InfoTag icon={Target} text={`${decision.prescriptions.nutritionFramework.carbTarget}g carbs`} />
+                        <InfoTag icon={Droplets} text={`${decision.prescriptions.nutritionFramework.hydrationLiters}L baseline`} />
+                      </>
+                    )}
                   </div>
                   <div className="mt-6">
-                    <NutritionPrescriptionView meals={decision.prescriptions.mealPlan} />
+                    <NutritionPrescriptionView
+                      role="individual"
+                      meals={decision.prescriptions.mealPlan}
+                      nutritionSafety={nutritionSafety}
+                    />
                   </div>
                 </div>
               </SurfacePanel>
@@ -268,16 +340,50 @@ export function IndividualDashboardClient({
           </section>
         )}
 
-        {current && peak && (
+        {showDeeperView && decision?.prescriptions && (
+          <section className="space-y-6">
+            <SectionIntro
+              eyebrow="Trend"
+              title="Estimated physiology and research notes"
+              body="Open this view when you want more detail on the estimated body map, longer-term trend, and the evidence anchors behind the plan."
+              icon={BarChart3}
+            />
+
+            <SurfacePanel className="p-8 sm:p-9">
+              <div className="relative">
+                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Why This Plan Exists</p>
+                <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">
+                  The research anchors behind your plan
+                </h2>
+                <p className="mt-3 text-sm text-slate-400 leading-relaxed">
+                  These are the main evidence sources guiding your movement dose, progression floor, recovery target, and nutrition baseline.
+                </p>
+
+                <div className="mt-6 space-y-3">
+                  {decision.prescriptions.sources.map((source) => (
+                    <SourceCard
+                      key={source.id}
+                      label={source.shortLabel}
+                      title={source.title}
+                      detail={source.application}
+                    />
+                  ))}
+                </div>
+              </div>
+            </SurfacePanel>
+          </section>
+        )}
+
+        {showDeeperView && current && peak && (
           <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
             <SurfacePanel className="p-8 sm:p-9">
               <div className="relative">
-                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Body Map</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Estimated Body Map</p>
                 <h2 className="mt-4 text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                  Current vs next stronger state
+                  Estimated baseline today vs next target
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm text-slate-400 leading-relaxed">
-                  These scores come from your FitStart profile, daily check-ins, and optional device data when connected.
+                  These scores are estimates from your FitStart answers, your daily check-ins, and optional device data when connected. They are guidance scores, not lab measurements.
                 </p>
 
                 <div className="mt-8 space-y-5">
@@ -372,6 +478,26 @@ export function IndividualDashboardClient({
   )
 }
 
+function QuickActionLink({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string
+  icon: typeof Activity
+  label: string
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5 text-xs font-bold uppercase tracking-[0.18em] text-slate-300 hover:bg-white/[0.06] transition-all"
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </Link>
+  )
+}
+
 function SurfacePanel({
   children,
   className = '',
@@ -384,6 +510,246 @@ function SurfacePanel({
       className={`relative overflow-hidden rounded-[2.35rem] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(15,23,42,0.86),rgba(2,6,23,0.94))] shadow-[0_18px_80px_rgba(2,6,23,0.35)] ${className}`}
     >
       {children}
+    </section>
+  )
+}
+
+function SectionIntro({
+  eyebrow,
+  title,
+  body,
+  icon: Icon,
+}: {
+  eyebrow: string
+  title: string
+  body: string
+  icon: typeof Gauge
+}) {
+  return (
+    <div className="rounded-[2rem] border border-white/[0.08] bg-white/[0.02] p-5 sm:p-6">
+      <div className="flex items-start gap-3">
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-2 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">{eyebrow}</p>
+          <h2 className="mt-2 text-xl font-bold tracking-tight text-white">{title}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-400">{body}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function JourneyRail({
+  decision,
+}: {
+  decision: IndividualDashboardSnapshot['decision']
+}) {
+  if (!decision) return null
+
+  return (
+    <section className="grid gap-4 md:grid-cols-3">
+      <StageCard
+        eyebrow="Today"
+        title={decision.directionLabel}
+        body={decision.directionSummary}
+        icon={CheckCircle2}
+      />
+      <StageCard
+        eyebrow="Plan"
+        title={`${decision.plan.trainingPlan.trainingDaysPerWeek} movement days per week`}
+        body={`Backed by ${decision.today.sessionDurationMinutes} min today and ${decision.plan.lifestylePlan.stepTarget.toLocaleString()} daily steps.`}
+        icon={CalendarRange}
+      />
+      <StageCard
+        eyebrow="Trend"
+        title={`${Math.round(decision.weekly.adherencePct)}% adherence this week`}
+        body={`Trend is ${decision.weekly.trend}. Peak progress is ${Math.round(decision.journeyState.progressToPeakPct)}%.`}
+        icon={TrendingUp}
+      />
+    </section>
+  )
+}
+
+function StageCard({
+  eyebrow,
+  title,
+  body,
+  icon: Icon,
+}: {
+  eyebrow: string
+  title: string
+  body: string
+  icon: typeof Gauge
+}) {
+  return (
+    <div className="rounded-[1.8rem] border border-white/[0.08] bg-white/[0.02] p-5">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-primary" />
+        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">{eyebrow}</p>
+      </div>
+      <h3 className="mt-4 text-xl font-bold tracking-tight text-white">{title}</h3>
+      <p className="mt-3 text-sm leading-relaxed text-slate-400">{body}</p>
+    </div>
+  )
+}
+
+function DecisionTrustPanel({
+  decision,
+  latestVideoReport,
+  objectiveTest,
+  contextSummary,
+}: {
+  decision: IndividualDashboardSnapshot['decision']
+  latestVideoReport: IndividualDashboardSnapshot['latestVideoReport']
+  objectiveTest: IndividualDashboardSnapshot['objectiveTest']
+  contextSummary: IndividualDashboardSnapshot['contextSummary']
+}) {
+  if (!decision) return null
+
+  const trustSummary = decision.trustSummary
+  const inputs = [
+    ...trustSummary.signals,
+    {
+      label: 'Video scan',
+      status: latestVideoReport?.summary?.status ? 'active' : 'limited',
+      detail: latestVideoReport?.summary?.status
+        ? 'A recent movement scan is available.'
+        : 'Video review is optional and can sharpen technique context.',
+    },
+    {
+      label: 'Objective test',
+      status: objectiveTest?.trustStatus || 'building',
+      detail:
+        objectiveTest?.summary ||
+        'Objective testing is optional. Add it only if you want one extra measured performance anchor.',
+    },
+  ]
+
+  return (
+    <section className="rounded-[2rem] border border-white/[0.08] bg-white/[0.02] p-6 sm:p-7">
+      <div className="grid gap-5 xl:grid-cols-[1.02fr_0.98fr] xl:items-start">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">Trust Layer</p>
+          <h2 className="mt-3 text-2xl font-bold tracking-tight text-white">
+            Why CREEDA is guiding you this way
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-400">
+            CREEDA never needs to throw deep scores at people without showing what they are based on. This guidance is built from the sources below.
+          </p>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {inputs.map((item) => (
+              <span
+                key={item.label}
+                title={item.detail}
+                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                  item.status === 'active'
+                    ? 'border-white/[0.08] bg-white/[0.04] text-white'
+                    : item.status === 'missing'
+                      ? 'border-red-500/20 bg-red-500/10 text-red-300'
+                      : 'border-white/[0.06] bg-white/[0.02] text-slate-400'
+                }`}
+              >
+                {item.label}
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
+            <div className="rounded-[1.5rem] border border-white/[0.08] bg-white/[0.03] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Why today changed</p>
+              <div className="mt-4 space-y-2">
+                {trustSummary.whyTodayChanged.slice(0, 2).map((item) => (
+                  <p key={item} className="text-sm leading-relaxed text-slate-300">
+                    {item}
+                  </p>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-white/[0.08] bg-white/[0.03] p-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Best next inputs</p>
+              <div className="mt-4 space-y-2">
+                {trustSummary.nextBestInputs.slice(0, 2).map((item) => (
+                  <p key={item} className="text-sm leading-relaxed text-slate-300">
+                    {item}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
+          <SnapshotTile
+            icon={Brain}
+            label="Confidence"
+            value={`${trustSummary.confidenceLevel} ${trustSummary.confidenceScore}`}
+          />
+          <SnapshotTile
+            icon={ShieldCheck}
+            label="Data Quality"
+            value={trustSummary.dataQuality}
+          />
+          <SnapshotTile
+            icon={HeartPulse}
+            label="Completeness"
+            value={`${trustSummary.dataCompleteness}%`}
+          />
+          <SnapshotTile
+            icon={HeartPulse}
+            label="Decision Mode"
+            value={decision.health.usedInDecision ? 'Blended' : 'Manual'}
+          />
+          <SnapshotTile
+            icon={Activity}
+            label="Device Days"
+            value={String(decision.health.connectedMetricDays)}
+          />
+          <SnapshotTile
+            icon={Brain}
+            label="Context Load"
+            value={contextSummary?.loadLabel || 'Optional'}
+          />
+          <SnapshotTile
+            icon={Timer}
+            label="Measured Signal"
+            value={objectiveTest?.primarySignal?.formattedHeadline || 'Optional'}
+          />
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-[1.5rem] border border-white/[0.08] bg-white/[0.03] p-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">India-context signal</p>
+          {contextSummary?.latestSignal && (
+            <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
+              {contextSummary.loadLabel} load
+            </span>
+          )}
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-slate-300">
+          {contextSummary?.summary || 'Optional: log heat, commute, fasting, air quality, or schedule pressure when the day is unusual. CREEDA uses it to explain the guidance more clearly without turning it into compulsory work.'}
+        </p>
+      </div>
+
+      <div className="mt-5 rounded-[1.5rem] border border-white/[0.08] bg-white/[0.03] p-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+            {objectiveTest?.primarySignal?.displayName || 'Measured performance anchor'}
+          </p>
+          {objectiveTest?.classification && (
+            <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-white">
+              {objectiveTest.classification}
+            </span>
+          )}
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-slate-300">
+          {objectiveTest?.summary || 'Objective testing is optional. Add a measured session only if you want CREEDA to compare how you feel with one extra objective signal.'}
+        </p>
+      </div>
     </section>
   )
 }

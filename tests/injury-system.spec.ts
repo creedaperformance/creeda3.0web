@@ -17,7 +17,7 @@ test.describe('Injury Risk & Monitoring System (Athlete)', () => {
     // New accounts can be routed into onboarding; that is still a valid
     // athlete risk-pathway entry state before first dashboard sync.
     if (page.url().includes('/athlete/onboarding')) {
-      await expect(page.getByText(/Biological Baseline/i)).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole('heading', { name: /Athlete Setup/i })).toBeVisible({ timeout: 15000 });
       return;
     }
 
@@ -27,12 +27,8 @@ test.describe('Injury Risk & Monitoring System (Athlete)', () => {
 
   test('Risk Alert visibility placeholders', async ({ page }) => {
     await page.goto('/athlete');
-    
-    // Check for explainability elements if they render
-    const whyLabel = page.getByText(/Why am I seeing this\?/i);
-    const actionLabel = page.getByText(/Recommended Action/i);
-    
-    // These might not be visible if there's no data, but the test ensures path is accessible
+
+    // These might not be visible if there is no data, but the test ensures path is accessible.
     await expect(page).toHaveURL(/\/athlete/);
   });
 });
