@@ -8,7 +8,7 @@ import { MARKETING_SCOPE_SUMMARY, SEO_SCOPE_KEYPHRASES } from "@/lib/seo/marketi
 import { Toaster } from "sonner";
 import { CookieNotice } from "@/components/CookieNotice";
 
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://creeda.app").replace(/\/+$/, "");
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.creeda.in").replace(/\/+$/, "");
 const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
 const bingSiteVerification = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION;
 

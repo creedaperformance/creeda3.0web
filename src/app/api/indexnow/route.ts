@@ -7,7 +7,7 @@ const INDEXNOW_ENDPOINTS = [
 ]
 
 function normalizeSiteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || 'https://creeda.app').replace(/\/+$/, '')
+  return (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.creeda.in').replace(/\/+$/, '')
 }
 
 function getDefaultUrls(siteUrl: string) {
@@ -104,4 +104,3 @@ export async function POST(request: Request) {
     endpoints: results,
   })
 }
-

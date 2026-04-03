@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { MARKETING_SCOPE_SUMMARY, AEO_SCOPE_TOPICS, GEO_SCOPE_TOPICS, SEO_SCOPE_KEYPHRASES } from '@/lib/seo/marketing-scopes'
 
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://creeda.app').replace(/\/+$/, '')
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.creeda.in').replace(/\/+$/, '')
 
 export function GET() {
   const body = [
