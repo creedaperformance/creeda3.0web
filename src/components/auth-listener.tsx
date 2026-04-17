@@ -7,9 +7,19 @@ import { getRoleOnboardingRoute, isAppRole } from '@/lib/role_routes'
 
 export function AuthListener() {
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+
+    // Public auth pages should still prerender in CI even when Supabase env vars
+    // are not present for build-only jobs.
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return
+    }
+
+    const supabase = createClient()
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         // Verify if they have a completed profile
@@ -35,7 +45,7 @@ export function AuthListener() {
     return () => {
       subscription.unsubscribe()
     }
-  }, [router, supabase])
+  }, [router])
 
   return null
 }
