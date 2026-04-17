@@ -26,10 +26,10 @@ export function AvatarUpload({ currentUrl, onUploadComplete, uid }: AvatarUpload
 
       const file = event.target.files[0]
       const fileExt = file.name.split('.').pop()
-      const filePath = `${uid}-${Math.random()}.${fileExt}`
+      const filePath = `${uid}-${crypto.randomUUID()}.${fileExt}`
 
       // 1. Upload to Supabase Storage
-      const { error: uploadError, data } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file)
 
@@ -45,8 +45,8 @@ export function AvatarUpload({ currentUrl, onUploadComplete, uid }: AvatarUpload
       setPreviewUrl(publicUrl)
       onUploadComplete(publicUrl)
       toast.success('Avatar uploaded!')
-    } catch (error: any) {
-      toast.error(error.message || 'Error uploading avatar!')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error uploading avatar!')
     } finally {
       setUploading(false)
     }

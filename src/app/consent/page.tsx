@@ -10,6 +10,19 @@ import {
   LEGAL_LAST_UPDATED_LABEL,
   LEGAL_POLICY_VERSIONS,
 } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Consent Acknowledgement | CREEDA',
+  description:
+    'Understand the explicit consent bundle behind CREEDA account creation, AI acknowledgement, data processing, and minors safeguards.',
+  path: '/consent',
+  keywords: [
+    'consent acknowledgement sports app',
+    'data processing consent India',
+    'guardian consent athlete platform',
+  ],
+})
 
 export default function ConsentPage() {
   return (

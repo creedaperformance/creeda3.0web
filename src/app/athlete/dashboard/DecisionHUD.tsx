@@ -6,12 +6,14 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Activity, BarChart3, Brain, ClipboardCheck, Timer, Video, Zap } from "lucide-react";
 import { ReadinessOrb } from "@/components/neon/ReadinessOrb";
+import { ProfileAccuracyCard } from "@/components/form/ProfileAccuracyCard";
 
 import type { AthleteHealthSummary, ObjectiveTestSummary } from "@/lib/dashboard_decisions";
 import type { CreedaDecision, OrchestratorOutputV5 } from "@/lib/engine/types";
 import type { NutritionSafetySummary } from "@/lib/nutrition-safety";
 import type { VideoAnalysisReportSummary } from "@/lib/video-analysis/reporting";
 import type { DailyContextSummary } from "@/lib/context-signals/storage";
+import type { AdaptiveProfileSummary } from "@/forms/types";
 
 import { FeedbackBanner } from "./components/FeedbackBanner";
 import { FullPlanSheet } from "./components/FullPlanSheet";
@@ -31,6 +33,7 @@ interface DecisionHUDProps {
   objectiveTest?: ObjectiveTestSummary | null;
   contextSummary?: DailyContextSummary | null;
   nutritionSafety: NutritionSafetySummary;
+  adaptiveProfile: AdaptiveProfileSummary | null;
 }
 
 export const DecisionHUD: React.FC<DecisionHUDProps> = ({
@@ -41,6 +44,7 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
   objectiveTest,
   contextSummary,
   nutritionSafety,
+  adaptiveProfile,
 }) => {
   const router = useRouter();
   const [isInsightsOpen, setIsInsightsOpen] = useState(false);
@@ -128,6 +132,7 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
           calibrationSessionCount={calibrationSessionCount}
           objectiveTest={objectiveTest || null}
           contextSummary={contextSummary || null}
+          adaptiveProfile={adaptiveProfile}
         />
 
         <SectionHeader
@@ -332,6 +337,7 @@ function AthleteTrustCard({
   calibrationSessionCount,
   objectiveTest,
   contextSummary,
+  adaptiveProfile,
 }: {
   decision: CreedaDecision;
   healthSummary: AthleteHealthSummary | null;
@@ -339,6 +345,7 @@ function AthleteTrustCard({
   calibrationSessionCount: number;
   objectiveTest: ObjectiveTestSummary | null;
   contextSummary: DailyContextSummary | null;
+  adaptiveProfile: AdaptiveProfileSummary | null;
 }) {
   const trustSummary = getTrustSummary(decision);
   const sources = [
@@ -510,6 +517,14 @@ function AthleteTrustCard({
           </p>
         </div>
       )}
+
+      <ProfileAccuracyCard
+        summary={adaptiveProfile}
+        title="Profile accuracy can improve without reopening a long form"
+        body="CREEDA now separates fast-start setup from deeper accuracy boosts. Add one useful detail at a time when you want sharper personalization."
+        ctaHref="/athlete/onboarding"
+        ctaLabel="Improve accuracy"
+      />
 
       {healthSummary?.connected && healthSummary.latestMetricDate && (
         <p className="text-xs text-slate-500 leading-relaxed">

@@ -4,6 +4,19 @@ import {
   CORE_MEDICAL_DISCLAIMER,
   LEGAL_LAST_UPDATED_LABEL,
 } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Medical & Performance Disclaimer | CREEDA',
+  description:
+    'Read CREEDA’s medical and performance disclaimer covering decision-support use, data-quality limits, and the need for human clinical judgment.',
+  path: '/disclaimer',
+  keywords: [
+    'medical disclaimer sports app',
+    'performance disclaimer athlete app',
+    'decision support not diagnosis',
+  ],
+})
 
 export default function DisclaimerPage() {
   return (

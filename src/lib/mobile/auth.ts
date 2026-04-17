@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getRoleHomeRoute, getRoleOnboardingRoute, isAppRole, type AppRole } from '@/lib/role_routes'
+import { jsonError } from '@/lib/security/http'
 
 export interface MobileAuthenticatedUser {
   userId: string
@@ -12,6 +13,7 @@ export interface MobileAuthenticatedUser {
     fullName: string
     username: string | null
     avatarUrl: string | null
+    mobileNumber: string | null
     primarySport: string | null
     position: string | null
     onboardingCompleted: boolean
@@ -22,8 +24,8 @@ type MobileAuthResult =
   | { ok: true; user: MobileAuthenticatedUser }
   | { ok: false; response: NextResponse }
 
-function unauthorized(message: string) {
-  return NextResponse.json({ error: message }, { status: 401 })
+function unauthorized(request: NextRequest) {
+  return jsonError(request, 401, 'Unauthorized.')
 }
 
 export async function authenticateMobileApiRequest(
@@ -31,44 +33,40 @@ export async function authenticateMobileApiRequest(
 ): Promise<MobileAuthResult> {
   const authHeader = request.headers.get('authorization') || ''
   if (!authHeader.toLowerCase().startsWith('bearer ')) {
-    return { ok: false, response: unauthorized('Missing Bearer token.') }
+    return { ok: false, response: unauthorized(request) }
   }
 
   const token = authHeader.slice(7).trim()
   if (!token) {
-    return { ok: false, response: unauthorized('Invalid Bearer token.') }
+    return { ok: false, response: unauthorized(request) }
   }
 
   const admin = createAdminClient()
   const { data: authData, error: authError } = await admin.auth.getUser(token)
 
   if (authError || !authData?.user) {
-    return { ok: false, response: unauthorized('Unauthorized.') }
+    return { ok: false, response: unauthorized(request) }
   }
 
   const { data: resolvedProfile, error: resolvedProfileError } = await admin
     .from('profiles')
-    .select('id, role, full_name, username, avatar_url, primary_sport, position, onboarding_completed')
+    .select(
+      'id, role, full_name, username, avatar_url, mobile_number, primary_sport, position, onboarding_completed'
+    )
     .eq('id', authData.user.id)
     .maybeSingle()
 
   if (resolvedProfileError || !resolvedProfile) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { error: 'Profile not found for authenticated user.' },
-        { status: 404 }
-      ),
+      response: jsonError(request, 403, 'Mobile access is not available for this account.'),
     }
   }
 
   if (!isAppRole(resolvedProfile.role)) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { error: 'Unsupported CREEDA role for mobile access.' },
-        { status: 409 }
-      ),
+      response: jsonError(request, 403, 'Mobile access is not available for this account.'),
     }
   }
 
@@ -83,6 +81,7 @@ export async function authenticateMobileApiRequest(
         fullName: String(resolvedProfile.full_name || 'Creeda User'),
         username: resolvedProfile.username ? String(resolvedProfile.username) : null,
         avatarUrl: resolvedProfile.avatar_url ? String(resolvedProfile.avatar_url) : null,
+        mobileNumber: resolvedProfile.mobile_number ? String(resolvedProfile.mobile_number) : null,
         primarySport: resolvedProfile.primary_sport ? String(resolvedProfile.primary_sport) : null,
         position: resolvedProfile.position ? String(resolvedProfile.position) : null,
         onboardingCompleted: resolvedProfile.onboarding_completed !== false,

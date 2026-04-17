@@ -5,6 +5,19 @@ import {
   LEGAL_LAST_UPDATED_LABEL,
   LEGAL_POLICY_VERSIONS,
 } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Data Ownership & B2B Terms | CREEDA',
+  description:
+    'Review how CREEDA handles athlete data ownership, team responsibilities, portability, deletion, and organization-controlled workspaces.',
+  path: '/data-ownership',
+  keywords: [
+    'athlete data ownership',
+    'sports tech data rights',
+    'academy data processing terms',
+  ],
+})
 
 export default function DataOwnershipPage() {
   return (
@@ -59,4 +72,3 @@ export default function DataOwnershipPage() {
     </LegalLayout>
   )
 }
-

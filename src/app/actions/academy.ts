@@ -5,11 +5,14 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import {
   calculateAgeFromDateOfBirth,
-  type AcademyAgeBand,
-  type AcademyType,
   type GuardianConsentStatus,
   type ParentHandoffPreference,
 } from '@/lib/academy/workflows'
+import {
+  type UpdateCoachAcademyTeamPayload,
+  markGuardianHandoffSentForCoach,
+  updateCoachAcademyTeamSettingsForCoach,
+} from '@/lib/coach-academy'
 
 type SaveGuardianPayload = {
   guardianName: string
@@ -21,16 +24,6 @@ type SaveGuardianPayload = {
   consentStatus: Exclude<GuardianConsentStatus, 'coach_confirmed'>
   handoffPreference: ParentHandoffPreference
   notes: string
-}
-
-type UpdateAcademyTeamPayload = {
-  teamId: string
-  academyName: string
-  academyType: AcademyType | ''
-  academyCity: string
-  ageBandFocus: AcademyAgeBand
-  parentHandoffEnabled: boolean
-  lowCostMode: boolean
 }
 
 function normalizeText(value: string) {
@@ -134,7 +127,7 @@ export async function saveAthleteGuardianProfile(payload: SaveGuardianPayload) {
   return { success: true, redirectTo: '/athlete/dashboard' }
 }
 
-export async function updateCoachAcademyTeamSettings(payload: UpdateAcademyTeamPayload) {
+export async function updateCoachAcademyTeamSettings(payload: UpdateCoachAcademyTeamPayload) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -144,43 +137,9 @@ export async function updateCoachAcademyTeamSettings(payload: UpdateAcademyTeamP
     return { error: 'Please log in again before updating academy settings.' }
   }
 
-  const { data: team } = await supabase
-    .from('teams')
-    .select('id, coach_id')
-    .eq('id', payload.teamId)
-    .maybeSingle()
-
-  if (!team || team.coach_id !== user.id) {
-    return { error: 'You do not have access to update this academy team.' }
-  }
-
-  if (
-    payload.academyType &&
-    !['independent', 'school', 'college', 'academy', 'club', 'federation'].includes(payload.academyType)
-  ) {
-    return { error: 'Please choose a valid academy type.' }
-  }
-
-  if (!['mixed', 'u12', 'u14', 'u16', 'u18', 'senior'].includes(payload.ageBandFocus)) {
-    return { error: 'Please choose a valid age-band focus.' }
-  }
-
-  const { error } = await supabase
-    .from('teams')
-    .update({
-      academy_name: normalizeText(payload.academyName),
-      academy_type: payload.academyType || null,
-      academy_city: normalizeText(payload.academyCity),
-      age_band_focus: payload.ageBandFocus,
-      parent_handoff_enabled: payload.parentHandoffEnabled,
-      low_cost_mode: payload.lowCostMode,
-    })
-    .eq('id', payload.teamId)
-    .eq('coach_id', user.id)
-
-  if (error) {
-    console.error('[academy] team update failed', error)
-    return { error: 'Could not save academy settings right now. Please try again.' }
+  const result = await updateCoachAcademyTeamSettingsForCoach(supabase, user.id, payload)
+  if (!result.success) {
+    return { error: result.error }
   }
 
   revalidatePath('/coach/dashboard')
@@ -200,30 +159,9 @@ export async function markGuardianHandoffSent(athleteId: string) {
     return { error: 'Please log in again before marking a guardian handoff.' }
   }
 
-  const { data: membership } = await supabase
-    .from('team_members')
-    .select('athlete_id, team_id, teams!inner(coach_id)')
-    .eq('athlete_id', athleteId)
-    .eq('status', 'Active')
-    .eq('teams.coach_id', user.id)
-    .limit(1)
-    .maybeSingle()
-
-  if (!membership) {
-    return { error: 'You do not have access to update handoff status for this athlete.' }
-  }
-
-  const { error } = await supabase
-    .from('athlete_guardian_profiles')
-    .update({
-      last_handoff_sent_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('athlete_id', athleteId)
-
-  if (error) {
-    console.error('[academy] handoff mark failed', error)
-    return { error: 'Could not mark the handoff as sent right now.' }
+  const result = await markGuardianHandoffSentForCoach(supabase, user.id, athleteId)
+  if (!result.success) {
+    return { error: result.error }
   }
 
   revalidatePath('/coach/dashboard')

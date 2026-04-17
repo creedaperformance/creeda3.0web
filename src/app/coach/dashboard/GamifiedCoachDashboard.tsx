@@ -6,18 +6,21 @@ import { GamifiedCard } from "@/components/gamified/GamifiedCard";
 import { HUDLabel } from "@/components/gamified/HUDLabel";
 import { GamifiedProgressBar } from "@/components/gamified/GamifiedProgressBar";
 import { GamifiedButton } from "@/components/gamified/GamifiedButton";
+import { ProfileAccuracyCard } from "@/components/form/ProfileAccuracyCard";
 import { useCreedaState } from "@/lib/state_engine";
 import { Search, Video, Database, TrendingUp, BarChart3, Users } from "lucide-react";
 import { CoachDecisionHUD } from "./components/CoachDecisionHUD";
 import { CoachVideoTerminal } from "./components/CoachVideoTerminal";
 import type { VideoAnalysisReportSummary } from "@/lib/video-analysis/reporting";
+import type { AdaptiveProfileSummary } from "@/forms/types";
 
 interface Props {
   videoReports: Array<VideoAnalysisReportSummary & { athleteName: string; athleteAvatarUrl: string | null }>
   lockerCode: string | null
+  adaptiveProfile: AdaptiveProfileSummary | null
 }
 
-export const GamifiedCoachDashboard: React.FC<Props> = ({ videoReports, lockerCode }) => {
+export const GamifiedCoachDashboard: React.FC<Props> = ({ videoReports, lockerCode, adaptiveProfile }) => {
   const { state } = useCreedaState();
   const [coachQuery, setCoachQuery] = useState("");
 
@@ -159,6 +162,14 @@ export const GamifiedCoachDashboard: React.FC<Props> = ({ videoReports, lockerCo
               </Link>
             </div>
           </GamifiedCard>
+
+          <ProfileAccuracyCard
+            summary={adaptiveProfile}
+            title="Coach setup stays short by default"
+            body="The new coach flow unlocks the dashboard first, then lets you enrich team structure and risk preferences when they will actually improve the command view."
+            ctaHref="/coach/onboarding"
+            ctaLabel="Improve setup"
+          />
 
           <div className="p-5 rounded-2xl border border-[var(--saffron)]/20 bg-[var(--saffron)]/5 space-y-4">
              <div className="flex items-center justify-between">

@@ -1,5 +1,3 @@
-'use client'
-
 import Link from 'next/link'
 import {
   Activity,
@@ -16,6 +14,20 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'CREEDA Features — Sports Science, Recovery, Video Analysis, and Coach Workflows',
+  description:
+    'Explore CREEDA features for athlete readiness, recovery, video analysis, coach intervention queues, and healthy-living guidance built for India.',
+  path: '/features',
+  keywords: [
+    'sports science features',
+    'athlete recovery analytics',
+    'coach intervention dashboard',
+    'video analysis sports app',
+  ],
+})
 
 const ROLE_SYSTEM = [
   {

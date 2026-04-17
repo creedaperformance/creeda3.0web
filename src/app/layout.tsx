@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Noto_Sans_Devanagari, Poppins } from "next/font/google";
+import Script from "next/script";
+import { Suspense } from "react";
 import "./globals.css";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { Navbar } from "@/components/navbar";
 import { NavbarWrapper } from "@/components/navbar-wrapper";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
@@ -11,6 +14,8 @@ import { CookieNotice } from "@/components/CookieNotice";
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.creeda.in").replace(/\/+$/, "");
 const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
 const bingSiteVerification = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION;
+const googleAnalyticsMeasurementId =
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "G-0GS3PDQELT";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -44,6 +49,7 @@ export const metadata: Metadata = {
   title: "Creeda — Digital Sports Scientist for Athletes and Everyday India",
   description:
     "AI-powered guidance for athlete performance, recovery, healthier living, and sport entry. Built for Indian athletes and everyday Indian routines.",
+  applicationName: "CREEDA",
   metadataBase: new URL(siteUrl),
   alternates: {
     canonical: "/",
@@ -51,6 +57,9 @@ export const metadata: Metadata = {
   keywords: [...SEO_SCOPE_KEYPHRASES],
   manifest: "/manifest.json",
   category: "sports science",
+  referrer: "origin-when-cross-origin",
+  creator: "Creeda Performance",
+  publisher: "Creeda Performance",
   verification: {
     ...(googleSiteVerification ? { google: googleSiteVerification } : {}),
     ...(bingSiteVerification ? { other: { "msvalidate.01": bingSiteVerification } } : {}),
@@ -184,24 +193,10 @@ export default function RootLayout({
           />
           <CookieNotice />
         </LanguageProvider>
-        {/* Service Worker Registration */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-              if ('serviceWorker' in navigator && !isLocalHost) {
-                window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js')
-                    .then(reg => {
-                      reg.update();
-                      console.log('[SW] Registered:', reg.scope);
-                    })
-                    .catch(err => console.log('[SW] Registration failed:', err));
-                });
-              }
-            `,
-          }}
-        />
+        <Suspense fallback={null}>
+          <GoogleAnalytics measurementId={googleAnalyticsMeasurementId} />
+        </Suspense>
+        <Script src="/sw-register.js" strategy="afterInteractive" />
       </body>
     </html>
   );

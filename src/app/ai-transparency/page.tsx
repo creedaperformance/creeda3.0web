@@ -5,6 +5,19 @@ import {
   LEGAL_LAST_UPDATED_LABEL,
   LEGAL_POLICY_VERSIONS,
 } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'AI Transparency | CREEDA',
+  description:
+    'Understand how CREEDA uses AI-assisted and rule-based systems for athlete performance, recovery, readiness, and healthy-living recommendations.',
+  path: '/ai-transparency',
+  keywords: [
+    'AI transparency sports app',
+    'explainable sports science AI',
+    'AI decision support India',
+  ],
+})
 
 export default function AiTransparencyPage() {
   return (
@@ -56,4 +69,3 @@ export default function AiTransparencyPage() {
     </LegalLayout>
   )
 }
-

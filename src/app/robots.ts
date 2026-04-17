@@ -1,12 +1,30 @@
 import type { MetadataRoute } from 'next'
+import { PUBLIC_URLS } from '@/lib/seo/public-urls'
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.creeda.in').replace(/\/+$/, '')
+const crawlablePaths = [
+  ...PUBLIC_URLS.map(({ path }) => path),
+  '/llms.txt',
+  '/sitemap.xml',
+  '/indexnow.txt',
+]
 
 const privateDisallowRules = [
   '/athlete/',
   '/coach/',
   '/individual/',
   '/dashboard/',
+  '/join/',
+  '/fitstart',
+  '/welcome',
+  '/role-selection',
+  '/onboarding/',
+  '/daily-checkin',
+  '/weekly-review',
+  '/analysis',
+  '/peak',
+  '/plan',
+  '/results',
   '/login',
   '/signup',
   '/verify-email',
@@ -22,12 +40,12 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/features', '/mission', '/terms', '/privacy', '/disclaimer', '/consent', '/ai-transparency', '/data-ownership', '/sla', '/security', '/cookies', '/refund-policy', '/llms.txt', '/sitemap.xml', '/indexnow.txt'],
+        allow: crawlablePaths,
         disallow: privateDisallowRules,
       },
       {
         userAgent: ['GPTBot', 'ChatGPT-User', 'ClaudeBot', 'PerplexityBot', 'Google-Extended'],
-        allow: ['/', '/features', '/mission', '/terms', '/privacy', '/disclaimer', '/consent', '/ai-transparency', '/data-ownership', '/sla', '/security', '/cookies', '/refund-policy', '/llms.txt', '/sitemap.xml', '/indexnow.txt'],
+        allow: crawlablePaths,
         disallow: privateDisallowRules,
       },
     ],

@@ -1,5 +1,14 @@
 import LegalLayout from '@/components/LegalLayout'
 import { CREEDA_PRIVACY_EMAIL, LEGAL_LAST_UPDATED_LABEL } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Cookie Policy | CREEDA',
+  description:
+    'Review how CREEDA uses essential cookies and consent-based analytics cookies across its public site and authenticated app surfaces.',
+  path: '/cookies',
+  keywords: ['cookie policy India', 'analytics consent sports app', 'GA4 consent banner'],
+})
 
 export default function CookiesPage() {
   return (
@@ -17,8 +26,11 @@ export default function CookiesPage() {
 
       <h3>2. Optional Analytics Cookies</h3>
       <p>
-        If optional analytics tools are enabled, they will be controlled through consent preferences and documented in
-        this policy.
+        CREEDA uses Google Analytics 4 on public-site surfaces to understand visits, page performance, and aggregate
+        engagement trends. These analytics cookies only run after a user explicitly chooses &quot;Accept all&quot;.
+      </p>
+      <p>
+        Choosing &quot;Essential only&quot; keeps the site functional without loading optional analytics tags.
       </p>
 
       <h3>3. Cookie Choices</h3>
@@ -32,4 +44,3 @@ export default function CookiesPage() {
     </LegalLayout>
   )
 }
-

@@ -2,38 +2,33 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateHealthApiRequest } from '@/lib/health/auth'
 import { inferSources, parseAndNormalizeHealthSyncPayload } from '@/lib/health/normalize'
 import { SyncService } from '@/lib/health/sync-service'
+import { enforceJsonRequest, handleApiError, jsonError, jsonResponse } from '@/lib/security/http'
 
 export async function POST(request: NextRequest) {
   const auth = await authenticateHealthApiRequest(request)
   if (!auth.ok) return auth.response
 
+  const jsonRequestViolation = enforceJsonRequest(request)
+  if (jsonRequestViolation) return jsonRequestViolation
+
   let rawPayload: unknown
   try {
     rawPayload = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 })
+    return jsonError(request, 400, 'Invalid JSON payload.')
   }
 
   const parsed = parseAndNormalizeHealthSyncPayload(rawPayload)
   if (!parsed.ok) {
-    return NextResponse.json(
-      {
-        error: 'Invalid payload.',
-        details: parsed.error,
-      },
-      { status: 400 }
-    )
+    return jsonError(request, 400, 'Invalid payload.', { details: parsed.error })
   }
 
   if (parsed.payload.user_id && parsed.payload.user_id !== auth.userId) {
-    return NextResponse.json(
-      { error: 'user_id does not match authenticated user.' },
-      { status: 403 }
-    )
+    return jsonError(request, 403, 'user_id does not match authenticated user.')
   }
 
   if (!parsed.payload.data.length) {
-    return NextResponse.json({ error: 'No data available for sync.' }, { status: 422 })
+    return jsonError(request, 422, 'No data available for sync.')
   }
 
   const syncService = new SyncService()
@@ -49,29 +44,25 @@ export async function POST(request: NextRequest) {
       errorMessage: null,
     })
 
-    return NextResponse.json({
+    return jsonResponse(request, {
       success: true,
       user_id: auth.userId,
       synced_rows: syncResult.syncedRows,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown sync failure.'
     try {
       await syncService.updateConnectionState({
         userId: auth.userId,
         status: 'failed',
-        errorMessage: message,
+        errorMessage: 'Health sync failed.',
       })
     } catch {
       // Do not hide primary sync error if status persistence fails.
     }
 
-    return NextResponse.json(
-      {
-        error: 'Health sync failed.',
-        details: message,
-      },
-      { status: 500 }
-    )
+    return handleApiError(request, error, {
+      logLabel: '[api/v1/health/sync] failed',
+      publicMessage: 'Health sync failed.',
+    })
   }
 }

@@ -1,5 +1,6 @@
 'use server'
 
+import { generateSixDigitCode } from '@/lib/security/codes'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
@@ -75,7 +76,7 @@ export async function getOrCreateLockerCode() {
   const maxAttempts = 5
 
   while (attempts < maxAttempts) {
-    newCode = Math.floor(100000 + Math.random() * 900000).toString()
+    newCode = generateSixDigitCode()
     
     const { error: updateError } = await supabase
       .from('profiles')
@@ -111,7 +112,9 @@ export async function useLockerCode(token: string) {
   const cleanToken = token.trim().toUpperCase()
 
   // Rate Limit: Max 10 connection attempts per hour per user
-  const limiter = await rateLimit(`locker:${currentUser.id}`, 10, 3600)
+  const limiter = await rateLimit(`locker:${currentUser.id}`, 10, 3600, {
+    failOpen: false,
+  })
   if (!limiter.success) return { error: limiter.error }
 
   const { data: currentUserProfile } = await supabase

@@ -14,6 +14,19 @@ import {
   LEGAL_LAST_UPDATED_LABEL,
   LEGAL_POLICY_VERSIONS,
 } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Privacy Policy | CREEDA',
+  description:
+    'Read how CREEDA collects, processes, stores, and protects athlete, wellness, and account data across its sports science platform.',
+  path: '/privacy',
+  keywords: [
+    'privacy policy sports app',
+    'athlete data privacy India',
+    'DPDP GDPR sports tech',
+  ],
+})
 
 export default function PrivacyPage() {
   return (

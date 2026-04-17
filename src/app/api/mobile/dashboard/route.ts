@@ -12,6 +12,7 @@ import {
   buildMobileCoachDashboard,
   buildMobileIndividualDashboard,
 } from '@/lib/mobile/presenters'
+import { handleApiError } from '@/lib/security/http'
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateMobileApiRequest(request)
@@ -45,15 +46,9 @@ export async function GET(request: NextRequest) {
       dashboard: buildMobileIndividualDashboard(snapshot),
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown mobile dashboard error.'
-    console.error('[api/mobile/dashboard] failed', error)
-
-    return NextResponse.json(
-      {
-        error: 'Failed to load mobile dashboard.',
-        details: message,
-      },
-      { status: 500 }
-    )
+    return handleApiError(request, error, {
+      logLabel: '[api/mobile/dashboard] failed',
+      publicMessage: 'Failed to load mobile dashboard.',
+    })
   }
 }

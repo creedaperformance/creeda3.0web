@@ -7,7 +7,10 @@ import { createClient } from './supabase/server';
 export async function rateLimit(
     key: string, 
     limit: number, 
-    windowSeconds: number
+    windowSeconds: number,
+    options?: {
+        failOpen?: boolean
+    }
 ): Promise<{ success: boolean; error?: string }> {
     const supabase = await createClient();
     
@@ -20,7 +23,14 @@ export async function rateLimit(
 
     if (error) {
         console.error(`[Rate Limit Error] Key: ${key}`, error);
-        return { success: true }; // Fail open for production safety if DB is reachable but RPC fails
+        if (options?.failOpen === false) {
+            return {
+                success: false,
+                error: 'Rate limiting is temporarily unavailable. Please try again shortly.',
+            };
+        }
+
+        return { success: true }; // Fail open for non-sensitive flows if DB is reachable but RPC fails
     }
 
     if (!isAllowed) {

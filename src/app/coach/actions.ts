@@ -3,6 +3,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { verifyRole } from '@/lib/auth_utils'
+import { rateLimit } from '@/lib/rate_limit'
+import {
+  coachOnboardingSchema,
+  submitCoachOnboardingForUser,
+} from '@/lib/coach-onboarding'
 
 export async function submitCoachOnboarding(data: { 
   fullName: string; 
@@ -20,51 +25,18 @@ export async function submitCoachOnboarding(data: {
 }) {
   const { user } = await verifyRole('coach')
   const supabase = await createClient()
-
-  // 0. Check for Username Uniqueness
-  const { isUsernameTaken } = await import('@/lib/auth_utils')
-  if (await isUsernameTaken(data.username, user.id)) {
-    return { error: 'Username is already taken. Please choose another.' }
+  const parsed = coachOnboardingSchema.safeParse(data)
+  if (!parsed.success) {
+    return { error: 'Please complete every required coaching field before continuing.' }
   }
 
-  // 1. Update Profile (Username + Mobile Number + Avatar + Onboarding Flag)
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .update({ 
-      full_name: data.fullName,
-      username: data.username,
-      mobile_number: data.mobileNumber,
-      avatar_url: data.avatarUrl,
-      onboarding_completed: true,
-      locker_code: Math.floor(100000 + Math.random() * 900000).toString()
-    })
-    .eq('id', user.id)
+  const result = await submitCoachOnboardingForUser({
+    supabase,
+    userId: user.id,
+    payload: parsed.data,
+  })
 
-  if (profileError) return { error: profileError.message }
-
-  // Generate prefix from sport (first 3 chars, uppercase)
-  const prefix = data.sportCoached.substring(0, 3).toUpperCase()
-  // Generate random 4 digit number
-  const suffix = Math.floor(1000 + Math.random() * 9000).toString()
-  const generatedCode = `${prefix}-SQD-${suffix}`
-
-  // 2. Create Initial Team
-  const { error: teamError } = await supabase
-    .from('teams')
-    .insert({
-      coach_id: user.id,
-      team_name: data.teamName,
-      sport: data.sportCoached,
-      invite_code: generatedCode,
-      coaching_level: data.coachingLevel,
-      team_type: data.teamType,
-      main_coaching_focus: data.mainCoachingFocus,
-      squad_size_category: data.numberOfAthletes,
-      training_frequency: data.trainingFrequency,
-      critical_risks: data.criticalRisks || []
-    })
-
-  if (teamError) return { error: teamError.message }
+  if ('error' in result) return result
 
   redirect('/coach/dashboard')
 }
@@ -120,6 +92,13 @@ export async function addAthleteToTeam(identifier: string, teamId: string) {
 export async function joinTeamWithCode(inviteCode: string) {
   const { user } = await verifyRole('athlete')
   const supabase = await createClient()
+  const limiter = await rateLimit(`team-invite:${user.id}`, 10, 3600, {
+    failOpen: false,
+  })
+
+  if (!limiter.success) {
+    return { error: limiter.error }
+  }
 
   // 1. Find team by code
   const { data: team, error: teamError } = await supabase

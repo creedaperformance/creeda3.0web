@@ -18,6 +18,19 @@ import {
   LEGAL_LAST_UPDATED_LABEL,
   LEGAL_POLICY_VERSIONS,
 } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Terms of Service | CREEDA',
+  description:
+    'Review the terms governing CREEDA use, including account responsibilities, minors safeguards, AI decision-support positioning, and support expectations.',
+  path: '/terms',
+  keywords: [
+    'terms of service sports app',
+    'athlete platform terms India',
+    'AI sports app legal terms',
+  ],
+})
 
 export default function TermsPage() {
   return (

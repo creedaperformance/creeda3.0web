@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { getIndividualDashboardSnapshot } from '@/lib/dashboard_decisions'
+import { individualOnboardingFlow } from '@/forms/flows/individualFlow'
+import { getAdaptiveProfileSummary } from '@/forms/storage'
 import { IndividualDashboardClient } from './components/IndividualDashboardClient'
 import { CreedaProvider } from '@/lib/state_engine'
 
@@ -21,6 +23,12 @@ export default async function IndividualDashboard() {
   if (!profile.onboarding_completed) redirect('/fitstart')
 
   const snapshot = await getIndividualDashboardSnapshot(supabase, user.id)
+  const adaptiveProfile = await getAdaptiveProfileSummary({
+    supabase,
+    userId: user.id,
+    role: 'individual',
+    flowId: individualOnboardingFlow.id,
+  })
   const individualProfile = snapshot.individualProfile
 
   const initialData = {
@@ -36,7 +44,7 @@ export default async function IndividualDashboard() {
 
   return (
     <CreedaProvider initialData={initialData}>
-      <IndividualDashboardClient profile={profile} snapshot={snapshot} />
+      <IndividualDashboardClient profile={profile} snapshot={snapshot} adaptiveProfile={adaptiveProfile} />
     </CreedaProvider>
   )
 }

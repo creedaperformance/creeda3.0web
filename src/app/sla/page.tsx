@@ -6,6 +6,19 @@ import {
   LEGAL_LAST_UPDATED_LABEL,
   LEGAL_POLICY_VERSIONS,
 } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Service Level Agreement | CREEDA',
+  description:
+    'Review CREEDA’s baseline service availability, support response objectives, incident severity model, and operational support commitments.',
+  path: '/sla',
+  keywords: [
+    'service level agreement app',
+    'support SLA sports platform',
+    'incident response commitments creeda',
+  ],
+})
 
 export default function SlaPage() {
   return (

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { jsonError } from '@/lib/security/http'
 
 type AuthResult =
   | { ok: true; userId: string }
@@ -10,10 +11,7 @@ export async function authenticateHealthApiRequest(request: NextRequest): Promis
   if (!authHeader.toLowerCase().startsWith('bearer ')) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { error: 'Missing Bearer token.' },
-        { status: 401 }
-      ),
+      response: jsonError(request, 401, 'Unauthorized.'),
     }
   }
 
@@ -21,10 +19,7 @@ export async function authenticateHealthApiRequest(request: NextRequest): Promis
   if (!token) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { error: 'Invalid Bearer token.' },
-        { status: 401 }
-      ),
+      response: jsonError(request, 401, 'Unauthorized.'),
     }
   }
 
@@ -33,10 +28,7 @@ export async function authenticateHealthApiRequest(request: NextRequest): Promis
   if (error || !data?.user) {
     return {
       ok: false,
-      response: NextResponse.json(
-        { error: 'Unauthorized.' },
-        { status: 401 }
-      ),
+      response: jsonError(request, 401, 'Unauthorized.'),
     }
   }
 

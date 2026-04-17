@@ -1,15 +1,27 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getRoleHomeRoute, isAppRole } from '@/lib/role_routes'
+import { getPublicSupabaseEnv } from '@/lib/env'
 
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+export async function updateSession(request: NextRequest, requestHeaders?: Headers) {
+  const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } = getPublicSupabaseEnv()
+
+  const buildNextResponse = () =>
+    requestHeaders
+      ? NextResponse.next({
+          request: {
+            headers: requestHeaders,
+          },
+        })
+      : NextResponse.next({
+          request,
+        })
+
+  let supabaseResponse = buildNextResponse()
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
@@ -17,9 +29,7 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(keysToSet) {
           keysToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
+          supabaseResponse = buildNextResponse()
           keysToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )

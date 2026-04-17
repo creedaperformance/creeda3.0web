@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
+import { getSiteUrl } from '@/lib/env'
 import { PUBLIC_URLS } from '@/lib/seo/public-urls'
+import { enforceTrustedMutationOrigin, jsonError, jsonResponse } from '@/lib/security/http'
 
 const INDEXNOW_ENDPOINTS = [
   'https://api.indexnow.org/indexnow',
@@ -7,7 +9,7 @@ const INDEXNOW_ENDPOINTS = [
 ]
 
 function normalizeSiteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.creeda.in').replace(/\/+$/, '')
+  return getSiteUrl()
 }
 
 function getDefaultUrls(siteUrl: string) {
@@ -31,21 +33,21 @@ function filterAllowedUrls(candidateUrls: string[], siteUrl: string) {
 }
 
 export async function POST(request: Request) {
+  const originViolation = enforceTrustedMutationOrigin(request)
+  if (originViolation) return originViolation
+
   const apiToken = (process.env.INDEXNOW_API_TOKEN || '').trim()
   const indexNowKey = (process.env.INDEXNOW_KEY || '').trim()
   const siteUrl = normalizeSiteUrl()
 
   if (!indexNowKey) {
-    return NextResponse.json(
-      { ok: false, message: 'INDEXNOW_KEY is not configured.' },
-      { status: 503 }
-    )
+    return jsonError(request, 503, 'IndexNow is not configured.')
   }
 
   if (apiToken) {
     const requestToken = request.headers.get('x-indexnow-token') || request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || ''
     if (requestToken !== apiToken) {
-      return NextResponse.json({ ok: false, message: 'Unauthorized.' }, { status: 401 })
+      return jsonError(request, 401, 'Unauthorized.')
     }
   }
 
@@ -61,7 +63,7 @@ export async function POST(request: Request) {
 
   const urls = filterAllowedUrls(requestedUrls || getDefaultUrls(siteUrl), siteUrl)
   if (!urls.length) {
-    return NextResponse.json({ ok: false, message: 'No valid URLs to submit.' }, { status: 400 })
+    return jsonError(request, 400, 'No valid URLs to submit.')
   }
 
   const host = new URL(siteUrl).host
@@ -98,7 +100,7 @@ export async function POST(request: Request) {
   )
 
   const success = results.some((item) => item.ok)
-  return NextResponse.json({
+  return jsonResponse(request, {
     ok: success,
     submittedUrlCount: urls.length,
     endpoints: results,

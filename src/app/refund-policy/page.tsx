@@ -1,5 +1,18 @@
 import LegalLayout from '@/components/LegalLayout'
 import { CREEDA_SUPPORT_EMAIL, LEGAL_LAST_UPDATED_LABEL } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Refund Policy | CREEDA',
+  description:
+    'Review CREEDA’s approach to billing errors, unauthorized charges, refund reviews, and future paid-feature refund handling.',
+  path: '/refund-policy',
+  keywords: [
+    'refund policy sports app',
+    'billing support creeda',
+    'payment refund policy India app',
+  ],
+})
 
 export default function RefundPage() {
   return (
@@ -27,4 +40,3 @@ export default function RefundPage() {
     </LegalLayout>
   )
 }
-

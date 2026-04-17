@@ -7,6 +7,19 @@ import {
   LEGAL_LAST_UPDATED_LABEL,
   LEGAL_POLICY_VERSIONS,
 } from '@/lib/legal/constants'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'Security Overview | CREEDA',
+  description:
+    'See how CREEDA approaches encryption, hosting, access control, audit trails, incident handling, and shared security responsibilities.',
+  path: '/security',
+  keywords: [
+    'security overview sports app',
+    'athlete data security India',
+    'sports platform security controls',
+  ],
+})
 
 export default function SecurityPage() {
   return (

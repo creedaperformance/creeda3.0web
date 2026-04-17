@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getAthleteDashboardSnapshot } from '@/lib/dashboard_decisions'
+import { athleteOnboardingFlow } from '@/forms/flows/athleteFlow'
+import { getAdaptiveProfileSummary } from '@/forms/storage'
 import { DecisionHUD } from './DecisionHUD'
 import { getRoleHomeRoute, getRoleOnboardingRoute, isAppRole } from '@/lib/auth_utils'
 
@@ -32,6 +34,12 @@ export default async function AthletePage() {
   }
 
   const snapshot = await getAthleteDashboardSnapshot(supabase, user.id)
+  const adaptiveProfile = await getAdaptiveProfileSummary({
+    supabase,
+    userId: user.id,
+    role: 'athlete',
+    flowId: athleteOnboardingFlow.id,
+  })
 
   return (
     <DecisionHUD
@@ -42,6 +50,7 @@ export default async function AthletePage() {
       objectiveTest={snapshot.objectiveTest}
       contextSummary={snapshot.contextSummary}
       nutritionSafety={snapshot.nutritionSafety}
+      adaptiveProfile={adaptiveProfile}
     />
   )
 }

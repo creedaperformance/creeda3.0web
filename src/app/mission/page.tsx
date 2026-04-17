@@ -1,6 +1,19 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, BookOpen, Globe2, ShieldCheck } from 'lucide-react'
+import { createPageMetadata } from '@/lib/seo/metadata'
+
+export const metadata = createPageMetadata({
+  title: 'CREEDA Mission — Bringing Sports Science to India',
+  description:
+    'Learn how CREEDA aims to expand access to sports science, injury-aware training, and performance diagnostics across India.',
+  path: '/mission',
+  keywords: [
+    'sports science India mission',
+    'athlete performance India',
+    'grassroots sports science',
+  ],
+})
 
 export default function MissionPage() {
   return (

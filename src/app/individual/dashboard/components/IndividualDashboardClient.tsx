@@ -25,8 +25,10 @@ import {
 } from 'lucide-react'
 
 import { DashboardLayout } from '@/components/DashboardLayout'
+import { ProfileAccuracyCard } from '@/components/form/ProfileAccuracyCard'
 import { Badge } from '@/components/ui/badge'
 import type { IndividualDashboardSnapshot } from '@/lib/dashboard_decisions'
+import type { AdaptiveProfileSummary } from '@/forms/types'
 import { NutritionPrescriptionView } from '@/app/athlete/dashboard/components/NutritionPrescriptionView'
 import { WorkoutPrescriptionView } from '@/app/athlete/dashboard/components/WorkoutPrescriptionView'
 import { VideoAnalysisSummaryCard } from '@/components/video-analysis/VideoAnalysisSummaryCard'
@@ -36,11 +38,13 @@ import { IndividualDecisionHUD } from './IndividualDecisionHUD'
 interface IndividualDashboardClientProps {
   profile: Record<string, unknown> | null
   snapshot: IndividualDashboardSnapshot
+  adaptiveProfile: AdaptiveProfileSummary | null
 }
 
 export function IndividualDashboardClient({
   profile,
   snapshot,
+  adaptiveProfile,
 }: IndividualDashboardClientProps) {
   const [showDeeperView, setShowDeeperView] = React.useState(false)
   const decision = snapshot.decision
@@ -161,6 +165,7 @@ export function IndividualDashboardClient({
           latestVideoReport={snapshot.latestVideoReport}
           objectiveTest={snapshot.objectiveTest}
           contextSummary={snapshot.contextSummary}
+          adaptiveProfile={adaptiveProfile}
         />
 
         <SectionIntro
@@ -600,11 +605,13 @@ function DecisionTrustPanel({
   latestVideoReport,
   objectiveTest,
   contextSummary,
+  adaptiveProfile,
 }: {
   decision: IndividualDashboardSnapshot['decision']
   latestVideoReport: IndividualDashboardSnapshot['latestVideoReport']
   objectiveTest: IndividualDashboardSnapshot['objectiveTest']
   contextSummary: IndividualDashboardSnapshot['contextSummary']
+  adaptiveProfile: AdaptiveProfileSummary | null
 }) {
   if (!decision) return null
 
@@ -749,6 +756,16 @@ function DecisionTrustPanel({
         <p className="mt-3 text-sm leading-relaxed text-slate-300">
           {objectiveTest?.summary || 'Objective testing is optional. Add a measured session only if you want CREEDA to compare how you feel with one extra objective signal.'}
         </p>
+      </div>
+
+      <div className="mt-5">
+        <ProfileAccuracyCard
+          summary={adaptiveProfile}
+          title="Keep setup fast. Improve precision in small steps."
+          body="FitStart is now designed to unlock your first plan quickly, then ask for extra details only when they meaningfully improve guidance."
+          ctaHref="/fitstart"
+          ctaLabel="Open FitStart"
+        />
       </div>
     </section>
   )

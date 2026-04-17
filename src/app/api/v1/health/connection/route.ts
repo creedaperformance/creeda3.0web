@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { authenticateHealthApiRequest } from '@/lib/health/auth'
 import { SyncService } from '@/lib/health/sync-service'
+import { enforceJsonRequest, handleApiError, jsonError, jsonResponse } from '@/lib/security/http'
 
 const updateConnectionSchema = z.object({
   source: z.enum(['apple', 'android']).optional(),
@@ -19,17 +20,16 @@ export async function GET(request: NextRequest) {
   const syncService = new SyncService()
   try {
     const connection = await syncService.fetchConnectionState(auth.userId)
-    return NextResponse.json({
+    return jsonResponse(request, {
       success: true,
       user_id: auth.userId,
       connection: connection || null,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error.'
-    return NextResponse.json(
-      { error: 'Failed to fetch connection state.', details: message },
-      { status: 500 }
-    )
+    return handleApiError(request, error, {
+      logLabel: '[api/v1/health/connection][GET] failed',
+      publicMessage: 'Failed to fetch connection state.',
+    })
   }
 }
 
@@ -37,19 +37,21 @@ export async function POST(request: NextRequest) {
   const auth = await authenticateHealthApiRequest(request)
   if (!auth.ok) return auth.response
 
+  const jsonRequestViolation = enforceJsonRequest(request)
+  if (jsonRequestViolation) return jsonRequestViolation
+
   let rawPayload: unknown
   try {
     rawPayload = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 })
+    return jsonError(request, 400, 'Invalid JSON payload.')
   }
 
   const parsed = updateConnectionSchema.safeParse(rawPayload)
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid payload.', details: parsed.error.flatten() },
-      { status: 400 }
-    )
+    return jsonError(request, 400, 'Invalid payload.', {
+      details: parsed.error.flatten(),
+    })
   }
 
   const payload = parsed.data
@@ -73,16 +75,15 @@ export async function POST(request: NextRequest) {
     })
 
     const connection = await syncService.fetchConnectionState(auth.userId)
-    return NextResponse.json({
+    return jsonResponse(request, {
       success: true,
       user_id: auth.userId,
       connection: connection || null,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error.'
-    return NextResponse.json(
-      { error: 'Failed to update connection state.', details: message },
-      { status: 500 }
-    )
+    return handleApiError(request, error, {
+      logLabel: '[api/v1/health/connection][POST] failed',
+      publicMessage: 'Failed to update connection state.',
+    })
   }
 }

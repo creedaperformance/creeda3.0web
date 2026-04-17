@@ -4,6 +4,8 @@ import { GamifiedCoachDashboard } from './GamifiedCoachDashboard'
 import { CreedaProvider } from '@/lib/state_engine'
 import { getRoleHomeRoute, isAppRole } from '@/lib/auth_utils'
 import { getCoachVideoReports } from '@/lib/video-analysis/service'
+import { coachOnboardingFlow } from '@/forms/flows/coachFlow'
+import { getAdaptiveProfileSummary } from '@/forms/storage'
 
 export default async function CoachDashboard() {
   const supabase = await createClient()
@@ -33,10 +35,20 @@ export default async function CoachDashboard() {
   }
 
   const videoReports = await getCoachVideoReports(supabase, user.id, 12)
+  const adaptiveProfile = await getAdaptiveProfileSummary({
+    supabase,
+    userId: user.id,
+    role: 'coach',
+    flowId: coachOnboardingFlow.id,
+  })
 
   return (
     <CreedaProvider>
-      <GamifiedCoachDashboard videoReports={videoReports} lockerCode={profile?.locker_code ?? null} />
+      <GamifiedCoachDashboard
+        videoReports={videoReports}
+        lockerCode={profile?.locker_code ?? null}
+        adaptiveProfile={adaptiveProfile}
+      />
     </CreedaProvider>
   )
 }
