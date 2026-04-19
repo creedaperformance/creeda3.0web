@@ -14,6 +14,7 @@ import {
   Zap,
 } from 'lucide-react'
 
+import { JsonLd } from '@/components/seo/JsonLd'
 import { Button } from '@/components/ui/button'
 import {
   CREEDA_LEGAL_ENTITY,
@@ -21,11 +22,11 @@ import {
   LEGAL_POLICY_VERSION,
 } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
+import { createWebApplicationSchema, createWebPageSchema } from '@/lib/seo/schema'
+import { SITE_TITLE } from '@/lib/seo/site'
 
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.creeda.in').replace(/\/+$/, '')
-
-export const metadata = createPageMetadata({
-  title: 'CREEDA — Digital Sports Scientist for Athletes and Everyday India',
+const homePageSeo = {
+  title: SITE_TITLE,
   description:
     'AI-powered sports science, recovery, performance, and healthy-living guidance built for Indian athletes, coaches, and everyday routines.',
   path: '/',
@@ -35,7 +36,9 @@ export const metadata = createPageMetadata({
     'healthy living app India',
     'sports science for athletes and coaches',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(homePageSeo)
 
 const ATHLETE_SPORTS = ['Cricket', 'Badminton', 'Football', 'Athletics', 'Kabaddi', 'Hockey']
 const INDIVIDUAL_GOALS = ['Sleep', 'Stress', 'Strength', 'Fat loss', 'Mobility', 'Weekend sport']
@@ -146,33 +149,17 @@ export default function LandingPage() {
   const athleteLink = '/signup?role=athlete'
   const individualLink = '/signup?role=individual'
   const coachLink = '/signup?role=coach'
-  const webApplicationStructuredData = {
-    '@context': 'https://schema.org',
-    '@type': 'WebApplication',
-    name: 'CREEDA',
-    url: siteUrl,
-    description:
-      'AI-powered sports science, recovery, performance, and healthy-living guidance for Indian athletes, coaches, and everyday users.',
-    applicationCategory: 'Sports science and healthy-living application',
-    operatingSystem: 'Web',
-    inLanguage: ['en-IN', 'hi-IN'],
-    featureList: [
-      'Athlete readiness and load guidance',
-      'Coach intervention and team review workflows',
-      'FitStart healthy-living recommendations',
-      'Video analysis and phone-based testing',
-      'Explainable confidence and data-quality signals',
-    ],
-  }
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-[var(--background)] text-white relative overflow-x-hidden">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(webApplicationStructuredData),
-        }}
+      <JsonLd
+        data={createWebPageSchema({
+          path: homePageSeo.path,
+          title: homePageSeo.title,
+          description: homePageSeo.description,
+        })}
       />
+      <JsonLd data={createWebApplicationSchema()} />
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,153,51,0.14),transparent_34%),radial-gradient(circle_at_top_right,rgba(29,185,84,0.12),transparent_34%),radial-gradient(circle_at_bottom_center,rgba(10,132,255,0.12),transparent_40%)]" />
         <div className="absolute top-[12%] left-[6%] w-[34rem] h-[34rem] bg-[var(--saffron)]/10 blur-[140px] rounded-full" />

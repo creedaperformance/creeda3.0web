@@ -9,7 +9,7 @@ import {
 } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const securityPageSeo = {
   title: 'Security Overview | CREEDA',
   description:
     'See how CREEDA approaches encryption, hosting, access control, audit trails, incident handling, and shared security responsibilities.',
@@ -19,11 +19,18 @@ export const metadata = createPageMetadata({
     'athlete data security India',
     'sports platform security controls',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(securityPageSeo)
 
 export default function SecurityPage() {
   return (
-    <LegalLayout title="Security Overview" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="Security Overview"
+      description={securityPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={securityPageSeo.path}
+    >
       <p>
         CREEDA applies layered technical and organizational safeguards for athlete, wellness, and account data.
         Security disclosure version: <strong>{LEGAL_POLICY_VERSIONS.security}</strong>.

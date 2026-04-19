@@ -4,7 +4,7 @@ const PAGE_CACHE = `${CACHE_VERSION}-pages`;
 const PRECACHE_URLS = [
   '/',
   '/offline',
-  '/manifest.json',
+  '/manifest.webmanifest',
   '/icons/icon-192.png',
 ];
 

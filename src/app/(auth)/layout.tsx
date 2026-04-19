@@ -1,5 +1,8 @@
 import Image from 'next/image'
 import { AuthListener } from '@/components/auth-listener'
+import { createNoIndexMetadata } from '@/lib/seo/noindex'
+
+export const metadata = createNoIndexMetadata()
 
 export default function AuthLayout({
   children,

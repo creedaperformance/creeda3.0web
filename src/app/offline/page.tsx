@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { WifiOff, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { createNoIndexMetadata } from '@/lib/seo/noindex'
+
+export const metadata = createNoIndexMetadata('Offline | CREEDA')
 
 export default function OfflinePage() {
   return (

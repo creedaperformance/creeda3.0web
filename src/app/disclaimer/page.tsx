@@ -6,7 +6,7 @@ import {
 } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const disclaimerPageSeo = {
   title: 'Medical & Performance Disclaimer | CREEDA',
   description:
     'Read CREEDA’s medical and performance disclaimer covering decision-support use, data-quality limits, and the need for human clinical judgment.',
@@ -16,11 +16,18 @@ export const metadata = createPageMetadata({
     'performance disclaimer athlete app',
     'decision support not diagnosis',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(disclaimerPageSeo)
 
 export default function DisclaimerPage() {
   return (
-    <LegalLayout title="Medical & Performance Disclaimer" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="Medical & Performance Disclaimer"
+      description={disclaimerPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={disclaimerPageSeo.path}
+    >
       <div className="bg-amber-50 border-l-4 border-amber-500 p-4 my-8">
         <p className="text-amber-800 font-bold mb-0 text-xs uppercase tracking-widest">Critical Notice</p>
         <p className="text-amber-900 font-black mb-1">{CORE_MEDICAL_DISCLAIMER}</p>

@@ -7,7 +7,7 @@ import {
 } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const dataOwnershipPageSeo = {
   title: 'Data Ownership & B2B Terms | CREEDA',
   description:
     'Review how CREEDA handles athlete data ownership, team responsibilities, portability, deletion, and organization-controlled workspaces.',
@@ -17,11 +17,18 @@ export const metadata = createPageMetadata({
     'sports tech data rights',
     'academy data processing terms',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(dataOwnershipPageSeo)
 
 export default function DataOwnershipPage() {
   return (
-    <LegalLayout title="Data Ownership & B2B Terms" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="Data Ownership & B2B Terms"
+      description={dataOwnershipPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={dataOwnershipPageSeo.path}
+    >
       <p>
         This document summarizes default data ownership and responsibility principles for athlete accounts, coaches,
         teams, and academies using {CREEDA_LEGAL_ENTITY}. Version: <strong>{LEGAL_POLICY_VERSIONS.dataOwnership}</strong>.

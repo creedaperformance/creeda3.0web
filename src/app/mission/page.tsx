@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, BookOpen, Globe2, ShieldCheck } from 'lucide-react'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { createPageMetadata } from '@/lib/seo/metadata'
+import { createWebPageSchema } from '@/lib/seo/schema'
 
-export const metadata = createPageMetadata({
+const missionPageSeo = {
   title: 'CREEDA Mission — Bringing Sports Science to India',
   description:
     'Learn how CREEDA aims to expand access to sports science, injury-aware training, and performance diagnostics across India.',
@@ -13,11 +15,21 @@ export const metadata = createPageMetadata({
     'athlete performance India',
     'grassroots sports science',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(missionPageSeo)
 
 export default function MissionPage() {
   return (
     <div className="flex min-h-screen flex-col selection:bg-primary/30 selection:text-white bg-[#080C14] text-white">
+      <JsonLd
+        data={createWebPageSchema({
+          path: missionPageSeo.path,
+          title: missionPageSeo.title,
+          description: missionPageSeo.description,
+          type: 'AboutPage',
+        })}
+      />
 
       <main className="flex-1">
         {/* Hero Section */}

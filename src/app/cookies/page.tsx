@@ -2,17 +2,24 @@ import LegalLayout from '@/components/LegalLayout'
 import { CREEDA_PRIVACY_EMAIL, LEGAL_LAST_UPDATED_LABEL } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const cookiesPageSeo = {
   title: 'Cookie Policy | CREEDA',
   description:
     'Review how CREEDA uses essential cookies and consent-based analytics cookies across its public site and authenticated app surfaces.',
   path: '/cookies',
   keywords: ['cookie policy India', 'analytics consent sports app', 'GA4 consent banner'],
-})
+} as const
+
+export const metadata = createPageMetadata(cookiesPageSeo)
 
 export default function CookiesPage() {
   return (
-    <LegalLayout title="Cookie Policy" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="Cookie Policy"
+      description={cookiesPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={cookiesPageSeo.path}
+    >
       <p>
         This Cookie Policy explains how CREEDA uses cookies and similar technologies on public and authenticated
         surfaces.

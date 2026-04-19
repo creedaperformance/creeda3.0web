@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
 
+import { CREEDA_LEGAL_ENTITY } from "@/lib/legal/constants";
 import { SEO_SCOPE_KEYPHRASES } from "@/lib/seo/marketing-scopes";
-
-const siteUrl = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.creeda.in"
-).replace(/\/+$/, "");
-
-const defaultSocialImage = {
-  url: "/creeda-performance-bgr.png",
-  width: 1200,
-  height: 630,
-  alt: "CREEDA Performance",
-} as const;
+import {
+  DEFAULT_SOCIAL_IMAGE,
+  SITE_ALTERNATE_LOCALES,
+  SITE_LOCALE,
+  SITE_NAME,
+  getAbsoluteUrl,
+} from "@/lib/seo/site";
 
 type CreatePageMetadataOptions = {
   title: string;
@@ -33,24 +30,35 @@ export function createPageMetadata({
   return {
     title,
     description,
+    category: "sports science",
     alternates: {
       canonical: path,
     },
+    creator: CREEDA_LEGAL_ENTITY,
     keywords: uniqueKeywords,
     openGraph: {
       title,
       description,
-      url: `${siteUrl}${path}`,
-      siteName: "CREEDA",
+      url: getAbsoluteUrl(path),
+      siteName: SITE_NAME,
       type: "website",
-      locale: "en_IN",
-      images: [defaultSocialImage],
+      locale: SITE_LOCALE,
+      alternateLocale: [...SITE_ALTERNATE_LOCALES],
+      images: [
+        {
+          url: getAbsoluteUrl(DEFAULT_SOCIAL_IMAGE.path),
+          width: DEFAULT_SOCIAL_IMAGE.width,
+          height: DEFAULT_SOCIAL_IMAGE.height,
+          alt: DEFAULT_SOCIAL_IMAGE.alt,
+        },
+      ],
     },
+    publisher: CREEDA_LEGAL_ENTITY,
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [defaultSocialImage.url],
+      images: [getAbsoluteUrl(DEFAULT_SOCIAL_IMAGE.path)],
     },
   };
 }

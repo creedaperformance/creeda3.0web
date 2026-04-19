@@ -1,8 +1,10 @@
 import { type NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { getCanonicalHost, getCanonicalProtocol } from '@/lib/seo/site'
 import { updateSession } from '@/lib/supabase/middleware'
 
 const MAX_API_REQUEST_BYTES = 10 * 1024 * 1024
+const PREVIEW_HOST_SUFFIXES = ['.vercel.app', '.vercel.sh', '.netlify.app']
 
 function shouldDisableCache(pathname: string) {
   return (
@@ -10,12 +12,57 @@ function shouldDisableCache(pathname: string) {
     pathname.startsWith('/athlete') ||
     pathname.startsWith('/coach') ||
     pathname.startsWith('/individual') ||
+    pathname === '/dashboard' ||
+    pathname === '/learn' ||
+    pathname === '/offline' ||
     pathname === '/login' ||
     pathname === '/signup' ||
     pathname === '/verify-email' ||
     pathname === '/forgot-password' ||
     pathname === '/verification-success'
   )
+}
+
+function maybeRedirectToCanonicalUrl(request: NextRequest) {
+  if (process.env.NODE_ENV !== 'production') {
+    return null
+  }
+
+  const canonicalHost = getCanonicalHost().toLowerCase()
+  const canonicalProtocol = getCanonicalProtocol().replace(/:$/, '').toLowerCase()
+  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host') || request.nextUrl.host
+  const normalizedHost = forwardedHost.split(',')[0]?.trim().toLowerCase()
+
+  if (
+    !normalizedHost ||
+    normalizedHost.startsWith('localhost') ||
+    normalizedHost.startsWith('127.0.0.1') ||
+    PREVIEW_HOST_SUFFIXES.some((suffix) => normalizedHost.endsWith(suffix))
+  ) {
+    return null
+  }
+
+  const alternateHost = canonicalHost.startsWith('www.')
+    ? canonicalHost.slice(4)
+    : `www.${canonicalHost}`
+  const forwardedProto =
+    request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase() ||
+    request.nextUrl.protocol.replace(/:$/, '').toLowerCase()
+
+  const shouldRedirectHost = normalizedHost === alternateHost && normalizedHost !== canonicalHost
+  const shouldRedirectProto =
+    normalizedHost === canonicalHost &&
+    canonicalProtocol === 'https' &&
+    forwardedProto === 'http'
+
+  if (!shouldRedirectHost && !shouldRedirectProto) {
+    return null
+  }
+
+  const redirectUrl = request.nextUrl.clone()
+  redirectUrl.host = canonicalHost
+  redirectUrl.protocol = `${canonicalProtocol}:`
+  return NextResponse.redirect(redirectUrl, 308)
 }
 
 export async function proxy(request: NextRequest) {
@@ -27,6 +74,11 @@ export async function proxy(request: NextRequest) {
       { error: 'Invalid request path.', requestId },
       { status: 400 }
     )
+  }
+
+  const canonicalRedirect = maybeRedirectToCanonicalUrl(request)
+  if (canonicalRedirect) {
+    return canonicalRedirect
   }
 
   if (pathname.startsWith('/api/')) {
@@ -57,7 +109,7 @@ export const config = {
   matcher: [
     {
       source:
-        '/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },

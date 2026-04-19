@@ -8,7 +8,7 @@ import {
 } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const slaPageSeo = {
   title: 'Service Level Agreement | CREEDA',
   description:
     'Review CREEDA’s baseline service availability, support response objectives, incident severity model, and operational support commitments.',
@@ -18,11 +18,18 @@ export const metadata = createPageMetadata({
     'support SLA sports platform',
     'incident response commitments creeda',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(slaPageSeo)
 
 export default function SlaPage() {
   return (
-    <LegalLayout title="Service Level Agreement (SLA)" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="Service Level Agreement (SLA)"
+      description={slaPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={slaPageSeo.path}
+    >
       <p>
         This SLA describes baseline availability, support, and incident-response commitments for CREEDA managed service
         usage. Version: <strong>{LEGAL_POLICY_VERSIONS.sla}</strong>.

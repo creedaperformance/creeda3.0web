@@ -392,6 +392,8 @@ export interface CoachVideoReportRecommendation {
   reason: string
   drills: string[]
   priority: 'high' | 'medium' | 'low'
+  correctionCue?: string
+  nextRepFocus?: string
 }
 
 export interface CoachVideoReportSummary {
@@ -459,6 +461,8 @@ export interface MobileVideoAnalysisRecommendation {
   reason: string
   drills: string[]
   priority: 'high' | 'medium' | 'low'
+  correctionCue?: string
+  nextRepFocus?: string
 }
 
 export interface MobileVideoAnalysisSummary {

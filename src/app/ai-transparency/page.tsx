@@ -7,7 +7,7 @@ import {
 } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const aiTransparencyPageSeo = {
   title: 'AI Transparency | CREEDA',
   description:
     'Understand how CREEDA uses AI-assisted and rule-based systems for athlete performance, recovery, readiness, and healthy-living recommendations.',
@@ -17,11 +17,18 @@ export const metadata = createPageMetadata({
     'explainable sports science AI',
     'AI decision support India',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(aiTransparencyPageSeo)
 
 export default function AiTransparencyPage() {
   return (
-    <LegalLayout title="AI Transparency" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="AI Transparency"
+      description={aiTransparencyPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={aiTransparencyPageSeo.path}
+    >
       <p>
         CREEDA uses AI-assisted and rule-based systems to generate advisory outputs for performance, readiness,
         recovery, load, and behavior loops. Transparency version: <strong>{LEGAL_POLICY_VERSIONS.aiTransparency}</strong>.

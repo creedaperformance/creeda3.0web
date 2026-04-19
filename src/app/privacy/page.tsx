@@ -16,7 +16,7 @@ import {
 } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const privacyPageSeo = {
   title: 'Privacy Policy | CREEDA',
   description:
     'Read how CREEDA collects, processes, stores, and protects athlete, wellness, and account data across its sports science platform.',
@@ -26,11 +26,18 @@ export const metadata = createPageMetadata({
     'athlete data privacy India',
     'DPDP GDPR sports tech',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(privacyPageSeo)
 
 export default function PrivacyPage() {
   return (
-    <LegalLayout title="Privacy Policy" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="Privacy Policy"
+      description={privacyPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={privacyPageSeo.path}
+    >
       <p>
         This Privacy Policy explains how {CREEDA_LEGAL_ENTITY} collects, uses, stores, and safeguards personal data on
         CREEDA. We treat sports performance and wellness-linked data as sensitive from a trust and safety perspective.

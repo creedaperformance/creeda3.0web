@@ -13,10 +13,12 @@ import {
   Users,
 } from 'lucide-react'
 
+import { JsonLd } from '@/components/seo/JsonLd'
 import { Button } from '@/components/ui/button'
 import { createPageMetadata } from '@/lib/seo/metadata'
+import { createWebPageSchema } from '@/lib/seo/schema'
 
-export const metadata = createPageMetadata({
+const featuresPageSeo = {
   title: 'CREEDA Features — Sports Science, Recovery, Video Analysis, and Coach Workflows',
   description:
     'Explore CREEDA features for athlete readiness, recovery, video analysis, coach intervention queues, and healthy-living guidance built for India.',
@@ -27,7 +29,9 @@ export const metadata = createPageMetadata({
     'coach intervention dashboard',
     'video analysis sports app',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(featuresPageSeo)
 
 const ROLE_SYSTEM = [
   {
@@ -100,6 +104,14 @@ const COMMAND_CENTER = [
 export default function FeaturesPage() {
   return (
     <div className="min-h-screen bg-[#080C14] text-white selection:bg-primary/30 selection:text-white">
+      <JsonLd
+        data={createWebPageSchema({
+          path: featuresPageSeo.path,
+          title: featuresPageSeo.title,
+          description: featuresPageSeo.description,
+          type: 'CollectionPage',
+        })}
+      />
       <main className="pb-24">
         <section className="border-b border-white/[0.05]">
           <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 pt-28 pb-20">

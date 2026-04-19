@@ -40,6 +40,21 @@ interface Props {
   role: VideoAnalysisRole
 }
 
+function shouldFallbackToBaseReportInsert(error: { message?: string | null; details?: string | null; hint?: string | null } | null | undefined) {
+  const details = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase()
+  return (
+    details.includes('schema cache') ||
+    details.includes('column') ||
+    details.includes('sport_label') ||
+    details.includes('analyzer_family') ||
+    details.includes('subject_role') ||
+    details.includes('subject_position') ||
+    details.includes('vision_faults') ||
+    details.includes('summary') ||
+    details.includes('recommendations')
+  )
+}
+
 function cloneAnalysisState(state: AnalysisState): AnalysisState {
   return {
     ...state,
@@ -430,7 +445,7 @@ function AnalyzeContent({ role }: Props) {
 
     let insertResult = await supabase.from('video_analysis_reports').insert(richInsert).select('*').single()
 
-    if (insertResult.error) {
+    if (insertResult.error && shouldFallbackToBaseReportInsert(insertResult.error)) {
       console.warn('[video-analysis] rich report insert failed, falling back to base shape', insertResult.error)
       insertResult = await supabase.from('video_analysis_reports').insert(baseInsert).select('*').single()
     }
@@ -455,7 +470,11 @@ function AnalyzeContent({ role }: Props) {
     setIsLoading(false)
 
     if (insertResult.error || !insertResult.data?.id) {
-      router.push(backHref)
+      setCaptureError(
+        insertResult.error
+          ? 'CREEDA could not save this analysis. Check your connection and try again.'
+          : 'CREEDA could not save this analysis report.'
+      )
       return
     }
 

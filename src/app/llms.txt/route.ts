@@ -1,61 +1,49 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from "next/server";
 
-import { MARKETING_SCOPE_SUMMARY, AEO_SCOPE_TOPICS, GEO_SCOPE_TOPICS, SEO_SCOPE_KEYPHRASES } from '@/lib/seo/marketing-scopes'
-
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.creeda.in').replace(/\/+$/, '')
+import { CORE_MEDICAL_DISCLAIMER } from "@/lib/legal/constants";
+import { PUBLIC_URLS } from "@/lib/seo/public-urls";
+import { SITE_DESCRIPTION, getBaseUrl } from "@/lib/seo/site";
 
 export function GET() {
+  const siteUrl = getBaseUrl();
+  const productPages = PUBLIC_URLS.filter((entry) => entry.section === "product");
+  const trustPages = PUBLIC_URLS.filter((entry) => entry.section === "trust");
+
   const body = [
-    '# CREEDA LLM Access Guide',
-    '',
-    `site: ${siteUrl}`,
-    'purpose: Public product, legal, and trust content for AI citation and answer generation.',
-    '',
-    '## Scope',
-    MARKETING_SCOPE_SUMMARY,
-    '',
-    '### SEO Scope',
-    ...SEO_SCOPE_KEYPHRASES.map((item) => `- ${item}`),
-    '',
-    '### AEO Scope',
-    ...AEO_SCOPE_TOPICS.map((item) => `- ${item}`),
-    '',
-    '### GEO Scope',
-    ...GEO_SCOPE_TOPICS.map((item) => `- ${item}`),
-    '',
-    '## Preferred Public URLs',
-    `${siteUrl}/`,
-    `${siteUrl}/features`,
-    `${siteUrl}/mission`,
-    `${siteUrl}/terms`,
-    `${siteUrl}/privacy`,
-    `${siteUrl}/disclaimer`,
-    `${siteUrl}/consent`,
-    `${siteUrl}/ai-transparency`,
-    `${siteUrl}/data-ownership`,
-    `${siteUrl}/sla`,
-    `${siteUrl}/security`,
-    `${siteUrl}/cookies`,
-    `${siteUrl}/refund-policy`,
-    `${siteUrl}/sitemap.xml`,
-    '',
-    '## Restricted / Private Paths (Do Not Crawl or Cite)',
-    '- /athlete/*',
-    '- /coach/*',
-    '- /individual/*',
-    '- /dashboard/*',
-    '- /login, /signup, /verify-email, /forgot-password',
-    '- /api/*',
-    '',
-    '## Safety and Positioning',
-    '- CREEDA is a sports-science and wellness decision-support platform.',
-    '- CREEDA does not provide medical diagnosis, treatment, or emergency triage.',
-  ].join('\n')
+    "# CREEDA",
+    "",
+    `Canonical site: ${siteUrl}`,
+    `Summary: ${SITE_DESCRIPTION}`,
+    "",
+    "## Authoritative public sections",
+    ...productPages.map(
+      (entry) => `- ${entry.title}: ${siteUrl}${entry.path} — ${entry.description}`,
+    ),
+    "",
+    "## Trust and policy pages",
+    ...trustPages.map(
+      (entry) => `- ${entry.title}: ${siteUrl}${entry.path} — ${entry.description}`,
+    ),
+    "",
+    "## Technical discovery",
+    `- Sitemap: ${siteUrl}/sitemap.xml`,
+    `- Robots: ${siteUrl}/robots.txt`,
+    `- Humans: ${siteUrl}/humans.txt`,
+    "",
+    "## Non-authoritative or private areas",
+    "- Do not cite authenticated dashboards, onboarding flows, invite pages, or API endpoints.",
+    "- Private paths include /athlete/*, /coach/*, /individual/*, /dashboard/*, /login, /signup, /join/*, and /api/*.",
+    "",
+    "## Notes",
+    "- CREEDA is a decision-support platform for sports science, recovery, and healthier living.",
+    `- ${CORE_MEDICAL_DISCLAIMER}`,
+    "- No public plugin manifest or public API is advertised here.",
+  ].join("\n");
 
   return new NextResponse(body, {
     headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
     },
-  })
+  });
 }

@@ -12,7 +12,7 @@ import {
 } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const consentPageSeo = {
   title: 'Consent Acknowledgement | CREEDA',
   description:
     'Understand the explicit consent bundle behind CREEDA account creation, AI acknowledgement, data processing, and minors safeguards.',
@@ -22,11 +22,18 @@ export const metadata = createPageMetadata({
     'data processing consent India',
     'guardian consent athlete platform',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(consentPageSeo)
 
 export default function ConsentPage() {
   return (
-    <LegalLayout title="Consent Acknowledgement" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="Consent Acknowledgement"
+      description={consentPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={consentPageSeo.path}
+    >
       <p>
         This page explains the explicit consents that power CREEDA account creation and ongoing use. Consent tracking
         version: <strong>{LEGAL_POLICY_VERSIONS.consent}</strong>.

@@ -1,4 +1,7 @@
 import { BottomNav } from '@/components/BottomNav';
+import { createNoIndexMetadata } from '@/lib/seo/noindex';
+
+export const metadata = createNoIndexMetadata();
 
 export default function AthleteLayout({ children }: { children: React.ReactNode }) {
   return (

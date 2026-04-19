@@ -88,7 +88,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  compress: true,
   poweredByHeader: false,
+  trailingSlash: false,
   turbopack: {
     root: process.cwd(),
   },
@@ -113,7 +115,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: "/manifest.json",
+        source: "/manifest.webmanifest",
         headers: [
           {
             key: "Cache-Control",
@@ -141,6 +143,15 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/llms.txt",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        source: "/humans.txt",
         headers: [
           {
             key: "Cache-Control",
@@ -185,6 +196,19 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/individual/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, max-age=0, must-revalidate",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive, nosnippet",
+          },
+        ],
+      },
+      {
+        source: "/dashboard",
         headers: [
           {
             key: "Cache-Control",
@@ -393,6 +417,32 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/results",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, max-age=0, must-revalidate",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive, nosnippet",
+          },
+        ],
+      },
+      {
+        source: "/offline",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, max-age=0, must-revalidate",
+          },
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive, nosnippet",
+          },
+        ],
+      },
+      {
+        source: "/learn",
         headers: [
           {
             key: "Cache-Control",

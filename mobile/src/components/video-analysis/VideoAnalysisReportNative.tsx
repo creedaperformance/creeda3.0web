@@ -320,6 +320,18 @@ export function VideoAnalysisReportNative({
                           <Text className="mt-3 text-sm leading-6 text-white/60">
                             {recommendation.reason}
                           </Text>
+                          {recommendation.correctionCue ? (
+                            <Text className="mt-3 text-sm leading-6 text-orange-100/85">
+                              <Text className="font-bold text-[#FF5F1F]">Correction cue: </Text>
+                              {recommendation.correctionCue}
+                            </Text>
+                          ) : null}
+                          {recommendation.nextRepFocus ? (
+                            <Text className="mt-2 text-sm leading-6 text-cyan-100/75">
+                              <Text className="font-bold text-[#00E5FF]">Re-scan standard: </Text>
+                              {recommendation.nextRepFocus}
+                            </Text>
+                          ) : null}
                         </View>
                         <ReviewTonePill
                           label={recommendation.priority}
@@ -382,6 +394,21 @@ export function VideoAnalysisReportNative({
                       <Text className="mt-3 text-sm leading-6 text-white/60">
                         {fault.riskMapping}
                       </Text>
+                      <Text className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">
+                        Confidence {Math.round((fault.confidence || 0) * 100)}%
+                      </Text>
+                      {fault.correctiveDrills.length ? (
+                        <View className="mt-4 gap-2">
+                          {fault.correctiveDrills.slice(0, 3).map((drill) => (
+                            <View key={drill} className="flex-row items-start gap-3">
+                              <ShieldCheck color="#00E5FF" size={14} style={{ marginTop: 4 }} />
+                              <Text className="flex-1 text-sm leading-6 text-white/60">
+                                {drill}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
                     </View>
                   ))}
                 </View>

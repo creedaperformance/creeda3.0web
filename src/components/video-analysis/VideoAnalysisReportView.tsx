@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowLeft, Award, ChevronRight, Info, ShieldCheck, Target, Video, Zap } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Award, ChevronRight, Info, ShieldCheck, Target, Zap } from 'lucide-react'
 
 import type { VideoAnalysisReportSummary } from '@/lib/video-analysis/reporting'
 
@@ -65,6 +65,13 @@ export function VideoAnalysisReportView({
           </div>
         </div>
 
+        <div className="mb-10 rounded-3xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/30 mb-4 flex items-center gap-2">
+            <Target className="h-4 w-4 text-orange-300" /> Coaching Readout
+          </h3>
+          <p className="text-sm leading-7 text-slate-300 max-w-4xl">{report.summary.coachSummary}</p>
+        </div>
+
         <div className="mb-10">
           <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/30 mb-5 flex items-center gap-2">
             <Zap className="h-4 w-4 text-orange-300" /> Recommended Corrections
@@ -98,6 +105,16 @@ export function VideoAnalysisReportView({
                       </span>
                     </div>
                     <p className="text-xs text-white/50 mt-1 leading-relaxed">{recommendation.reason}</p>
+                    {recommendation.correctionCue ? (
+                      <p className="mt-3 text-xs text-orange-100/85 leading-relaxed">
+                        <span className="font-bold text-orange-300">Correction cue:</span> {recommendation.correctionCue}
+                      </p>
+                    ) : null}
+                    {recommendation.nextRepFocus ? (
+                      <p className="mt-2 text-xs text-sky-100/70 leading-relaxed">
+                        <span className="font-bold text-sky-300">Re-scan standard:</span> {recommendation.nextRepFocus}
+                      </p>
+                    ) : null}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {recommendation.drills.map((drill) => (
                         <span
@@ -119,7 +136,7 @@ export function VideoAnalysisReportView({
         <div className="mb-10 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
           <div className="rounded-3xl border border-white/[0.06] bg-white/[0.02] p-5">
             <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/30 mb-5 flex items-center gap-2">
-              <Video className="h-4 w-4 text-orange-300" /> Fault Trace
+              <AlertTriangle className="h-4 w-4 text-orange-300" /> Fault Trace
             </h3>
 
             <div className="space-y-3">
@@ -133,6 +150,21 @@ export function VideoAnalysisReportView({
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-slate-400 leading-relaxed">{fault.riskMapping}</p>
+                    <p className="mt-2 text-[10px] uppercase tracking-widest text-slate-500">
+                      Confidence {Math.round((fault.confidence || 0) * 100)}%
+                    </p>
+                    {fault.correctiveDrills.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {fault.correctiveDrills.slice(0, 3).map((drill) => (
+                          <span
+                            key={drill}
+                            className="text-[10px] px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/[0.06] text-slate-300"
+                          >
+                            {drill}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 ))
               ) : (

@@ -2,7 +2,7 @@ import LegalLayout from '@/components/LegalLayout'
 import { CREEDA_SUPPORT_EMAIL, LEGAL_LAST_UPDATED_LABEL } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const refundPageSeo = {
   title: 'Refund Policy | CREEDA',
   description:
     'Review CREEDA’s approach to billing errors, unauthorized charges, refund reviews, and future paid-feature refund handling.',
@@ -12,11 +12,18 @@ export const metadata = createPageMetadata({
     'billing support creeda',
     'payment refund policy India app',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(refundPageSeo)
 
 export default function RefundPage() {
   return (
-    <LegalLayout title="Refund Policy" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="Refund Policy"
+      description={refundPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={refundPageSeo.path}
+    >
       <h3>1. Billing Errors and Unauthorized Charges</h3>
       <p>
         If you experience duplicate billing, unauthorized charges, or payment processing errors, contact{' '}

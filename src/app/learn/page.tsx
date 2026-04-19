@@ -1,5 +1,8 @@
 import Link from 'next/link'
 import { ArrowLeft, BookOpen, Brain, Apple, HeartPulse, Shield, Sparkles, Lock, ChevronRight } from 'lucide-react'
+import { createNoIndexMetadata } from '@/lib/seo/noindex'
+
+export const metadata = createNoIndexMetadata('Learn | CREEDA')
 
 const MODULES = [
   {

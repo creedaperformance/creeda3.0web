@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import React from 'react'
 
+import { JsonLd } from '@/components/seo/JsonLd'
 import {
   CREEDA_LEGAL_ENTITY,
   CREEDA_LEGAL_ENTITY_TYPE,
@@ -12,6 +13,7 @@ import {
   LEGAL_DOC_PATHS,
   LEGAL_LAST_UPDATED_LABEL,
 } from '@/lib/legal/constants'
+import { createWebPageSchema } from '@/lib/seo/schema'
 
 const LEGAL_LINKS = [
   { href: LEGAL_DOC_PATHS.terms, label: 'Terms' },
@@ -29,13 +31,26 @@ const LEGAL_LINKS = [
 const LegalLayout = ({
   title,
   children,
+  description,
   lastUpdated = LEGAL_LAST_UPDATED_LABEL,
+  path,
 }: {
   title: string
   children: React.ReactNode
+  description?: string
   lastUpdated?: string
+  path?: string
 }) => (
   <div className="min-h-screen bg-muted/30 py-12 px-4 sm:px-6 lg:px-8 font-sans text-foreground">
+    {description && path ? (
+      <JsonLd
+        data={createWebPageSchema({
+          path,
+          title,
+          description,
+        })}
+      />
+    ) : null}
     <div className="max-w-5xl mx-auto space-y-6">
       <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5">
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-200">Legal Notice</p>

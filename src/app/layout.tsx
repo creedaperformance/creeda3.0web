@@ -2,16 +2,35 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Noto_Sans_Devanagari, Poppins } from "next/font/google";
 import Script from "next/script";
 import { Suspense } from "react";
+
 import "./globals.css";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { Navbar } from "@/components/navbar";
 import { NavbarWrapper } from "@/components/navbar-wrapper";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { LanguageProvider } from "@/lib/i18n/LanguageProvider";
-import { MARKETING_SCOPE_SUMMARY, SEO_SCOPE_KEYPHRASES } from "@/lib/seo/marketing-scopes";
 import { Toaster } from "sonner";
 import { CookieNotice } from "@/components/CookieNotice";
+import { CREEDA_LEGAL_ENTITY } from "@/lib/legal/constants";
+import { SEO_SCOPE_KEYPHRASES } from "@/lib/seo/marketing-scopes";
+import {
+  createOrganizationSchema,
+  createWebSiteSchema,
+} from "@/lib/seo/schema";
+import {
+  DEFAULT_SOCIAL_IMAGE,
+  SITE_ALTERNATE_LOCALES,
+  SITE_DESCRIPTION,
+  SITE_LANGUAGE,
+  SITE_LOCALE,
+  SITE_NAME,
+  SITE_THEME_COLOR,
+  SITE_TITLE,
+  getAbsoluteUrl,
+  getBaseUrl,
+} from "@/lib/seo/site";
 
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.creeda.in").replace(/\/+$/, "");
+const siteUrl = getBaseUrl();
 const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
 const bingSiteVerification = process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION;
 const googleAnalyticsMeasurementId =
@@ -40,26 +59,29 @@ const notoDevanagari = Noto_Sans_Devanagari({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  colorScheme: "dark",
   viewportFit: "cover",
-  themeColor: "#FF5F1F",
+  themeColor: SITE_THEME_COLOR,
   interactiveWidget: "resizes-content",
 };
 
 export const metadata: Metadata = {
-  title: "Creeda — Digital Sports Scientist for Athletes and Everyday India",
-  description:
-    "AI-powered guidance for athlete performance, recovery, healthier living, and sport entry. Built for Indian athletes and everyday Indian routines.",
-  applicationName: "CREEDA",
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   metadataBase: new URL(siteUrl),
-  alternates: {
-    canonical: "/",
-  },
   keywords: [...SEO_SCOPE_KEYPHRASES],
-  manifest: "/manifest.json",
+  manifest: "/manifest.webmanifest",
   category: "sports science",
+  classification: "Sports science and healthy-living platform",
   referrer: "origin-when-cross-origin",
-  creator: "Creeda Performance",
-  publisher: "Creeda Performance",
+  creator: CREEDA_LEGAL_ENTITY,
+  publisher: CREEDA_LEGAL_ENTITY,
+  formatDetection: {
+    telephone: false,
+    address: false,
+    email: false,
+  },
   verification: {
     ...(googleSiteVerification ? { google: googleSiteVerification } : {}),
     ...(bingSiteVerification ? { other: { "msvalidate.01": bingSiteVerification } } : {}),
@@ -79,35 +101,52 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Creeda",
+    title: SITE_NAME,
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      {
+        url: "/icons/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
+      },
+      {
+        url: "/icons/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
+      },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [
+      {
+        url: "/icons/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
   },
   openGraph: {
-    title: "Creeda — Digital Sports Scientist for Athletes and Everyday India",
-    description:
-      "AI-powered performance and healthy-living guidance for Indian athletes and individuals",
-    url: siteUrl,
-    siteName: "CREEDA",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    siteName: SITE_NAME,
     type: "website",
-    locale: "en_IN",
+    locale: SITE_LOCALE,
+    alternateLocale: [...SITE_ALTERNATE_LOCALES],
     images: [
       {
-        url: "/creeda-performance-bgr.png",
-        width: 1200,
-        height: 630,
-        alt: "CREEDA Performance",
+        url: getAbsoluteUrl(DEFAULT_SOCIAL_IMAGE.path),
+        width: DEFAULT_SOCIAL_IMAGE.width,
+        height: DEFAULT_SOCIAL_IMAGE.height,
+        alt: DEFAULT_SOCIAL_IMAGE.alt,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Creeda — Digital Sports Scientist for Athletes and Everyday India",
-    description:
-      "AI-powered guidance for athlete performance, recovery, healthier living, and sport entry.",
-    images: ["/creeda-performance-bgr.png"],
-  },
-  other: {
-    "mobile-web-app-capable": "yes",
-    "marketing-scope": MARKETING_SCOPE_SUMMARY,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [getAbsoluteUrl(DEFAULT_SOCIAL_IMAGE.path)],
   },
 };
 
@@ -116,61 +155,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const organizationStructuredData = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: "CREEDA PERFORMANCE",
-    url: siteUrl,
-    sameAs: [siteUrl],
-    contactPoint: [
-      {
-        "@type": "ContactPoint",
-        contactType: "customer support",
-        email: "creedaperformance@gmail.com",
-        telephone: "+91 9769911923",
-        areaServed: "IN",
-      },
-    ],
-  };
-
-  const webSiteStructuredData = {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    name: "CREEDA",
-    url: siteUrl,
-    description:
-      "Digital sports scientist for athlete performance and healthier everyday living.",
-    inLanguage: ["en-IN", "hi-IN"],
-    potentialAction: {
-      "@type": "SearchAction",
-      target: `${siteUrl}/?q={search_term_string}`,
-      "query-input": "required name=search_term_string",
-    },
-  };
-
   return (
-    <html lang="en" className="dark">
+    <html lang={SITE_LANGUAGE} className="dark">
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
-        <link rel="alternate" type="text/plain" href="/llms.txt" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(organizationStructuredData),
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(webSiteStructuredData),
-          }}
-        />
+        <link rel="alternate" type="text/plain" href="/llms.txt" title="LLMs.txt" />
+        <JsonLd data={createOrganizationSchema()} />
+        <JsonLd data={createWebSiteSchema()} />
       </head>
       <body
         className={`${poppins.variable} ${geistMono.variable} ${notoDevanagari.variable} antialiased`}

@@ -20,7 +20,7 @@ import {
 } from '@/lib/legal/constants'
 import { createPageMetadata } from '@/lib/seo/metadata'
 
-export const metadata = createPageMetadata({
+const termsPageSeo = {
   title: 'Terms of Service | CREEDA',
   description:
     'Review the terms governing CREEDA use, including account responsibilities, minors safeguards, AI decision-support positioning, and support expectations.',
@@ -30,11 +30,18 @@ export const metadata = createPageMetadata({
     'athlete platform terms India',
     'AI sports app legal terms',
   ],
-})
+} as const
+
+export const metadata = createPageMetadata(termsPageSeo)
 
 export default function TermsPage() {
   return (
-    <LegalLayout title="Terms of Service" lastUpdated={LEGAL_LAST_UPDATED_LABEL}>
+    <LegalLayout
+      title="Terms of Service"
+      description={termsPageSeo.description}
+      lastUpdated={LEGAL_LAST_UPDATED_LABEL}
+      path={termsPageSeo.path}
+    >
       <p>
         These Terms of Service govern your use of {CREEDA_LEGAL_ENTITY} (&quot;CREEDA&quot;). By creating an account
         or using CREEDA, you agree to these terms and all linked legal documents.

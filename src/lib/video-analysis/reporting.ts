@@ -6,6 +6,11 @@ import {
   type VideoAnalysisRole,
 } from '@/lib/video-analysis/catalog'
 import { MAX_VIDEO_ANALYSIS_SECONDS, MIN_VIDEO_ANALYSIS_SECONDS } from '@/lib/video-analysis/clipValidation'
+import {
+  getVideoAnalysisIssueProfile,
+  inferVideoAnalysisIssueKeyFromFault,
+  synthesizeVisionFaultsFromIssues,
+} from '@/lib/video-analysis/issueProfiles'
 
 export interface VideoAnalysisFeedbackEvent {
   message: string
@@ -18,6 +23,8 @@ export interface VideoAnalysisRecommendation {
   reason: string
   drills: string[]
   priority: 'high' | 'medium' | 'low'
+  correctionCue?: string
+  nextRepFocus?: string
 }
 
 export interface VideoAnalysisSummary {
@@ -58,23 +65,8 @@ type BuildArtifactsInput = {
   visionFaults: VisionFault[]
 }
 
-const ISSUE_TITLES: Record<string, string> = {
-  knee_valgus: 'Knee tracking needs cleanup',
-  low_knee_drive_left: 'Drive-phase mechanics are dropping off',
-  overstriding: 'Stride reach is too aggressive',
-  head_falling_over: 'Head stability is drifting outside the base',
-  stiff_knees: 'Athletic stance is too rigid',
-  shoulder_tilt: 'Upper-body alignment is uneven',
-  low_contact_point: 'Contact point is too low',
-  stiff_landing: 'Landing mechanics are too stiff',
-  forward_head: 'Head posture is drifting forward',
-  hip_drop: 'Pelvic control is dropping during movement',
-  low_guard: 'Guard position is falling away from the trunk',
-  narrow_base: 'Base width is too narrow for clean control',
-  shallow_squat: 'Depth and brace quality are limited',
-  trunk_collapse: 'Trunk posture is collapsing under load',
-  rounded_spine: 'Spinal position is losing neutrality',
-  rotation_leak: 'Rotation is leaking before clean transfer',
+type ResolvedBuildArtifactsInput = BuildArtifactsInput & {
+  issueProfiles: Array<ReturnType<typeof getVideoAnalysisIssueProfile>>
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -91,7 +83,23 @@ function uniqueStrings(values: string[]) {
   return [...new Set(values.filter(Boolean))]
 }
 
-function hasInsufficientEvidence(input: BuildArtifactsInput) {
+function resolveBuildArtifactsInput(input: BuildArtifactsInput): ResolvedBuildArtifactsInput {
+  const resolvedFaults =
+    input.visionFaults.length > 0 ? input.visionFaults : synthesizeVisionFaultsFromIssues(input.issuesDetected)
+
+  const issueProfiles = resolvedFaults.map((fault, index) => {
+    const directKey = input.issuesDetected[index]
+    return getVideoAnalysisIssueProfile(directKey) || getVideoAnalysisIssueProfile(inferVideoAnalysisIssueKeyFromFault(fault.fault))
+  })
+
+  return {
+    ...input,
+    visionFaults: resolvedFaults,
+    issueProfiles,
+  }
+}
+
+function hasInsufficientEvidence(input: ResolvedBuildArtifactsInput) {
   return (
     input.frameCount < 24 ||
     (input.visionFaults.length === 0 &&
@@ -144,7 +152,7 @@ export function normalizeVideoFaults(value: unknown): VisionFault[] {
   return faults.filter((entry): entry is VisionFault => Boolean(entry && entry.fault))
 }
 
-function buildMovementScore(input: BuildArtifactsInput) {
+function buildMovementScore(input: ResolvedBuildArtifactsInput) {
   if (hasInsufficientEvidence(input)) return 42
   const uniqueFaults = uniqueStrings(input.visionFaults.map((fault) => `${fault.fault}:${fault.severity}`))
   const structuralPenalty = input.visionFaults.reduce((sum, fault) => sum + severityPenalty(fault.severity), 0)
@@ -155,12 +163,13 @@ function buildMovementScore(input: BuildArtifactsInput) {
   return clamp(Math.round(base - structuralPenalty - warningPenalty + coverageBonus + positiveBonus), 38, 98)
 }
 
-function buildHeadline(input: BuildArtifactsInput, profileLabel: string) {
+function buildHeadline(input: ResolvedBuildArtifactsInput, profileLabel: string) {
   if (hasInsufficientEvidence(input)) {
     return `Clip quality was too weak for a trusted ${profileLabel.toLowerCase()} read`
   }
   const topFault = input.visionFaults[0]
-  if (topFault) return ISSUE_TITLES[input.issuesDetected[0] || ''] || topFault.fault
+  const topIssueProfile = input.issueProfiles[0]
+  if (topFault) return topIssueProfile?.title || topFault.fault
   if (input.warnings > 0) return `${profileLabel} needs a lighter cleanup pass`
   return `${profileLabel} looks stable in this clip`
 }
@@ -172,7 +181,7 @@ function buildStatus(score: number): VideoAnalysisSummary['status'] {
 }
 
 function buildCoachSummary(
-  input: BuildArtifactsInput,
+  input: ResolvedBuildArtifactsInput,
   summary: VideoAnalysisSummary,
   sportLabel: string
 ) {
@@ -180,19 +189,24 @@ function buildCoachSummary(
     return `Capture quality was too weak to trust this ${sportLabel} report. Re-record one person clearly, full-body, doing the actual movement before using this for coaching decisions.`
   }
   const highSeverityCount = input.visionFaults.filter((fault) => fault.severity === 'high').length
+  const leadingIssue = input.issueProfiles[0]
 
   if (summary.status === 'clean') {
     return `${sportLabel} clip is stable. Keep technical loading normal and use this pattern as the current reference model.`
   }
 
-  if (highSeverityCount > 0) {
-    return `${sportLabel} clip shows one or more high-priority structural faults. Reduce chaos, clean the pattern, and reassess before increasing intensity.`
+  if (highSeverityCount > 0 && leadingIssue) {
+    return `${sportLabel} clip is currently limited by ${leadingIssue.title.toLowerCase()}. Reduce chaos, clean the pattern, and use this cue first: ${leadingIssue.correctionCue}`
+  }
+
+  if (leadingIssue) {
+    return `${sportLabel} clip shows technical leakage around ${leadingIssue.title.toLowerCase()}. Keep rhythm, bias the next session toward corrective reps, and re-scan once this cue looks cleaner: ${leadingIssue.nextRepFocus}`
   }
 
   return `${sportLabel} clip shows moderate technical leakage. Keep sport rhythm, but bias the next session toward corrective reps and lower-cost exposures.`
 }
 
-function buildRecommendations(input: BuildArtifactsInput): VideoAnalysisRecommendation[] {
+function buildRecommendations(input: ResolvedBuildArtifactsInput): VideoAnalysisRecommendation[] {
   if (hasInsufficientEvidence(input)) {
     return [
       {
@@ -204,6 +218,8 @@ function buildRecommendations(input: BuildArtifactsInput): VideoAnalysisRecommen
           'Capture 2-4 clear repetitions from the recommended angle.',
         ],
         priority: 'high',
+        correctionCue: 'Make the next upload one clean athlete, one clean angle, and one repeated movement pattern.',
+        nextRepFocus: 'The next clip should keep the full body visible for most of the recording and show the real sport action.',
       },
     ]
   }
@@ -215,31 +231,39 @@ function buildRecommendations(input: BuildArtifactsInput): VideoAnalysisRecommen
         reason: 'No major technical deviations were detected in the visible frames.',
         drills: ['Repeat the same setup in future scans to track drift over time.'],
         priority: 'low',
+        correctionCue: 'Keep the same camera angle and lighting so future scans stay comparable.',
+        nextRepFocus: 'Use this clip as the baseline standard for future reviews.',
       },
     ]
   }
 
-  return input.visionFaults.slice(0, 3).map((fault) => ({
-    title: fault.fault,
-    reason: fault.riskMapping,
-    drills: fault.correctiveDrills.slice(0, 4),
-    priority: fault.severity === 'high' ? 'high' : fault.severity === 'moderate' ? 'medium' : 'low',
-  }))
+  return input.visionFaults.slice(0, 3).map((fault, index) => {
+    const issueProfile = input.issueProfiles[index]
+    return {
+      title: issueProfile?.title || fault.fault,
+      reason: issueProfile?.riskMapping || fault.riskMapping,
+      drills: (fault.correctiveDrills.length > 0 ? fault.correctiveDrills : issueProfile?.correctiveDrills || []).slice(0, 4),
+      priority: fault.severity === 'high' ? 'high' : fault.severity === 'moderate' ? 'medium' : 'low',
+      correctionCue: issueProfile?.correctionCue,
+      nextRepFocus: issueProfile?.nextRepFocus,
+    }
+  })
 }
 
 export function buildVideoAnalysisArtifacts(input: BuildArtifactsInput) {
+  const resolved = resolveBuildArtifactsInput(input)
   const profile = resolveVideoAnalysisProfile(input.sportId, input.subjectPosition)
-  const score = buildMovementScore(input)
+  const score = buildMovementScore(resolved)
   const status = buildStatus(score)
   const summary: VideoAnalysisSummary = {
     score,
     status,
-    headline: buildHeadline(input, profile.familyLabel),
+    headline: buildHeadline(resolved, profile.familyLabel),
     coachSummary: '',
   }
 
-  summary.coachSummary = buildCoachSummary(input, summary, profile.sportLabel)
-  const recommendations = buildRecommendations(input)
+  summary.coachSummary = buildCoachSummary(resolved, summary, profile.sportLabel)
+  const recommendations = buildRecommendations(resolved)
 
   return {
     sportId: profile.sportId,
@@ -259,11 +283,13 @@ export function normalizeVideoAnalysisReport(row: unknown): VideoAnalysisReportS
   const sportId = canonicalizeSportId(String(raw.sport || 'other')) || 'other'
   const subjectPosition = raw.subject_position ? String(raw.subject_position) : null
   const subjectRole = raw.subject_role === 'individual' ? 'individual' : 'athlete'
-  const visionFaults = normalizeVideoFaults(raw.vision_faults)
+  const rawVisionFaults = normalizeVideoFaults(raw.vision_faults)
   const feedbackLog = normalizeFeedbackLog(raw.feedback_log)
   const issuesDetected = Array.isArray(raw.issues_detected)
     ? raw.issues_detected.map((item) => String(item)).filter(Boolean)
     : []
+  const visionFaults =
+    rawVisionFaults.length > 0 ? rawVisionFaults : synthesizeVisionFaultsFromIssues(issuesDetected)
 
   const base = buildVideoAnalysisArtifacts({
     sportId,
@@ -302,6 +328,8 @@ export function normalizeVideoAnalysisReport(row: unknown): VideoAnalysisReportS
             item.priority === 'high' || item.priority === 'medium' || item.priority === 'low'
               ? item.priority
               : ('medium' as const),
+          correctionCue: item.correctionCue ? String(item.correctionCue) : undefined,
+          nextRepFocus: item.nextRepFocus ? String(item.nextRepFocus) : undefined,
         }))
         .filter((item) => item.title)
     : base.recommendations
