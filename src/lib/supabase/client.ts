@@ -1,11 +1,21 @@
 import { createBrowserClient } from '@supabase/ssr'
-import { getPublicSupabaseEnv } from '@/lib/env'
 
 export function createClient() {
-  const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } = getPublicSupabaseEnv()
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Invalid public Supabase environment configuration.')
+  }
+
+  try {
+    new URL(supabaseUrl)
+  } catch {
+    throw new Error('Invalid public Supabase environment configuration.')
+  }
 
   return createBrowserClient(
-    NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY
+    supabaseUrl,
+    supabaseAnonKey
   )
 }
