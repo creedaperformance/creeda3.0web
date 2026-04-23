@@ -17,6 +17,7 @@
 /.auth
 /.playwright-cli
 /playwright-report
+/test-results
 
 # next.js
 /.next/
@@ -27,6 +28,9 @@
 
 # misc
 .DS_Store
+.claude/
+.expo/
+.vscode/
 *.pem
 audit_log.txt
 

@@ -45,7 +45,7 @@ const SCENARIOS = [
 
 async function runAudit() {
     console.log('🚀 Starting Intelligence Engine Unification Audit...\n')
-    let successes = []
+    const successes = []
 
     for (const scenario of SCENARIOS) {
         console.log(`Testing: ${scenario.name}...`)

@@ -1,0 +1,14 @@
+{
+  "id": "17d4b523-5381-4ad2-9bf4-1c4f2d8e3150",
+  "paperId": "1d2f40ac-f94d-4a74-a4f5-b775fd7d1e40",
+  "findingType": "threshold",
+  "subjectMetric": "sleep_duration",
+  "comparator": "lt_6h",
+  "outcomeMetric": "fatigue_risk",
+  "direction": "increases",
+  "effectSize": null,
+  "confidenceText": "moderate evidence",
+  "findingText": "sleep_duration lt_6h -> fatigue_risk increases",
+  "extractionMethod": "reviewer",
+  "isHumanVerified": true
+}

@@ -5,7 +5,7 @@ import { JourneyShell } from '@/components/journey/JourneyShell'
 import { JourneyButton } from '@/components/journey/JourneyButton'
 import { JourneyCard } from '@/components/journey/JourneyCard'
 
-export function WelcomeScreen() {
+function WelcomeScreen() {
   const router = useRouter()
 
   return (

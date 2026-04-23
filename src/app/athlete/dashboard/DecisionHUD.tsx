@@ -4,9 +4,10 @@ import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Brain, ClipboardCheck, Timer, Video, Zap } from "lucide-react";
+import { Activity, BarChart3, Brain, ClipboardCheck, Dumbbell, Timer, Video, Zap } from "lucide-react";
 import { ReadinessOrb } from "@/components/neon/ReadinessOrb";
 import { ProfileAccuracyCard } from "@/components/form/ProfileAccuracyCard";
+import { RoleDesktopNav } from "@/components/RoleDesktopNav";
 
 import type { AthleteHealthSummary, ObjectiveTestSummary } from "@/lib/dashboard_decisions";
 import type { CreedaDecision, OrchestratorOutputV5 } from "@/lib/engine/types";
@@ -14,8 +15,10 @@ import type { NutritionSafetySummary } from "@/lib/nutrition-safety";
 import type { VideoAnalysisReportSummary } from "@/lib/video-analysis/reporting";
 import type { DailyContextSummary } from "@/lib/context-signals/storage";
 import type { AdaptiveProfileSummary } from "@/forms/types";
+import type { DailyOperatingSnapshot } from "@/lib/product";
 
 import { FeedbackBanner } from "./components/FeedbackBanner";
+import { DailyOperatingSystem } from "./components/DailyOperatingSystem";
 import { FullPlanSheet } from "./components/FullPlanSheet";
 import { HeroDecision } from "./components/HeroDecision";
 import { PredictionCard } from "./components/PredictionCard";
@@ -24,6 +27,7 @@ import { TodayPlan } from "./components/TodayPlan";
 import { WhySection } from "./components/WhySection";
 import { ConstraintsCard } from "./components/ConstraintsCard";
 import { VideoAnalysisSummaryCard } from "@/components/video-analysis/VideoAnalysisSummaryCard";
+import { SkillIntelligencePanel } from "@/components/performance/SkillIntelligencePanel";
 
 interface DecisionHUDProps {
   result: OrchestratorOutputV5 | null;
@@ -34,6 +38,7 @@ interface DecisionHUDProps {
   contextSummary?: DailyContextSummary | null;
   nutritionSafety: NutritionSafetySummary;
   adaptiveProfile: AdaptiveProfileSummary | null;
+  operatingSnapshot: DailyOperatingSnapshot | null;
 }
 
 export const DecisionHUD: React.FC<DecisionHUDProps> = ({
@@ -45,6 +50,7 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
   contextSummary,
   nutritionSafety,
   adaptiveProfile,
+  operatingSnapshot,
 }) => {
   const router = useRouter();
   const [isInsightsOpen, setIsInsightsOpen] = useState(false);
@@ -70,6 +76,7 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
   if (!decision) {
     return (
       <div className="min-h-screen bg-[var(--background)] text-white p-4 md:p-6 md:pl-72 pb-24 md:pb-6">
+        <RoleDesktopNav role="athlete" />
         <div className="max-w-2xl mx-auto pt-8 text-center">
           <ReadinessOrb score={0} status="Awaiting Check-In" isLoading />
           <h1 className="text-2xl font-black text-white mb-3 tracking-tight">
@@ -85,6 +92,21 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
             <ClipboardCheck className="w-4 h-4" />
             Start Check-In
           </Link>
+          <div className="mt-3 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              href="/athlete/sessions/today"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-200 transition hover:bg-white/[0.05]"
+            >
+              <Dumbbell className="h-4 w-4" />
+              Open Today&apos;s Session
+            </Link>
+            <Link
+              href="/athlete/exercises"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-200 transition hover:bg-white/[0.05]"
+            >
+              Exercise Library
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -92,6 +114,7 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-white p-4 md:p-6 md:pl-72 pb-24 md:pb-6">
+      <RoleDesktopNav role="athlete" />
       <div className="max-w-2xl mx-auto space-y-4">
         <FeedbackBanner
           feedback={decision.feedback}
@@ -124,6 +147,10 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
         )}
 
         <HeroDecision decision={decision} />
+
+        {operatingSnapshot && (
+          <DailyOperatingSystem snapshot={operatingSnapshot} />
+        )}
 
         <AthleteTrustCard
           decision={decision}
@@ -164,6 +191,12 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
           preferredSport={decision.scientificContext?.sportProfile?.sportKey || null}
         />
 
+        <SkillIntelligencePanel
+          role="athlete"
+          latestReport={latestVideoReport || null}
+          preferredSport={decision.scientificContext?.sportProfile?.sportKey || null}
+        />
+
         <SectionHeader
           eyebrow="Science"
           title="Deeper context, trends, and safeguards"
@@ -178,13 +211,13 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
         >
           <div className="text-left">
             <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
-              Science Notes
+              Context Notes
             </p>
             <p className="mt-2 text-sm font-semibold text-white">
-              {showDeepScience ? "Hide the deeper science view" : "Open the deeper science view"}
+              {showDeepScience ? "Hide deeper context" : "Open deeper context"}
             </p>
             <p className="mt-1 text-xs text-slate-400">
-              Expand only when you want the deeper why, constraints, forecast, and sport science references.
+              Expand only when you want the deeper why, constraints, forecast, and plan context.
             </p>
           </div>
           <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--chakra-neon)]">
@@ -224,7 +257,7 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
               </div>
               <div className="flex flex-col items-start">
                 <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-none mb-1">
-                  Scientific Insights
+                  Decision Insights
                 </span>
                 <span className="text-xs font-bold text-white">Why this decision?</span>
               </div>
@@ -269,11 +302,11 @@ export const DecisionHUD: React.FC<DecisionHUDProps> = ({
             {isPending ? "Refreshing..." : "Refresh"}
           </button>
           <Link
-            href="/athlete/review"
+            href="/athlete/progress"
             className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] transition-all text-xs font-bold text-slate-400 uppercase tracking-wider"
           >
             <BarChart3 className="w-4 h-4" />
-            Weekly Review
+            Progress Proof
           </Link>
           <Link
             href="/athlete/tests"

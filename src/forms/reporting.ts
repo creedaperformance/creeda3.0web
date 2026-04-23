@@ -4,7 +4,6 @@ import type { FlowKind, UserType } from '@/forms/types'
 const ADAPTIVE_FORM_EVENTS_TABLE = 'adaptive_form_events'
 
 type SupabaseLike = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   from: (table: string) => any
 }
 

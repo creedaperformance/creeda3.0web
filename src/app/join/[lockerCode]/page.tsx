@@ -6,7 +6,7 @@ import { ShieldCheck, Trophy, ArrowRight, Star } from 'lucide-react'
 export default async function JoinPage({
   params,
 }: {
-  params: Promise<{ lockerCode: string }> | { lockerCode: string }
+  params: Promise<{ lockerCode: string }>
 }) {
   const { lockerCode } = await params
   const invite = await getInviteData(lockerCode)

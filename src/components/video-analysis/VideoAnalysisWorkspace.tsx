@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Activity, ArrowLeft, CheckCircle, Play, RefreshCw, Upload } from 'lucide-react'
+import { Activity, ArrowLeft, Camera, CheckCircle, Play, RefreshCw, Square, Upload } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
@@ -64,6 +64,16 @@ function cloneAnalysisState(state: AnalysisState): AnalysisState {
   }
 }
 
+function getMotionFrameLoad(state: AnalysisState) {
+  return Math.max(
+    state.strideFrames,
+    state.deepFlexionFrames,
+    state.overheadFrames,
+    state.crossBodyFrames,
+    state.stableSetupFrames
+  )
+}
+
 function AnalyzeContent({ role }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -72,8 +82,12 @@ function AnalyzeContent({ role }: Props) {
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const cameraVideoRef = useRef<HTMLVideoElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const engineRef = useRef<EngineType | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordingChunksRef = useRef<BlobPart[]>([])
+  const recordingTimerRef = useRef<number | null>(null)
   const smootherRef = useRef<LandmarkSmoother>(new LandmarkSmoother(3))
   const analysisRef = useRef<AnalysisState>(createAnalysisState(selectedSport))
   const reqRef = useRef<number>(0)
@@ -90,12 +104,34 @@ function AnalyzeContent({ role }: Props) {
   const [engineMode, setEngineMode] = useState<'CPU' | 'GPU' | null>(null)
   const [captureError, setCaptureError] = useState<string | null>(null)
   const [clipMetadata, setClipMetadata] = useState<ClipMetadata | null>(null)
+  const [clipSource, setClipSource] = useState<'upload' | 'camera' | null>(null)
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
   const [analysisState, setAnalysisState] = useState<AnalysisState>(createAnalysisState(selectedSport))
   const [activeFeedback, setActiveFeedback] = useState<FeedbackEvent | null>(null)
   const captureAssessment = useMemo(
     () => assessVideoCapture(analysisState, selectedSport),
     [analysisState, selectedSport]
   )
+  const validationPreview = useMemo(() => {
+    if (!clipMetadata || progress < 99) return null
+    return buildVideoAnalysisArtifacts({
+      sportId: selectedSport,
+      subjectRole: role,
+      subjectPosition: userProfile.position,
+      frameCount: analysisState.frameCount,
+      warnings: analysisState.warnings,
+      positive: analysisState.positive,
+      issuesDetected: Array.from(analysisState.issuesDetected),
+      feedbackLog: analysisState.feedbackLog,
+      visionFaults: analysisState.visionFaults,
+      clipDurationSeconds: clipMetadata.durationSec,
+      motionFrameLoad: getMotionFrameLoad(analysisState),
+      captureUsable: captureAssessment.usable,
+    }).summary.validation
+  }, [analysisState, captureAssessment.usable, clipMetadata, progress, role, selectedSport, userProfile.position])
   const analysisUnavailable = Boolean(engineError) && !isEngineReady
 
   const backHref = `/${role}/scan`
@@ -129,10 +165,145 @@ function AnalyzeContent({ role }: Props) {
     lastVideoTimeRef.current = -1
   }, [selectedSport])
 
+  const stopCamera = useCallback(() => {
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+    mediaRecorderRef.current = null
+    setIsRecording(false)
+    setCameraStream((stream) => {
+      stream?.getTracks().forEach((track) => track.stop())
+      return null
+    })
+  }, [])
+
+  const applyClipUrl = useCallback(
+    async (url: string, source: 'upload' | 'camera') => {
+      const metadata = await loadClipMetadata(url)
+      const metadataValidationError = validateClipMetadata(metadata)
+
+      if (metadataValidationError) {
+        throw new Error(metadataValidationError)
+      }
+
+      resetTrackedAnalysis()
+      setClipMetadata(metadata)
+      setClipSource(source)
+      setVideoUrl(url)
+      setCaptureError(null)
+    },
+    [resetTrackedAnalysis]
+  )
+
+  async function openCamera() {
+    setCameraError(null)
+    setCaptureError(null)
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError('Camera recording is not available in this browser.')
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      })
+      setCameraStream(stream)
+    } catch {
+      setCameraError('CREEDA could not access the camera. Check browser permission and try again.')
+    }
+  }
+
+  function getRecordingMimeType() {
+    if (typeof MediaRecorder === 'undefined') return ''
+    return (
+      [
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+        'video/mp4',
+      ].find((type) => MediaRecorder.isTypeSupported(type)) || ''
+    )
+  }
+
+  function stopRecording() {
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+    const recorder = mediaRecorderRef.current
+    if (recorder?.state === 'recording') recorder.stop()
+    setIsRecording(false)
+  }
+
+  function startRecording() {
+    if (!cameraStream) return
+    if (typeof MediaRecorder === 'undefined') {
+      setCameraError('This browser cannot record camera clips. Upload a short clip instead.')
+      return
+    }
+
+    try {
+      recordingChunksRef.current = []
+      const mimeType = getRecordingMimeType()
+      const recorder = new MediaRecorder(cameraStream, mimeType ? { mimeType } : undefined)
+      mediaRecorderRef.current = recorder
+      setRecordingSeconds(0)
+      setCaptureError(null)
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) recordingChunksRef.current.push(event.data)
+      }
+      recorder.onstop = () => {
+        const blob = new Blob(recordingChunksRef.current, {
+          type: recorder.mimeType || 'video/webm',
+        })
+        recordingChunksRef.current = []
+        const url = URL.createObjectURL(blob)
+
+        void applyClipUrl(url, 'camera')
+          .then(() => {
+            stopCamera()
+          })
+          .catch((error: Error) => {
+            URL.revokeObjectURL(url)
+            setCaptureError(error.message)
+          })
+      }
+
+      recorder.start()
+      setIsRecording(true)
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingSeconds((current) => {
+          const next = current + 1
+          if (next >= MAX_VIDEO_ANALYSIS_SECONDS) stopRecording()
+          return next
+        })
+      }, 1000)
+    } catch {
+      setCameraError('CREEDA could not start recording on this device.')
+    }
+  }
+
   useEffect(() => {
     setClipMetadata(null)
+    setClipSource(null)
     resetTrackedAnalysis()
   }, [resetTrackedAnalysis])
+
+  useEffect(() => {
+    if (!cameraVideoRef.current || !cameraStream) return
+    cameraVideoRef.current.srcObject = cameraStream
+    void cameraVideoRef.current.play()
+  }, [cameraStream])
+
+  useEffect(() => stopCamera, [stopCamera])
 
   useEffect(() => {
     let active = true
@@ -220,23 +391,15 @@ function AnalyzeContent({ role }: Props) {
     const url = URL.createObjectURL(file)
 
     try {
-      const metadata = await loadClipMetadata(url)
-      const metadataValidationError = validateClipMetadata(metadata)
-
-      if (metadataValidationError) {
-        URL.revokeObjectURL(url)
-        setCaptureError(metadataValidationError)
-        event.target.value = ''
-        return
-      }
-
-      resetTrackedAnalysis()
-      if (videoUrl) URL.revokeObjectURL(videoUrl)
-      setClipMetadata(metadata)
-      setVideoUrl(url)
-    } catch {
+      await applyClipUrl(url, 'upload')
+      stopCamera()
+    } catch (error) {
       URL.revokeObjectURL(url)
-      setCaptureError('CREEDA could not read this video. Re-export it as MP4, MOV, or WEBM and try again')
+      setCaptureError(
+        error instanceof Error
+          ? error.message
+          : 'CREEDA could not read this video. Re-export it as MP4, MOV, or WEBM and try again'
+      )
       event.target.value = ''
     }
   }
@@ -420,6 +583,9 @@ function AnalyzeContent({ role }: Props) {
       issuesDetected: Array.from(snapshot.issuesDetected),
       feedbackLog: snapshot.feedbackLog,
       visionFaults: snapshot.visionFaults,
+      clipDurationSeconds: clipMetadata?.durationSec || null,
+      motionFrameLoad: getMotionFrameLoad(snapshot),
+      captureUsable: captureAssessment.usable,
     })
 
     const baseInsert = {
@@ -525,15 +691,19 @@ function AnalyzeContent({ role }: Props) {
             />
 
             <div className="h-20 w-20 rounded-2xl bg-orange-500/10 flex items-center justify-center mb-6">
-              <Upload className="h-10 w-10 text-orange-300" />
+              {cameraStream ? (
+                <Camera className="h-10 w-10 text-orange-300" />
+              ) : (
+                <Upload className="h-10 w-10 text-orange-300" />
+              )}
             </div>
 
-            <h2 className="text-xl font-bold mb-2">Upload a short clip</h2>
+            <h2 className="text-xl font-bold mb-2">Record or upload a short clip</h2>
             <p className="text-sm text-white/40 text-center max-w-[320px] mb-4 font-medium">
               {profile.shortPrompt}
             </p>
             <p className="text-[11px] text-white/35 text-center max-w-[320px] mb-6 leading-relaxed">
-              Upload a {MIN_VIDEO_ANALYSIS_SECONDS}-{MAX_VIDEO_ANALYSIS_SECONDS} second MP4, MOV, or WEBM clip. CREEDA only saves clips when it can clearly detect one person, full-body visibility, and enough movement for the selected sport.
+              Record or upload a {MIN_VIDEO_ANALYSIS_SECONDS}-{MAX_VIDEO_ANALYSIS_SECONDS} second clip. CREEDA only saves clips when it can clearly detect one person, full-body visibility, and enough movement for the selected sport.
             </p>
 
             <div className="w-full max-w-[320px] rounded-2xl border border-white/[0.06] bg-black/20 p-4 mb-8">
@@ -548,20 +718,84 @@ function AnalyzeContent({ role }: Props) {
               </ul>
             </div>
 
-            <Button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading || !isEngineReady}
-              className="w-full max-w-[240px] h-14 rounded-full bg-orange-500 text-black font-bold text-base hover:brightness-110 disabled:opacity-50"
-            >
-              Select Video
-            </Button>
+            {cameraStream && (
+              <div className="mb-5 w-full max-w-[520px] overflow-hidden rounded-3xl border border-white/[0.08] bg-black/40">
+                <video
+                  ref={cameraVideoRef}
+                  muted
+                  playsInline
+                  className="aspect-video w-full object-cover"
+                />
+                <div className="flex items-center justify-between gap-3 border-t border-white/[0.06] bg-black/40 px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                      Camera Coach
+                    </p>
+                    <p className="mt-1 text-xs text-slate-300">
+                      {isRecording
+                        ? `${recordingSeconds}s recorded. Stop after the movement is complete.`
+                        : 'Frame the full body before recording.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={`inline-flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-xs font-black uppercase tracking-[0.16em] transition ${
+                      isRecording
+                        ? 'bg-red-500 text-white hover:bg-red-400'
+                        : 'bg-orange-500 text-black hover:brightness-110'
+                    }`}
+                  >
+                    {isRecording ? <Square className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+                    {isRecording ? 'Stop' : 'Record'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex w-full max-w-[520px] flex-col gap-3 sm:flex-row">
+              {!cameraStream && (
+                <Button
+                  onClick={openCamera}
+                  disabled={isLoading || !isEngineReady}
+                  className="h-14 flex-1 rounded-full bg-orange-500 text-black font-bold text-base hover:brightness-110 disabled:opacity-50"
+                >
+                  <Camera className="mr-2 h-4 w-4" />
+                  Open Camera
+                </Button>
+              )}
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || !isEngineReady || isRecording}
+                className="h-14 flex-1 rounded-full border border-white/[0.08] bg-white/[0.04] text-white font-bold text-base hover:bg-white/[0.08] disabled:opacity-50"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Select Video
+              </Button>
+            </div>
+
+            {cameraStream && !isRecording && (
+              <button
+                type="button"
+                onClick={stopCamera}
+                className="mt-3 text-xs font-semibold text-white/40 transition hover:text-white"
+              >
+                Close camera
+              </button>
+            )}
+
+            {cameraError && (
+              <div className="mt-4 w-full max-w-[320px] rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+                {cameraError}
+              </div>
+            )}
 
             {captureError && (
               <div
                 data-testid="capture-error"
                 className="mt-4 w-full max-w-[320px] rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100"
               >
-                {captureError}. Upload a clearer clip to continue.
+                {captureError}. Record or upload a clearer clip to continue.
               </div>
             )}
           </div>
@@ -620,6 +854,11 @@ function AnalyzeContent({ role }: Props) {
 
               {clipMetadata && (
                 <div className="mb-4 flex flex-wrap gap-2 text-[10px] text-slate-300">
+                  {clipSource && (
+                    <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 capitalize">
+                      {clipSource} clip
+                    </span>
+                  )}
                   <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1">
                     Clip {formatClipDuration(clipMetadata.durationSec)}
                   </span>
@@ -701,6 +940,22 @@ function AnalyzeContent({ role }: Props) {
                 </div>
               )}
 
+              {validationPreview && captureAssessment.usable && (
+                <div className="mt-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">
+                    Camera Coach Validation
+                  </p>
+                  <div className="mt-3 grid grid-cols-3 gap-3">
+                    <MiniValidation label="Reps" value={validationPreview.repEstimate === null ? '--' : String(validationPreview.repEstimate)} />
+                    <MiniValidation label="Tempo" value={validationPreview.tempoLabel} />
+                    <MiniValidation label="Execution" value={`${validationPreview.executionScore}%`} />
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-slate-300">
+                    {validationPreview.detail}
+                  </p>
+                </div>
+              )}
+
               {captureError && (
                 <div data-testid="capture-error" className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100">
                   {captureError}. Upload a clearer clip to continue.
@@ -745,6 +1000,15 @@ export function VideoAnalysisWorkspace(props: Props) {
     <Suspense fallback={<div className="min-h-[100dvh] bg-[var(--background)] flex items-center justify-center text-white">Loading...</div>}>
       <AnalyzeContent {...props} />
     </Suspense>
+  )
+}
+
+function MiniValidation({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
+      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-sm font-black capitalize text-white">{value}</p>
+    </div>
   )
 }
 

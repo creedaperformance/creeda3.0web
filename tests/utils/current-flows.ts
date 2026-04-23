@@ -1,6 +1,31 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
 const PASSWORD = 'TestPass123!'
+
+export async function acceptRequiredSignupConsents(page: Page) {
+  await page.locator('#terms_privacy_consent').check()
+  await page.locator('#medical_disclaimer_consent').check()
+  await page.locator('#data_processing_consent').check()
+  await page.locator('#ai_acknowledgement_consent').check()
+}
+
+async function dismissCookieNotice(page: Page) {
+  const essentialOnly = page.getByRole('button', { name: /Essential only/i })
+  if (await essentialOnly.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await essentialOnly.click()
+  }
+}
+
+async function clickNext(page: Page) {
+  await page.getByRole('button', { name: /^Next$/i }).click()
+}
+
+async function ensureToggleOn(toggle: Locator) {
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') {
+    await toggle.click()
+  }
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+}
 
 export async function signupCoachCurrent(page: Page, email: string, coachName: string) {
   await page.goto('/signup')
@@ -8,7 +33,7 @@ export async function signupCoachCurrent(page: Page, email: string, coachName: s
   await page.getByLabel(/Full Name/i).fill(coachName)
   await page.getByLabel(/Email Connection/i).fill(email)
   await page.getByLabel(/Security Access/i).fill(PASSWORD)
-  await page.locator('#consent').check()
+  await acceptRequiredSignupConsents(page)
   await page.getByRole('button', { name: /Create Coach Account/i }).click()
 
   await page.waitForURL(/\/(coach\/dashboard|coach\/onboarding|verify-email)/, { timeout: 45000 })
@@ -33,29 +58,33 @@ export async function completeCoachOnboardingCurrent(
     return
   }
 
-  await expect(page.getByRole('heading', { name: /Professional Identity/i })).toBeVisible({ timeout: 15000 })
-  await page.getByPlaceholder(/Head Coach Anil Kumar/i).fill(coachName)
+  await dismissCookieNotice(page)
+  await expect(page.getByText(/Coach Setup progress/i)).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('heading', { name: /Coach Identity/i })).toBeVisible({ timeout: 15000 })
+  await page.getByPlaceholder(/Coach Anil Kumar/i).fill(coachName)
   await page.getByPlaceholder(/coach_anil/i).fill(`coach_${usernameSuffix}`)
   await page.getByPlaceholder(/\+91 98/i).fill('9876543210')
-  await page.getByRole('button', { name: /Next Step/i }).click()
+  await clickNext(page)
 
-  await expect(page.getByRole('heading', { name: /Squad Blueprint/i })).toBeVisible({ timeout: 15000 })
-  await page.getByPlaceholder(/Haryana U-19 Elite Squad/i).fill(teamName)
-  await page.getByRole('button', { name: /Next Step/i }).click()
+  await expect(page.getByRole('heading', { name: /Squad Setup/i })).toBeVisible({ timeout: 15000 })
+  await page.getByPlaceholder(/Haryana U-19 Fast Bowling Unit/i).fill(teamName)
+  await page.getByRole('button', { name: /^Cricket$/i }).click()
+  await page.getByRole('button', { name: /Academy \/ Club Coach/i }).click()
+  await clickNext(page)
 
-  await expect(page.getByRole('heading', { name: /Operational Context/i })).toBeVisible({ timeout: 15000 })
-  const finalNextStep = page.getByRole('button', { name: /Next Step/i })
-  await finalNextStep.evaluate((node) => {
-    (node as HTMLButtonElement).click()
-  })
-  await expect(page.getByRole('heading', { name: /Priority Matrix/i })).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('heading', { name: /Team Structure/i })).toBeVisible({ timeout: 15000 })
+  await page.getByRole('button', { name: /Single team/i }).click()
+  await page.getByRole('button', { name: /6-15/i }).click()
+  await clickNext(page)
 
-  const completeButton = page.locator('form button[type="submit"]')
-  await expect(completeButton).toContainText(/Complete Setup/i, { timeout: 15000 })
-  await expect(completeButton).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('heading', { name: /Main Focus/i })).toBeVisible({ timeout: 15000 })
+  await page.getByRole('button', { name: /Peak Performance Optimization/i }).click()
+  await page.getByRole('button', { name: /^Finish$/i }).click()
+
+  await expect(page.getByRole('button', { name: /Open dashboard/i })).toBeVisible({ timeout: 30000 })
   await Promise.all([
-    page.waitForURL(/\/coach(\/dashboard)?$/, { timeout: 45000 }),
-    completeButton.click(),
+    page.waitForURL(/\/coach\/dashboard$/, { timeout: 45000 }),
+    page.getByRole('button', { name: /Open dashboard/i }).click(),
   ])
 }
 
@@ -113,7 +142,7 @@ export async function signupAthleteWithCoachCode(
   await page.getByLabel(/Full Name/i).fill(athleteName)
   await page.getByLabel(/Email Connection/i).fill(email)
   await page.getByLabel(/Security Access/i).fill(PASSWORD)
-  await page.locator('#consent').check()
+  await acceptRequiredSignupConsents(page)
   await page.getByRole('button', { name: /Continue to Athlete Onboarding/i }).click()
 
   await page.waitForURL(/\/(athlete\/onboarding|verify-email|athlete\/dashboard)/, { timeout: 45000 })
@@ -133,72 +162,72 @@ export async function completeAthleteOnboardingCurrent(page: Page, athleteName: 
     await page.getByRole('button', { name: /Start Fresh/i }).click()
   }
 
-  await expect(page.getByRole('heading', { name: /Athlete Setup/i })).toBeVisible({ timeout: 15000 })
-  await page.locator('input[name="fullName"]').fill(athleteName)
-  await page.locator('input[name="username"]').fill(`athlete_${usernameSuffix}`)
-  await page.locator('select[name="primarySport"]').selectOption({ index: 1 })
+  await dismissCookieNotice(page)
+  await expect(page.getByText(/Athlete Setup progress/i)).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('heading', { name: /Profile Name/i })).toBeVisible({ timeout: 15000 })
+  await page.getByPlaceholder(/Aarav Sharma/i).fill(athleteName)
+  await page.getByPlaceholder(/aarav_s/i).fill(`athlete_${usernameSuffix}`)
+  await clickNext(page)
 
-  const positionSelect = page.locator('select[name="position"]')
-  if (await positionSelect.count()) {
-    await positionSelect.selectOption({ index: 1 })
-  } else {
-    await page.locator('input[name="position"]').fill('Forward')
-  }
+  await expect(page.getByRole('heading', { name: /Sport Context/i })).toBeVisible({ timeout: 15000 })
+  await page.getByRole('button', { name: /^Cricket$/i }).click()
+  await page.getByPlaceholder(/Bowler, Midfielder, Setter/i).fill('Bowler')
+  await clickNext(page)
 
-  await page.getByRole('button', { name: /Ambidextrous/i }).click()
-  await page.locator('input[name="age"]').fill('21')
+  await expect(page.getByRole('heading', { name: /Athlete Snapshot/i })).toBeVisible({ timeout: 15000 })
+  const snapshotNumbers = page.locator('input[type="number"]')
+  await snapshotNumbers.nth(0).fill('21')
   await page.getByRole('button', { name: /^Male$/i }).click()
-  await page.locator('input[name="heightCm"]').fill('182')
-  await page.locator('input[name="weightKg"]').fill('78')
-  await page.getByRole('button', { name: /Next Phase/i }).click()
+  await page.getByRole('button', { name: /^District$/i }).click()
+  await snapshotNumbers.nth(1).fill('182')
+  await snapshotNumbers.nth(2).fill('78')
+  await clickNext(page)
 
-  await expect(page.getByRole('heading', { name: /Training Reality/i })).toBeVisible({ timeout: 15000 })
-  await page.locator('select[name="playingLevel"]').selectOption({ index: 1 })
-  await page.getByRole('button', { name: /^Daily$/i }).click()
-  await page.getByRole('button', { name: /^Moderate$/i }).click()
-  await page.getByRole('button', { name: /Next Phase/i }).click()
-
-  await expect(page.getByText(/Your Main Goal/i)).toBeVisible({ timeout: 15000 })
+  await expect(page.getByRole('heading', { name: /Primary Goal/i })).toBeVisible({ timeout: 15000 })
   await page.getByRole('button', { name: /Performance Enhancement/i }).click()
-  await page.getByRole('button', { name: /Next Phase/i }).click()
+  await clickNext(page)
 
-  await expect(page.getByText(/Current Issue/i)).toBeVisible({ timeout: 15000 })
-  await page.getByRole('button', { name: /No Active Injury/i }).click()
-  await page.getByRole('button', { name: /No Illnesses/i }).click()
-  await page.getByRole('button', { name: /No Past Injuries/i }).click()
-  await page.getByRole('button', { name: /Next Phase/i }).click()
+  await expect(page.getByRole('heading', { name: /Pain Check/i })).toBeVisible({ timeout: 15000 })
+  await page.getByRole('button', { name: /No issues/i }).click()
+  await clickNext(page)
 
-  for (let stepIndex = 0; stepIndex < 9; stepIndex += 1) {
-    await page.getByRole('button', { name: /^3\b/i }).click()
-    await page.getByRole('button', { name: /Next Phase/i }).click()
-  }
+  await expect(page.getByRole('heading', { name: /Finish Setup/i })).toBeVisible({ timeout: 15000 })
+  const platformConsent = page.getByTestId('adaptive-toggle-platformConsent')
+  const medicalConsent = page.getByTestId('adaptive-toggle-medicalDisclaimerConsent')
+  await ensureToggleOn(platformConsent)
+  await ensureToggleOn(medicalConsent)
+  await page.getByRole('button', { name: /^Finish$/i }).click()
 
-  const reactionHeading = page.getByText(/Average Reflex Speed:/i)
-  const wellnessSleep = page.locator('select[name="typicalSleep"]')
-  const stepVisible = await Promise.race([
-    reactionHeading.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'reaction'),
-    wellnessSleep.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'wellness'),
+  await expect(page.getByRole('button', { name: /Open dashboard/i })).toBeVisible({ timeout: 30000 })
+  await Promise.all([
+    page.waitForURL(/\/athlete\/dashboard$/, { timeout: 45000 }),
+    page.getByRole('button', { name: /Open dashboard/i }).click(),
   ])
+}
 
-  if (stepVisible === 'reaction') {
-    await page.getByRole('button', { name: /Next Phase/i }).click()
-  }
+export async function submitAthleteQuickCheckInCurrent(page: Page) {
+  await page.goto('/athlete/checkin')
+  await dismissCookieNotice(page)
+  await expect(page.getByText(/Athlete Check-In progress/i)).toBeVisible({ timeout: 15000 })
 
-  await page.locator('select[name="typicalSleep"]').selectOption('7-8 hours')
-  await page.locator('input[name="usualWakeUpTime"]').fill('07:00')
-  const sorenessChoices = page
-    .locator('label', { hasText: /Typical Soreness/i })
-    .locator('xpath=following-sibling::div[1]')
-  await sorenessChoices.getByRole('button', { name: /^Low$/i }).click()
-  const energyChoices = page
-    .locator('label', { hasText: /Typical Energy Levels/i })
-    .locator('xpath=following-sibling::div[1]')
-  await energyChoices.getByRole('button', { name: /^High$/i }).click()
-  await page.getByRole('button', { name: /Next Phase/i }).click()
+  await expect(page.getByRole('heading', { name: /^Energy$/i })).toBeVisible({ timeout: 15000 })
+  await page.getByRole('button', { name: /Good/i }).click()
+  await clickNext(page)
 
-  await page.locator('#legalConsent').check()
-  await page.getByRole('button', { name: /Complete Profile/i }).click()
-  await page.waitForURL(/\/athlete\/dashboard/, { timeout: 45000 })
+  await expect(page.getByRole('heading', { name: /Body Feel/i })).toBeVisible({ timeout: 15000 })
+  await page.getByRole('button', { name: /None/i }).click()
+  await clickNext(page)
+
+  await expect(page.getByRole('heading', { name: /^Stress$/i })).toBeVisible({ timeout: 15000 })
+  await page.getByRole('button', { name: /Normal/i }).click()
+  await page.getByRole('button', { name: /^Finish$/i }).click()
+
+  await expect(page.getByRole('button', { name: /Back to dashboard/i })).toBeVisible({ timeout: 30000 })
+  await Promise.all([
+    page.waitForURL(/\/athlete\/dashboard$/, { timeout: 30000, waitUntil: 'commit' }),
+    page.getByRole('button', { name: /Back to dashboard/i }).click(),
+  ])
+  await expect(page.getByText(/Today's Session|Today/i).first()).toBeVisible({ timeout: 15000 })
 }
 
 export async function loginCurrent(page: Page, email: string) {

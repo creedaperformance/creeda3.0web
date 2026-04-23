@@ -8,7 +8,7 @@ import { JourneyButton } from '@/components/journey/JourneyButton'
 import { useJourneyStore } from '@/lib/individual-journey-store'
 import { cn } from '@/lib/utils'
 
-export function PlanScreen() {
+function PlanScreen() {
   const router = useRouter()
   const { state } = useJourneyStore()
   const plan = state.analysis?.plan

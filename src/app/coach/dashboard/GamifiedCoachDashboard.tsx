@@ -7,25 +7,30 @@ import { HUDLabel } from "@/components/gamified/HUDLabel";
 import { GamifiedProgressBar } from "@/components/gamified/GamifiedProgressBar";
 import { GamifiedButton } from "@/components/gamified/GamifiedButton";
 import { ProfileAccuracyCard } from "@/components/form/ProfileAccuracyCard";
+import { RoleDesktopNav } from "@/components/RoleDesktopNav";
 import { useCreedaState } from "@/lib/state_engine";
-import { Search, Video, Database, TrendingUp, BarChart3, Users } from "lucide-react";
+import { Search, Video, Database, TrendingUp, BarChart3, Users, ClipboardPenLine } from "lucide-react";
 import { CoachDecisionHUD } from "./components/CoachDecisionHUD";
+import { CoachOperatingCommandPanel } from "./components/CoachOperatingCommandPanel";
 import { CoachVideoTerminal } from "./components/CoachVideoTerminal";
 import type { VideoAnalysisReportSummary } from "@/lib/video-analysis/reporting";
 import type { AdaptiveProfileSummary } from "@/forms/types";
+import type { CoachOperatingSnapshot } from "@/lib/product";
 
 interface Props {
   videoReports: Array<VideoAnalysisReportSummary & { athleteName: string; athleteAvatarUrl: string | null }>
   lockerCode: string | null
   adaptiveProfile: AdaptiveProfileSummary | null
+  operatingSnapshot: CoachOperatingSnapshot
 }
 
-export const GamifiedCoachDashboard: React.FC<Props> = ({ videoReports, lockerCode, adaptiveProfile }) => {
+export const GamifiedCoachDashboard: React.FC<Props> = ({ videoReports, lockerCode, adaptiveProfile, operatingSnapshot }) => {
   const { state } = useCreedaState();
   const [coachQuery, setCoachQuery] = useState("");
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-white p-6 md:pl-72 pb-24 md:pb-6">
+      <RoleDesktopNav role="coach" />
       <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -59,6 +64,8 @@ export const GamifiedCoachDashboard: React.FC<Props> = ({ videoReports, lockerCo
         {/* LEFT COLUMN: HUD & AGGREGATE INTEL */}
         <div className="lg:col-span-3 space-y-8">
           <CoachDecisionHUD query={coachQuery} />
+
+          <CoachOperatingCommandPanel snapshot={operatingSnapshot} />
           
           <div className="pt-4 border-t border-slate-800/50">
              <div className="flex items-center gap-3 mb-6 px-2">
@@ -131,6 +138,16 @@ export const GamifiedCoachDashboard: React.FC<Props> = ({ videoReports, lockerCo
                 <span className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" />
                   Analytics
+                </span>
+                <span>Open</span>
+              </Link>
+              <Link
+                href="/coach/execution"
+                className="flex items-center justify-between rounded-2xl border border-[var(--chakra-neon)]/20 bg-[var(--chakra-neon)]/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-[var(--chakra-neon)] hover:bg-[var(--chakra-neon)]/15 transition-all"
+              >
+                <span className="flex items-center gap-2">
+                  <ClipboardPenLine className="h-4 w-4" />
+                  Execution Board
                 </span>
                 <span>Open</span>
               </Link>

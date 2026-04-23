@@ -42,10 +42,10 @@ export const ScientificEvidencePanel: React.FC<Props> = ({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
-            Sports Science Backing
+            Decision Context
           </p>
           <h2 className="text-lg sm:text-xl font-extrabold text-white mt-2 tracking-tight">
-            Evidence behind today&apos;s prescription
+            Why today looks like this
           </h2>
           <p className="text-sm text-slate-400 mt-2 leading-relaxed max-w-2xl">
             {context.summary}
@@ -53,7 +53,7 @@ export const ScientificEvidencePanel: React.FC<Props> = ({
         </div>
         <div className="hidden sm:flex items-center gap-2 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-300">
           <FlaskConical className="w-3.5 h-3.5" />
-          Research linked
+          Context ready
         </div>
       </div>
 
@@ -276,31 +276,6 @@ export const ScientificEvidencePanel: React.FC<Props> = ({
           </>
         )}
       </SurfaceCard>
-
-      {context.evidence.length > 0 && (
-        <SurfaceCard icon={<FlaskConical className="w-4 h-4 text-purple-400" />} title="Primary Sources">
-          <div className="grid gap-3 md:grid-cols-2">
-            {context.evidence.map((source) => (
-              <a
-                key={source.id}
-                href={source.url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 hover:bg-white/[0.04] transition-all"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-purple-300">{source.shortLabel}</p>
-                    <p className="text-sm font-semibold text-white mt-2 leading-snug">{source.title}</p>
-                    <p className="text-[11px] text-slate-400 leading-relaxed mt-2">{source.application}</p>
-                  </div>
-                  <ArrowUpRight className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                </div>
-              </a>
-            ))}
-          </div>
-        </SurfaceCard>
-      )}
     </motion.section>
   );
 };

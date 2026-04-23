@@ -762,7 +762,7 @@ export function getPostGameIntelligence(diagnostic: any, todayLog: any, _accessT
   }
 
   // TRAINING VOLUME MODIFIERS
-  let isHighVolume = trainingFreq >= 5 || trainingDurationStr.includes('90-120') || trainingDurationStr.includes('120+');
+  const isHighVolume = trainingFreq >= 5 || trainingDurationStr.includes('90-120') || trainingDurationStr.includes('120+');
   if (isHighVolume) {
      diet.push("High Volume Alert: You train heavily. Increase your post-match carbohydrate intake by 30% above normal to survive this week's chronic glycogen deficit.");
   }
@@ -1191,7 +1191,7 @@ export function calculateReadinessV31(
 ): { score: number; domains: any; factors: any; cnsFatigue: number; confidence: number } {
   // 0. Fallback Logic: Missing Data (Fix 4)
   const lastLogs = history.filter(h => h.log_date).slice(0, 3);
-  let confidence = 1.0;
+  const confidence = 1.0;
   
   if (Object.keys(log).length === 0 || !log.sleep_quality) {
     if (lastLogs.length > 0) {

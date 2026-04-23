@@ -61,6 +61,14 @@ export function VideoAnalysisSummaryCard({ role, latestReport, preferredSport, c
             {latestReport.recommendations[0]?.reason || latestReport.summary.coachSummary}
           </p>
 
+          {latestReport.summary.validation && (
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <ValidationPill label="Reps" value={latestReport.summary.validation.repEstimate === null ? '--' : String(latestReport.summary.validation.repEstimate)} />
+              <ValidationPill label="Tempo" value={latestReport.summary.validation.tempoLabel} />
+              <ValidationPill label="Execution" value={`${latestReport.summary.validation.executionScore}%`} />
+            </div>
+          )}
+
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               href={reportHref}
@@ -107,6 +115,15 @@ export function VideoAnalysisSummaryCard({ role, latestReport, preferredSport, c
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function ValidationPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-xs font-black capitalize text-white">{value}</p>
     </div>
   )
 }

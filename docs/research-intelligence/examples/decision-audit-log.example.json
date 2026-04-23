@@ -1,0 +1,31 @@
+{
+  "id": "0bcb53a0-b574-4a1f-9d8d-79fe7f2f0c3f",
+  "userId": "user_123",
+  "ruleId": "5a8233c3-7b5d-4ef8-9a0c-7c6c4e0ce0b4",
+  "bundleId": "cf39b6f3-7bb5-44e4-a4fd-f2ae7b54b434",
+  "inputSnapshot": {
+    "sleep_hours": 5.5,
+    "acute_load": 8.4,
+    "chronic_load": 6.5,
+    "hrv_delta_pct": -9,
+    "sport": "cricket",
+    "age_group": "adult"
+  },
+  "outputSnapshot": {
+    "ruleKey": "fatigue_sleep_load_low_hrv_v1",
+    "bundleKey": "fatigue_sleep_load_v1",
+    "domain": "fatigue",
+    "severity": "high",
+    "headline": "Recovery is reduced today. Keep training light.",
+    "body": "Fatigue is building. Protect the quality of your next hard day.",
+    "actions": [
+      "lower training intensity",
+      "prioritize sleep",
+      "increase recovery focus"
+    ],
+    "confidence": 0.8,
+    "rank": 1
+  },
+  "engineConfidence": 0.8,
+  "createdAt": "2026-04-22T12:30:00.000Z"
+}

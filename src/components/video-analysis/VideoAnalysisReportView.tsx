@@ -72,6 +72,31 @@ export function VideoAnalysisReportView({
           <p className="text-sm leading-7 text-slate-300 max-w-4xl">{report.summary.coachSummary}</p>
         </div>
 
+        {report.summary.validation && (
+          <div className="mb-10 rounded-3xl border border-white/[0.06] bg-white/[0.02] p-5">
+            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/30 mb-5 flex items-center gap-2">
+              <CheckCircleMetric /> Session Validation
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <MetricCard
+                label="Estimated Reps"
+                value={report.summary.validation.repEstimate === null ? '--' : String(report.summary.validation.repEstimate)}
+              />
+              <MetricCard
+                label="Tempo"
+                value={report.summary.validation.tempoLabel}
+              />
+              <MetricCard
+                label="Execution"
+                value={`${report.summary.validation.executionScore}%`}
+              />
+            </div>
+            <p className="mt-4 text-sm leading-7 text-slate-300">
+              {report.summary.validation.detail}
+            </p>
+          </div>
+        )}
+
         <div className="mb-10">
           <h3 className="text-sm font-black uppercase tracking-[0.2em] text-white/30 mb-5 flex items-center gap-2">
             <Zap className="h-4 w-4 text-orange-300" /> Recommended Corrections
@@ -222,6 +247,10 @@ export function VideoAnalysisReportView({
       </div>
     </div>
   )
+}
+
+function CheckCircleMetric() {
+  return <ShieldCheck className="h-4 w-4 text-orange-300" />
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {

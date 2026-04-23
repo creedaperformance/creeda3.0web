@@ -150,7 +150,7 @@ export default async function MonthlyReportPage() {
                        </span>
                        <span className="text-sm font-bold opacity-60 ml-1">/100</span>
                     </div>
-                    <p className="text-xs font-semibold mt-4 text-muted-foreground text-pretty">Your body's ability to handle exercise (28-Day Average)</p>
+                    <p className="text-xs font-semibold mt-4 text-muted-foreground text-pretty">Your body&apos;s ability to handle exercise (28-Day Average)</p>
                  </div>
 
                  {/* Macro Load */}

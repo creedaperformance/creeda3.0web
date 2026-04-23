@@ -1,6 +1,6 @@
 'use client'
 
-import { motion, useMotionValue, useTransform } from 'framer-motion'
+import { motion, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
 import { useState, useRef, useEffect } from 'react'
 
 interface FrictionlessSliderProps {
@@ -23,7 +23,7 @@ export function FrictionlessSlider({
   rightLabel = "High"
 }: FrictionlessSliderProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
+  const [trackWidth, setTrackWidth] = useState(100)
   
   // Motion values for kinetic feedback
   const x = useMotionValue(0)
@@ -35,8 +35,21 @@ export function FrictionlessSlider({
     [0, 100], 
     ["#4CAF50", "#F57C00"]
   )
+  const valueColor = useTransform(
+    x,
+    [0, trackWidth],
+    ["#4CAF50", "#F57C00"]
+  )
+  const trackBackground = useTransform(
+    x,
+    [0, trackWidth],
+    [
+      "linear-gradient(90deg, #4CAF50 0%, transparent 100%)",
+      "linear-gradient(90deg, #4CAF50 0%, #F57C00 100%)"
+    ]
+  )
 
-  const handleDrag = (_: any, info: any) => {
+  const handleDrag = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect()
       const newXShort = Math.max(0, Math.min(rect.width, info.point.x - rect.left))
@@ -50,9 +63,10 @@ export function FrictionlessSlider({
     }
   }
 
-  useEffect(() => {
+	  useEffect(() => {
     if (containerRef.current) {
       const width = containerRef.current.offsetWidth
+      setTrackWidth(width)
       const percent = (value - min) / range
       x.set(percent * width)
     }
@@ -66,11 +80,7 @@ export function FrictionlessSlider({
           <motion.span 
             className="text-4xl font-black text-glow-saffron"
             style={{ 
-              color: useTransform(
-                x,
-                [0, containerRef.current?.offsetWidth || 100], 
-                ["#4CAF50", "#F57C00"]
-              ) 
+              color: valueColor
             }}
           >
             {value}
@@ -91,14 +101,7 @@ export function FrictionlessSlider({
         <motion.div 
           className="absolute inset-0 opacity-20"
           style={{ 
-            background: useTransform(
-              x,
-              [0, containerRef.current?.offsetWidth || 300],
-              [
-                "linear-gradient(90deg, #4CAF50 0%, transparent 100%)",
-                "linear-gradient(90deg, #4CAF50 0%, #F57C00 100%)"
-              ]
-            )
+            background: trackBackground
           }}
         />
 
@@ -109,8 +112,6 @@ export function FrictionlessSlider({
             dragElastic={0}
             dragMomentum={false}
             onDrag={handleDrag}
-            onDragStart={() => setIsDragging(true)}
-            onDragEnd={() => setIsDragging(false)}
             className="absolute left-0 z-20"
             style={{ x }}
         >

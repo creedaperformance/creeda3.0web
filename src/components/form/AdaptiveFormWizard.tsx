@@ -464,6 +464,8 @@ export function AdaptiveFormWizard({
       return (
         <button
           type="button"
+          aria-pressed={active}
+          data-testid={`adaptive-toggle-${field.id}`}
           onClick={() => updateAnswer(field.id, !active)}
           className={`flex w-full items-center justify-between rounded-2xl border px-4 py-4 text-left transition ${
             active

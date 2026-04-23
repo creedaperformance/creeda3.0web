@@ -6,9 +6,11 @@
   },
   "nav": {
     "home": "Home",
+    "today": "Today",
     "scan": "Scan",
     "plans": "Plans",
     "learn": "Learn",
+    "checkin": "Check-In",
     "profile": "Profile",
     "dashboard": "Dashboard",
     "settings": "Settings",

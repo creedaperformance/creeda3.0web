@@ -410,7 +410,7 @@ function buildComponents(
   }
 
   // Psychology component
-  let mentalReadiness = readiness.domains.mental;
+  const mentalReadiness = readiness.domains.mental;
   let psychAdvice = 'Mental state is optimal. Focus on process goals during training.';
   if (mentalReadiness < 50) {
     psychAdvice = 'Mental fatigue detected. Use visualization and breathing exercises. We have simplified your session to focus on the wins.';
@@ -424,7 +424,7 @@ function buildComponents(
   }
 
   // Nutrition component
-  let nutritionAdvice = 'Maintain regular nutrition pattern. Ensure adequate protein intake (1.6-2.2g/kg).';
+  const nutritionAdvice = 'Maintain regular nutrition pattern. Ensure adequate protein intake (1.6-2.2g/kg).';
   let hydrationPriority = false;
   if (decision === 'RECOVER') {
     hydrationPriority = true;
@@ -968,8 +968,8 @@ export function generateDecision(
   const logs: string[] = [];
   logs.push(`Readiness: ${rScore} | Risk: ${riskScore} | Confidence: ${Math.round(confScore * 100)}%`);
 
-  let trendBias = trendSignal > 2 ? 10 : (trendSignal < -2 ? -15 : 0);
-  let uncertaintyBias = uncertainty.score > 0.6 ? -25 : (uncertainty.score > 0.4 ? -10 : 0);
+  const trendBias = trendSignal > 2 ? 10 : (trendSignal < -2 ? -15 : 0);
+  const uncertaintyBias = uncertainty.score > 0.6 ? -25 : (uncertainty.score > 0.4 ? -10 : 0);
   cap = Math.max(20, Math.min(110, cap + trendBias + uncertaintyBias));
 
   if (confScore < 0.6) {

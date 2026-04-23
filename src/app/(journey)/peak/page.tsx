@@ -9,7 +9,7 @@ import { JourneyButton } from '@/components/journey/JourneyButton'
 import { JourneyProgressBar } from '@/components/journey/JourneyProgressBar'
 import { useJourneyStore } from '@/lib/individual-journey-store'
 
-export function PeakScreen() {
+function PeakScreen() {
   const router = useRouter()
   const { state } = useJourneyStore()
   const projection = state.analysis?.peakProjection

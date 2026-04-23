@@ -18,6 +18,8 @@ import {
   ChevronRight,
   Timer,
   ShieldCheck,
+  Dumbbell,
+  BookOpenCheck,
   type LucideIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -84,7 +86,10 @@ export function DashboardLayout({ children, user, type, hasSyncedToday }: Dashbo
 
   const athleteLinks = [
     { href: '/athlete/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { href: '/athlete/sessions/today', icon: Dumbbell, label: "Today's Session", badge: 'START' },
+    { href: '/athlete/exercises', icon: BookOpenCheck, label: 'Exercise Library', badge: 'NEW' },
     { href: '/athlete/scan', icon: ScanLine, label: 'Video Analysis', badge: 'NEW' },
+    { href: '/athlete/progress', icon: BarChart3, label: 'Progress Proof', badge: 'NEW' },
     { href: '/athlete/tests', icon: Timer, label: 'Objective Tests', badge: 'BETA' },
     { href: '/athlete/family', icon: ShieldCheck, label: 'Guardian & Family', badge: 'NEW' },
     { href: '/athlete/nutrition-safety', icon: ShieldCheck, label: 'Nutrition Safety', badge: 'NEW' },
@@ -97,6 +102,7 @@ export function DashboardLayout({ children, user, type, hasSyncedToday }: Dashbo
 
   const coachLinks = [
     { href: '/coach/dashboard', icon: LayoutDashboard, label: 'Squad Roster' },
+    { href: '/coach/execution', icon: ClipboardList, label: 'Execution Board', badge: 'ASSIGN' },
     { href: '/coach/academy', icon: ShieldCheck, label: 'Academy Ops', badge: 'NEW' },
     { href: '/coach/review', icon: TrendingUp, label: 'Weekly Review', badge: 'NEW' },
     { href: '/coach/analytics', icon: BarChart3, label: 'Analytics' },
@@ -107,6 +113,9 @@ export function DashboardLayout({ children, user, type, hasSyncedToday }: Dashbo
 
   const individualLinks = [
     { href: '/individual/dashboard', icon: LayoutDashboard, label: 'Home' },
+    { href: '/individual/sessions/today', icon: Dumbbell, label: "Today's Session", badge: 'START' },
+    { href: '/individual/plans', icon: ClipboardList, label: 'Plan Calendar', badge: 'NEW' },
+    { href: '/individual/exercises', icon: BookOpenCheck, label: 'Exercise Library', badge: 'NEW' },
     { href: '/individual/scan', icon: ScanLine, label: 'Movement Analysis', badge: 'NEW' },
     { href: '/individual/tests', icon: Timer, label: 'Objective Tests', badge: 'BETA' },
     { href: '/individual/nutrition-safety', icon: ShieldCheck, label: 'Nutrition Safety', badge: 'NEW' },

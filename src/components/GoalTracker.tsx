@@ -82,7 +82,7 @@ export function GoalTracker({ goal, roadmap = [] }: GoalTrackerProps) {
             <div className="p-4 rounded-2xl bg-white/5 border border-white/5 group-hover:border-primary/20 transition-all flex items-start gap-3">
               <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5 animate-pulse" />
               <p className="text-xs font-bold text-muted-foreground leading-relaxed italic">
-                "{strategicMessage.replace('Strategic Outcome [ACTIVE]: ', '')}"
+                &quot;{strategicMessage.replace('Strategic Outcome [ACTIVE]: ', '')}&quot;
               </p>
             </div>
           </div>

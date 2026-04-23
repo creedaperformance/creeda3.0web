@@ -18,7 +18,7 @@ import { SquadTrendsChart } from './SquadTrendsChart'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import { Input } from '@/components/ui/input'
 import { useRouter } from 'next/navigation'
-import { getOrCreateLockerCode, useLockerCode } from '@/lib/actions/connection'
+import { getOrCreateLockerCode, useLockerCode as connectWithLockerCode } from '@/lib/actions/connection'
 import { archiveAthlete, restoreAthlete, removeAthlete } from '@/lib/actions/roster'
 import { approveConnectionRequest, denyConnectionRequest } from '@/lib/actions/coach_actions'
 
@@ -82,7 +82,7 @@ const AthleteRosterRow = memo(function AthleteRosterRow({
       <td className="py-10 px-10">
           <div className="flex items-center gap-6">
             <div className="h-14 w-14 rounded-xl bg-slate-900 border border-slate-800 overflow-hidden shrink-0 shadow-sm relative">
-                {athlete.avatar ? <img src={athlete.avatar} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center font-bold text-slate-700 bg-slate-950 uppercase text-lg">{athlete.name[0]}</div>}
+                {athlete.avatar ? <img src={athlete.avatar} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center font-bold text-slate-700 bg-slate-950 uppercase text-lg">{athlete.name[0]}</div>}
             </div>
             <div>
                 <p className="text-lg font-bold text-white tracking-tight leading-none mb-1">{athlete.name}</p>
@@ -244,7 +244,7 @@ export function CoachDashboardClient({
       return
     }
     setIsConnecting(true)
-    const res = await useLockerCode(connectionCode)
+    const res = await connectWithLockerCode(connectionCode)
     setIsConnecting(false)
     if (res.error) toast.error(res.error)
     else {
@@ -354,7 +354,7 @@ export function CoachDashboardClient({
                    <Card key={athlete.id} className={`bg-slate-900 border rounded-3xl p-6 shadow-xl ${athlete.priority === 'Critical' ? 'border-red-500/40' : 'border-orange-500/40'}`}>
                       <div className="flex items-center gap-5 mb-6">
                          <div className="h-14 w-14 rounded-xl bg-slate-950 border border-slate-800 overflow-hidden shrink-0 shadow-sm">
-                            {athlete.avatar ? <img src={athlete.avatar} className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center font-bold text-slate-700 text-lg uppercase">{athlete.name[0]}</div>}
+                            {athlete.avatar ? <img src={athlete.avatar} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full flex items-center justify-center font-bold text-slate-700 text-lg uppercase">{athlete.name[0]}</div>}
                          </div>
                           <div>
                             <p className="text-base font-bold text-white tracking-tight leading-none mb-2">{athlete.name}</p>
@@ -541,7 +541,7 @@ export function CoachDashboardClient({
                       <h5 className="text-lg font-bold tracking-tight">Connect Athlete</h5>
                     </div>
                     <p className="text-slate-500 text-xs font-medium leading-relaxed mb-8">
-                       Enter an athlete's 6-digit access code to connect them to your dashboard.
+                       Enter an athlete&apos;s 6-digit access code to connect them to your dashboard.
                     </p>
                     <div className="space-y-4">
                       <Input 

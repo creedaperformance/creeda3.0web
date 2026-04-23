@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test'
 
 import {
+  acceptRequiredSignupConsents,
   completeAthleteOnboardingCurrent,
   completeCoachOnboardingCurrent,
   loginCurrent,
+  submitAthleteQuickCheckInCurrent,
   signupCoachCurrent,
 } from './utils/current-flows'
 
@@ -20,7 +22,7 @@ test.describe('Creeda Ecosystem Full Audit', () => {
     await page.getByLabel(/Full Name/i).fill(fullName)
     await page.getByLabel(/Email Connection/i).fill(email)
     await page.getByLabel(/Security Access/i).fill('AuditPass123!')
-    await page.locator('#consent').check()
+    await acceptRequiredSignupConsents(page)
     await page.getByRole('button', { name: /Continue to Athlete Onboarding/i }).click()
 
     await page.waitForURL(/\/(athlete\/onboarding|verify-email|athlete\/dashboard)/, { timeout: 60000 })
@@ -33,8 +35,8 @@ test.describe('Creeda Ecosystem Full Audit', () => {
     await expect(page).toHaveURL(/\/athlete\/dashboard/, { timeout: 30000 })
     await expect(page.getByText(/Today|Science|Trust/i).first()).toBeVisible({ timeout: 15000 })
 
-    await page.goto('/athlete/checkin')
-    await expect(page.getByText(/Athlete Daily Check-In/i)).toBeVisible({ timeout: 15000 })
+    await submitAthleteQuickCheckInCurrent(page)
+    await expect(page).toHaveURL(/\/athlete\/dashboard/, { timeout: 30000 })
   })
 
   test('Coach End-to-End Pathway', async ({ page }) => {
@@ -60,7 +62,7 @@ test.describe('Creeda Ecosystem Full Audit', () => {
     await page.getByLabel(/Full Name/i).fill(fullName)
     await page.getByLabel(/Email Connection/i).fill(email)
     await page.getByLabel(/Security Access/i).fill('AuditPass123!')
-    await page.locator('#consent').check()
+    await acceptRequiredSignupConsents(page)
     await page.getByRole('button', { name: /Continue to FitStart/i }).click()
 
     await page.waitForURL(/\/(fitstart|verify-email|individual\/dashboard)/, { timeout: 60000 })

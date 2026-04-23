@@ -1,0 +1,16 @@
+{
+  "id": "cf39b6f3-7bb5-44e4-a4fd-f2ae7b54b434",
+  "bundleKey": "fatigue_sleep_load_v1",
+  "title": "Fatigue From Sleep And Load",
+  "domain": "fatigue",
+  "summary": "Low sleep plus acute loading signals elevate fatigue risk and reduce the quality of hard training days.",
+  "applicablePopulation": "elite_athletes",
+  "applicableSport": "general",
+  "evidenceStrength": "strong",
+  "minPapersRequired": 2,
+  "status": "approved",
+  "supportingPaperIds": [
+    "1d2f40ac-f94d-4a74-a4f5-b775fd7d1e40",
+    "5fba2852-0bb2-42e9-bff4-9d9a679c9de0"
+  ]
+}

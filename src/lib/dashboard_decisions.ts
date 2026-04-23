@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import 'server-only'
 
 import { orchestrateV5 } from '@/lib/engine/EngineOrchestrator'

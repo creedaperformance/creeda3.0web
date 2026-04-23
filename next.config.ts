@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const isDev = process.env.NODE_ENV !== "production";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const googleTagManagerOrigin = "https://www.googletagmanager.com";
+const jsDelivrOrigin = "https://cdn.jsdelivr.net";
 const googleAnalyticsOrigins = [
   "https://www.google-analytics.com",
   "https://region1.google-analytics.com",
@@ -18,7 +19,7 @@ const supabaseWssOrigin = supabaseOrigin
   : null;
 const connectSrc = [
   "'self'",
-  "https://cdn.jsdelivr.net",
+  jsDelivrOrigin,
   googleTagManagerOrigin,
   ...googleAnalyticsOrigins,
   ...(supabaseOrigin ? [supabaseOrigin] : []),
@@ -27,7 +28,7 @@ const connectSrc = [
 
 const contentSecurityPolicy = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${googleTagManagerOrigin}`,
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${googleTagManagerOrigin} ${jsDelivrOrigin}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
@@ -67,7 +68,7 @@ const securityHeaders = [
   },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=()",
+    value: "camera=(self), microphone=(), geolocation=()",
   },
   {
     key: "Cross-Origin-Opener-Policy",

@@ -193,7 +193,7 @@ export default function ReassessmentPage() {
                   </div>
                   <h2 className="text-2xl font-black text-white uppercase tracking-tighter">{REASSESSMENT_DOMAINS[currentStep].label}</h2>
                 </div>
-                <p className="text-lg font-bold text-muted leading-tight italic">"{REASSESSMENT_DOMAINS[currentStep].question}"</p>
+                <p className="text-lg font-bold text-muted leading-tight italic">&quot;{REASSESSMENT_DOMAINS[currentStep].question}&quot;</p>
               </div>
 
               <div className="grid grid-cols-1 gap-4">

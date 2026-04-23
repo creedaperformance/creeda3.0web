@@ -1,0 +1,27 @@
+{
+  "id": "5a8233c3-7b5d-4ef8-9a0c-7c6c4e0ce0b4",
+  "ruleKey": "fatigue_sleep_load_low_hrv_v1",
+  "domain": "fatigue",
+  "name": "Fatigue Risk From Low Sleep, High Load, And Low HRV",
+  "logicJson": {
+    "all": [
+      { "field": "sleep_hours", "operator": "lt", "value": 6 },
+      { "field": "acute_load", "operator": "gte", "value": 8 },
+      { "field": "hrv_delta_pct", "operator": "lte", "value": -8 }
+    ]
+  },
+  "outputJson": {
+    "domain": "fatigue",
+    "severity": "high",
+    "internalCode": "fatigue.high.recovery_day",
+    "headline": "Recovery is reduced today. Keep training light.",
+    "body": "Fatigue is building. Protect the quality of your next hard day.",
+    "actions": [
+      "lower training intensity",
+      "prioritize sleep",
+      "increase recovery focus"
+    ]
+  },
+  "bundleId": "cf39b6f3-7bb5-44e4-a4fd-f2ae7b54b434",
+  "status": "approved"
+}

@@ -2,25 +2,36 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Home, ScanLine, ClipboardList, BookOpen, User } from 'lucide-react'
+import { Home, ScanLine, ClipboardList, Dumbbell, User } from 'lucide-react'
 import { useTranslation } from '@/lib/i18n/LanguageProvider'
 import { motion } from 'framer-motion'
 
-const tabs = [
+const athleteTabs = [
   { key: 'home', path: '/athlete/dashboard', icon: Home, translationKey: 'nav.home' },
-  { key: 'scan', path: '/athlete/scan', icon: ScanLine, translationKey: 'nav.scan', highlight: true },
   { key: 'plans', path: '/athlete/plans', icon: ClipboardList, translationKey: 'nav.plans' },
-  { key: 'learn', path: '/learn', icon: BookOpen, translationKey: 'nav.learn' },
+  { key: 'today', path: '/athlete/sessions/today', icon: Dumbbell, translationKey: 'nav.today', highlight: true },
+  { key: 'scan', path: '/athlete/scan', icon: ScanLine, translationKey: 'nav.scan' },
   { key: 'profile', path: '/athlete/settings', icon: User, translationKey: 'nav.profile' },
+]
+
+const individualTabs = [
+  { key: 'home', path: '/individual/dashboard', icon: Home, translationKey: 'nav.home' },
+  { key: 'plans', path: '/individual/plans', icon: ClipboardList, translationKey: 'nav.plans' },
+  { key: 'today', path: '/individual/sessions/today', icon: Dumbbell, translationKey: 'nav.today', highlight: true },
+  { key: 'scan', path: '/individual/scan', icon: ScanLine, translationKey: 'nav.scan' },
+  { key: 'checkin', path: '/individual/logging', icon: ClipboardList, translationKey: 'nav.checkin' },
 ]
 
 export function BottomNav() {
   const pathname = usePathname()
   const { t } = useTranslation()
 
-  // Only show on athlete pages and learn pages
-  const shouldShow = pathname?.startsWith('/athlete') || pathname?.startsWith('/learn')
+  const isAthlete = pathname?.startsWith('/athlete') || pathname?.startsWith('/learn')
+  const isIndividual = pathname?.startsWith('/individual')
+  const shouldShow = isAthlete || isIndividual
   if (!shouldShow) return null
+
+  const tabs = isIndividual ? individualTabs : athleteTabs
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0A0A0E]/95 backdrop-blur-xl border-t border-white/[0.04] safe-bottom block lg:hidden">
@@ -85,15 +96,13 @@ export function BottomNav() {
               )}
 
               {/* Label */}
-              {!tab.highlight && (
-                <span
-                  className={`text-[9px] font-semibold tracking-wide transition-colors duration-200 ${
-                    isActive ? 'text-[var(--saffron)]' : 'text-white/30'
-                  }`}
-                >
-                  {t(tab.translationKey)}
-                </span>
-              )}
+              <span
+                className={`text-[9px] font-semibold tracking-wide transition-colors duration-200 ${
+                  isActive ? 'text-[var(--saffron)]' : 'text-white/30'
+                }`}
+              >
+                {t(tab.translationKey)}
+              </span>
             </Link>
           )
         })}

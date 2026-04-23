@@ -1,0 +1,1298 @@
+[
+  {
+    "slug": "bw-counterbalance-squat",
+    "name": "Counterbalance Squat",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Bodyweight Squat",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bw-counterbalance-squat",
+    "name": "Counterbalance Squat",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Half_squat.webm"
+  },
+  {
+    "slug": "db-goblet-squat",
+    "name": "DB Goblet Squat",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Goblet Squat",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "db-goblet-squat",
+    "name": "DB Goblet Squat",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Half_squat.webm"
+  },
+  {
+    "slug": "db-tempo-goblet-squat",
+    "name": "DB Tempo Goblet Squat",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Goblet Squat",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "db-tempo-goblet-squat",
+    "name": "DB Tempo Goblet Squat",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Half_squat.webm"
+  },
+  {
+    "slug": "bb-front-squat",
+    "name": "BB Front Squat",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Front Barbell Squat",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bb-front-squat",
+    "name": "BB Front Squat",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Half_squat.webm"
+  },
+  {
+    "slug": "bb-paused-front-squat",
+    "name": "BB Paused Front Squat",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Front Barbell Squat",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bb-paused-front-squat",
+    "name": "BB Paused Front Squat",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Half_squat.webm"
+  },
+  {
+    "slug": "bb-back-squat",
+    "name": "BB Back Squat",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Barbell Squat",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bb-back-squat",
+    "name": "BB Back Squat",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Half_squat.webm"
+  },
+  {
+    "slug": "hip-hinge-dowel",
+    "name": "Hip Hinge Dowel Drill",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Romanian Deadlift",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "kb-deadlift",
+    "name": "KB Deadlift",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Barbell Deadlift",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "db-rdl",
+    "name": "DB Romanian Deadlift",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Romanian Deadlift",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bb-rdl",
+    "name": "BB Romanian Deadlift",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Romanian Deadlift",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "trap-bar-deadlift",
+    "name": "Trap Bar Deadlift",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Trap Bar Deadlift",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "single-leg-rdl",
+    "name": "Single-Leg RDL",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Kettlebell One-Legged Deadlift",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "split-squat-iso-hold",
+    "name": "Split Squat Iso Hold",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Split Squats",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "split-squat-iso-hold",
+    "name": "Split Squat Iso Hold",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Lunge-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "assisted-split-squat",
+    "name": "Assisted Split Squat",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Split Squats",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "assisted-split-squat",
+    "name": "Assisted Split Squat",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Lunge-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "bw-reverse-lunge",
+    "name": "Bodyweight Reverse Lunge",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Lunge-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "db-reverse-lunge",
+    "name": "DB Reverse Lunge",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Dumbbell Rear Lunge",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "db-reverse-lunge",
+    "name": "DB Reverse Lunge",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Lunge-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "db-rear-foot-elevated-split-squat",
+    "name": "DB Rear-Foot-Elevated Split Squat",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Split Squat with Dumbbells",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "db-rear-foot-elevated-split-squat",
+    "name": "DB Rear-Foot-Elevated Split Squat",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Lunge-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "db-walking-lunge",
+    "name": "DB Walking Lunge",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Bodyweight Walking Lunge",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "db-walking-lunge",
+    "name": "DB Walking Lunge",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Lunge-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "glute-bridge",
+    "name": "Glute Bridge",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Barbell Glute Bridge",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "glute-bridge-march",
+    "name": "Glute Bridge March",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Single Leg Glute Bridge",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "db-hip-thrust",
+    "name": "DB Hip Thrust",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Barbell Hip Thrust",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bb-hip-thrust",
+    "name": "BB Hip Thrust",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Barbell Hip Thrust",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "single-leg-hip-thrust",
+    "name": "Single-Leg Hip Thrust",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Single Leg Glute Bridge",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "band-hip-thrust-pulse",
+    "name": "Band Hip Thrust Pulse",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Barbell Glute Bridge",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "wall-push-up",
+    "name": "Wall Push-Up",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Wallpushup-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "incline-push-up",
+    "name": "Incline Push-Up",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Incline Push-Up",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "incline-push-up",
+    "name": "Incline Push-Up",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Push-ups.webm"
+  },
+  {
+    "slug": "push-up",
+    "name": "Push-Up",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Push-ups.webm"
+  },
+  {
+    "slug": "db-floor-press",
+    "name": "DB Floor Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Dumbbell Floor Press",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "db-bench-press",
+    "name": "DB Bench Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Dumbbell Bench Press",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bb-bench-press",
+    "name": "BB Bench Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Barbell Bench Press - Medium Grip",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "band-press-out",
+    "name": "Band Press-Out",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Pallof Press",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "half-kneeling-band-press",
+    "name": "Half-Kneeling Band Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Landmine Linear Jammer",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "half-kneeling-landmine-press",
+    "name": "Half-Kneeling Landmine Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Landmine Linear Jammer",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "standing-landmine-press",
+    "name": "Standing Landmine Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Landmine Linear Jammer",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "single-arm-db-shoulder-press",
+    "name": "Single-Arm DB Shoulder Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Dumbbell One-Arm Shoulder Press",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "single-arm-db-shoulder-press",
+    "name": "Single-Arm DB Shoulder Press",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Overhead_Press.webm"
+  },
+  {
+    "slug": "push-press",
+    "name": "Push Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Push Press",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "push-press",
+    "name": "Push Press",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Overhead_Press.webm"
+  },
+  {
+    "slug": "band-row",
+    "name": "Band Row",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Seated Cable Rows",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "ring-row",
+    "name": "Ring Row",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Inverted Row",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "single-arm-db-row",
+    "name": "Single-Arm DB Row",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "One-Arm Dumbbell Row",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "chest-supported-db-row",
+    "name": "Chest-Supported DB Row",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Dumbbell Incline Row",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "seal-row",
+    "name": "Seal Row",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Dumbbell Incline Row",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "face-pull",
+    "name": "Face Pull",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Face Pull",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "lat-pull-down",
+    "name": "Lat Pull-Down",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Wide-Grip Lat Pulldown",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "band-assisted-pull-up",
+    "name": "Band-Assisted Pull-Up",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Band Assisted Pull-Up",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "chin-up",
+    "name": "Chin-Up",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Chin-Up",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "pull-up",
+    "name": "Pull-Up",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Pullups",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "weighted-pull-up",
+    "name": "Weighted Pull-Up",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Weighted Pull Ups",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "dead-bug",
+    "name": "Dead Bug",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Dead Bug",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "dead-bug-band-pulldown",
+    "name": "Dead Bug Band Pulldown",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Dead Bug",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "body-saw",
+    "name": "Body Saw",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Plank",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "ab-wheel-rollout",
+    "name": "Ab Wheel Rollout",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Ab Roller",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "side-plank-knees",
+    "name": "Side Plank (Knees)",
+    "source": "Jaykayfit via Wikimedia Commons",
+    "license": "CC BY-SA 3.0 via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Side_Plank.jpg"
+  },
+  {
+    "slug": "side-plank",
+    "name": "Side Plank",
+    "source": "Jaykayfit via Wikimedia Commons",
+    "license": "CC BY-SA 3.0 via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Side_Plank.jpg"
+  },
+  {
+    "slug": "pallof-press",
+    "name": "Pallof Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Pallof Press",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "tall-kneeling-pallof-press",
+    "name": "Tall-Kneeling Pallof Press",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Pallof Press",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "march-carry",
+    "name": "March Carry",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Farmer's Walk",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "farmer-carry",
+    "name": "Farmer Carry",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Farmer's Walk",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "suitcase-carry",
+    "name": "Suitcase Carry",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Farmer's Walk",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "front-rack-carry",
+    "name": "Front Rack Carry",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Farmer's Walk",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "cross-body-carry",
+    "name": "Cross-Body Carry",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Farmer's Walk",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "hamstring-bridge",
+    "name": "Hamstring Bridge",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Single Leg Glute Bridge",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "slider-leg-curl",
+    "name": "Slider Leg Curl",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Platform Hamstring Slides",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "single-leg-slider-leg-curl",
+    "name": "Single-Leg Slider Leg Curl",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Platform Hamstring Slides",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "nordic-lower",
+    "name": "Nordic Lower",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Natural Glute Ham Raise",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "nordic-catch",
+    "name": "Nordic Catch",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Natural Glute Ham Raise",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "razor-curl",
+    "name": "Razor Curl",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Glute Ham Raise",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "double-leg-calf-raise",
+    "name": "Double-Leg Calf Raise",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Standing Calf Raises",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "double-leg-calf-raise",
+    "name": "Double-Leg Calf Raise",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Toe_Lift.webm"
+  },
+  {
+    "slug": "single-leg-calf-raise",
+    "name": "Single-Leg Calf Raise",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Standing Dumbbell Calf Raise",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "single-leg-calf-raise",
+    "name": "Single-Leg Calf Raise",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Toe_Lift.webm"
+  },
+  {
+    "slug": "seated-soleus-raise",
+    "name": "Seated Soleus Raise",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Seated Calf Raise",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "seated-soleus-raise",
+    "name": "Seated Soleus Raise",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Toe_Lift.webm"
+  },
+  {
+    "slug": "weighted-calf-raise",
+    "name": "Weighted Calf Raise",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Standing Calf Raises",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "weighted-calf-raise",
+    "name": "Weighted Calf Raise",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Toe_Lift.webm"
+  },
+  {
+    "slug": "tibialis-raise",
+    "name": "Tibialis Raise",
+    "source": "CDC via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Muscle_Strengthening_at_Home_-_Toe_Lift.webm"
+  },
+  {
+    "slug": "half-kneeling-med-ball-rotation",
+    "name": "Half-Kneeling Med Ball Rotation",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Full Twist",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "standing-med-ball-rotation",
+    "name": "Standing Med Ball Rotation",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Full Twist",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "rotational-med-ball-shot-put",
+    "name": "Rotational Med Ball Shot Put",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Scoop Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "med-ball-scoop-toss",
+    "name": "Med Ball Scoop Toss",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Scoop Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "step-behind-med-ball-scoop",
+    "name": "Step-Behind Med Ball Scoop Toss",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Scoop Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "worlds-greatest-stretch",
+    "name": "World's Greatest Stretch",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "World's Greatest Stretch",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "ankle-cars",
+    "name": "Ankle CARs",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Ankle Circles",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "band-no-money",
+    "name": "Band No-Money",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "External Rotation with Band",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "standing-cable-external-rotation",
+    "name": "Standing Cable External Rotation",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "External Rotation with Cable",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "supine-band-hamstring-stretch",
+    "name": "Supine Band Hamstring Stretch",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Leg-Up Hamstring Stretch",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "supine-band-hamstring-stretch",
+    "name": "Supine Band Hamstring Stretch",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Hamstring_stretch-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "doorway-hamstring-floss",
+    "name": "Doorway Hamstring Floss",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Hamstring Stretch",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "doorway-hamstring-floss",
+    "name": "Doorway Hamstring Floss",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Hamstring_stretch-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "standing-hamstring-sweep",
+    "name": "Standing Hamstring Sweep",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Standing Hamstring and Calf Stretch",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "standing-hamstring-sweep",
+    "name": "Standing Hamstring Sweep",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Hamstring_stretch-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "mobility-flow-cooldown",
+    "name": "Mobility Flow Cooldown",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Backstretch-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "hips-and-ribs-reset",
+    "name": "Hips and Ribs Reset",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Pelvic_tilt-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "hamstrings-and-calf-reset",
+    "name": "Hamstrings and Calf Reset",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Hamstring_stretch-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "shoulders-and-t-spine-reset",
+    "name": "Shoulders and T-Spine Reset",
+    "source": "CDC older adults via Wikimedia Commons",
+    "license": "Public domain via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Chest_stretch-CDC_strength_training_for_older_adults.gif"
+  },
+  {
+    "slug": "isometric-external-rotation",
+    "name": "Isometric External Rotation",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "External Rotation with Band",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "band-external-rotation",
+    "name": "Band External Rotation",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "External Rotation with Band",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "sidelying-external-rotation",
+    "name": "Sidelying External Rotation",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "External Rotation",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "ankle-pogo-progress",
+    "name": "Ankle Pogo Progression",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Hurdle Hops",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "step-down",
+    "name": "Step-Down",
+    "source": "Kengucjun via Wikimedia Commons",
+    "license": "CC BY-SA 3.0 via Wikimedia Commons file page",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Step_exercise.JPG"
+  },
+  {
+    "slug": "lateral-bound-stick",
+    "name": "Lateral Bound Stick",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Lateral Bound",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "light-sled-10m",
+    "name": "Light Sled 10m",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Drag - Harness",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "moderate-sled-15m",
+    "name": "Moderate Sled 15m",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Drag - Harness",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "sled-march",
+    "name": "Sled March",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Push",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "prowler-drive-step",
+    "name": "Prowler Drive Step",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Push",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "lateral-bound-stick-drill",
+    "name": "Lateral Bound Stick Drill",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Lateral Bound",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "pogos-forward",
+    "name": "Pogos Forward",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Hurdle Hops",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "pogos-lateral",
+    "name": "Pogos Lateral",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Lateral Cone Hops",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "single-leg-pogo",
+    "name": "Single-Leg Pogo",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Single-Leg Hop Progression",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "line-hops",
+    "name": "Line Hops",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Lateral Cone Hops",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "mini-hurdle-pogos",
+    "name": "Mini-Hurdle Pogos",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Hurdle Hops",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "double-leg-bound",
+    "name": "Double-Leg Bound",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Standing Long Jump",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "single-leg-bound",
+    "name": "Single-Leg Bound",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Single-Leg Hop Progression",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "alternate-bound",
+    "name": "Alternate Bound",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Alternate Leg Diagonal Bound",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "skater-bound",
+    "name": "Skater Bound",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Lateral Bound",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "continuous-bound",
+    "name": "Continuous Bound",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Alternate Leg Diagonal Bound",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "squat-jump",
+    "name": "Squat Jump",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Freehand Jump Squat",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "countermovement-jump",
+    "name": "Countermovement Jump",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Freehand Jump Squat",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "box-jump",
+    "name": "Box Jump",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Box Jump (Multiple Response)",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "depth-drop",
+    "name": "Depth Drop",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Depth Jump Leap",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "drop-jump",
+    "name": "Drop Jump",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Depth Jump Leap",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "tuck-jump",
+    "name": "Tuck Jump",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Freehand Jump Squat",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "nasal-breath-jog",
+    "name": "Nasal-Breath Jog",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Trail Running/Walking",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "walk-run-interval",
+    "name": "Walk-Run Interval",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Trail Running/Walking",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bike-easy-spin",
+    "name": "Bike Easy Spin",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Bicycling, Stationary",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bike-30-30",
+    "name": "Bike 30:30",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Bicycling, Stationary",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bike-45-15",
+    "name": "Bike 45:15",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Bicycling, Stationary",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bike-threshold-wave",
+    "name": "Bike Threshold Wave",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Bicycling, Stationary",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bike-high-cadence-flush",
+    "name": "Bike High-Cadence Flush",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Bicycling, Stationary",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "bike-sprint-cluster",
+    "name": "Bike Sprint Cluster",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Bicycling, Stationary",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "sled-push-light",
+    "name": "Sled Push Light",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Push",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "sled-push-heavy",
+    "name": "Sled Push Heavy",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Push",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "backward-sled-drag",
+    "name": "Backward Sled Drag",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Overhead Backward Walk",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "lateral-sled-drag",
+    "name": "Lateral Sled Drag",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Drag - Harness",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "sprint-sled-combo",
+    "name": "Sprint Sled Combo",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Push",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "sled-march-flush",
+    "name": "Sled March Flush",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Sled Push",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "cricket-release-rhythm-medball",
+    "name": "Cricket Release Rhythm Med Ball",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Standing Two-Arm Overhead Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "cricket-medball-shot",
+    "name": "Cricket Med Ball Shot",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Scoop Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "spinner-medball-twist",
+    "name": "Spinner Med Ball Twist",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Full Twist",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "fielding-medball-pickup-throw",
+    "name": "Fielding Med Ball Pickup Throw",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Standing Two-Arm Overhead Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "badminton-scaption-pulse",
+    "name": "Badminton Scaption Pulse",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Dumbbell Scaption",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "mid-distance-recovery-jog-reset",
+    "name": "Middle-Distance Recovery Jog Reset",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Jogging, Treadmill",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "jumper-bounding-approach",
+    "name": "Jumper Bounding Approach",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Alternate Leg Diagonal Bound",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "jumper-takeoff-stick",
+    "name": "Jumper Takeoff Stick",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Single-Leg Hop Progression",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "jumper-depth-pop",
+    "name": "Jumper Depth Pop",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Depth Jump Leap",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "thrower-medball-step-and-throw",
+    "name": "Thrower Med Ball Step and Throw",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Standing Two-Arm Overhead Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "thrower-rotational-release",
+    "name": "Thrower Rotational Release",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Scoop Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "medball-overhead-slam",
+    "name": "Med Ball Overhead Slam",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Overhead Slam",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "medball-chest-pass",
+    "name": "Med Ball Chest Pass",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Chest Pass",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "medball-lateral-heave",
+    "name": "Med Ball Lateral Heave",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Scoop Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "medball-shotput-step",
+    "name": "Med Ball Shotput Step",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Scoop Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "medball-scoop-repeat",
+    "name": "Med Ball Scoop Repeat",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Scoop Throw",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  },
+  {
+    "slug": "medball-pop-to-stick",
+    "name": "Med Ball Pop to Stick",
+    "source": "yuhonas/free-exercise-db",
+    "sourceName": "Medicine Ball Chest Pass",
+    "license": "Unlicense",
+    "sourceUrl": "https://github.com/yuhonas/free-exercise-db"
+  }
+]

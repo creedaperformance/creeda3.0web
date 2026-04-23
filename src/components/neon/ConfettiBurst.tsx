@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ConfettiBurstProps {
@@ -25,6 +25,7 @@ export const ConfettiBurst: React.FC<ConfettiBurstProps> = ({
 }) => {
   const [particles, setParticles] = useState<Particle[]>([]);
   const idCounter = useRef(0);
+  const lastTrigger = useRef(false);
 
   const burst = useCallback(() => {
     const newParticles: Particle[] = [];
@@ -46,15 +47,20 @@ export const ConfettiBurst: React.FC<ConfettiBurstProps> = ({
     setTimeout(() => setParticles([]), 800);
   }, [colors]);
 
-  // Trigger on prop change
-  const lastTrigger = useRef(false);
-  if (trigger && !lastTrigger.current) {
-    lastTrigger.current = true;
-    // Use microtask to avoid setState during render
-    queueMicrotask(burst);
-  } else if (!trigger) {
-    lastTrigger.current = false;
-  }
+  useEffect(() => {
+    let burstTimer: ReturnType<typeof setTimeout> | undefined;
+
+    if (trigger && !lastTrigger.current) {
+      lastTrigger.current = true;
+      burstTimer = setTimeout(burst, 0);
+    } else if (!trigger) {
+      lastTrigger.current = false;
+    }
+
+    return () => {
+      if (burstTimer) clearTimeout(burstTimer);
+    };
+  }, [burst, trigger]);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[200] flex items-center justify-center overflow-hidden">

@@ -42,7 +42,7 @@ export function IntelligenceCard({ children, label, statusColor, className = "",
           {why && (
             <div className="mb-4">
               <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Observation</p>
-              <p className="text-sm font-bold text-foreground leading-snug italic">"{why}"</p>
+              <p className="text-sm font-bold text-foreground leading-snug italic">&quot;{why}&quot;</p>
             </div>
           )}
           {action && (

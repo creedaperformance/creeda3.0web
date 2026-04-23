@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { completeCoachOnboardingCurrent } from './utils/current-flows';
 
 test.describe('Coach Dashboard Operation', () => {
   test.beforeEach(async ({ page }) => {
@@ -10,33 +11,11 @@ test.describe('Coach Dashboard Operation', () => {
     });
   });
 
-  async function completeCoachOnboarding(page: Page, suffix: string) {
-    await expect(page.getByRole('heading', { name: /Professional Identity/i })).toBeVisible();
-    await page.getByPlaceholder(/Head Coach Anil Kumar/i).fill('Test Coach');
-    await page.getByPlaceholder(/coach_anil/i).fill(`testcoach_pro_${suffix}`);
-    await page.getByPlaceholder(/\+91 98/i).fill('9876543210');
-    await page.getByRole('button', { name: /Next Step/i }).click();
-
-    await expect(page.getByRole('heading', { name: /Squad Blueprint/i })).toBeVisible();
-    await page.getByPlaceholder(/Haryana U-19 Elite Squad/i).fill('Haryana Warriors');
-    await page.getByRole('button', { name: /Next Step/i }).click();
-
-    await expect(page.getByRole('heading', { name: /Operational Context/i })).toBeVisible();
-    await page.getByRole('button', { name: /Next Step/i }).click();
-
-    await expect(page.getByRole('heading', { name: /Priority Matrix/i })).toBeVisible();
-    const completeButton = page.getByRole('button', { name: /Complete Setup/i })
-    if (await completeButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await completeButton.click()
-      await page.waitForTimeout(2500)
-    }
-  }
-
   async function ensureCoachDashboard(page: Page) {
     await page.goto('/coach');
     await page.waitForLoadState('networkidle');
     if (page.url().match(/\/coach\/onboarding/)) {
-      await completeCoachOnboarding(page, String(Date.now()));
+      await completeCoachOnboardingCurrent(page, 'Test Coach', String(Date.now()), 'Haryana Warriors');
       await page.goto('/coach');
       await page.waitForURL(/\/coach/, { timeout: 45000 });
       await page.waitForLoadState('domcontentloaded');
@@ -48,7 +27,7 @@ test.describe('Coach Dashboard Operation', () => {
     
     // If we are already redirected to /coach, then it's already completed
     if (page.url().includes('/coach/onboarding')) {
-      await completeCoachOnboarding(page, `test_${Date.now()}`);
+      await completeCoachOnboardingCurrent(page, 'Test Coach', `test_${Date.now()}`, 'Haryana Warriors');
       await page.goto('/coach');
     }
     

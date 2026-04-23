@@ -7,7 +7,7 @@ import { JourneyButton } from '@/components/journey/JourneyButton'
 import { MetricIndicator } from '@/components/journey/MetricIndicator'
 import { useJourneyStore } from '@/lib/individual-journey-store'
 
-export function ResultsScreen() {
+function ResultsScreen() {
   const router = useRouter()
   const { state } = useJourneyStore()
   const analysis = state.analysis

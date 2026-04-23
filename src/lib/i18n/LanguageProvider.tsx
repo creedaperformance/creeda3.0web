@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 
 export type Language = 'en' | 'hi'
+type TranslationRecord = Record<string, unknown>
 
 interface LanguageContextType {
   language: Language
@@ -14,26 +15,26 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 // Flat key lookup with dot notation: t('nav.home') => translations.nav.home
-function getNestedValue(obj: Record<string, any>, path: string): string | undefined {
-  const result: unknown = path.split('.').reduce<any>((acc, part) => {
-    if (acc && typeof acc === 'object') return acc[part]
+function getNestedValue(obj: TranslationRecord, path: string): string | undefined {
+  const result = path.split('.').reduce<unknown>((acc, part) => {
+    if (acc && typeof acc === 'object') return (acc as TranslationRecord)[part]
     return undefined
   }, obj)
   return typeof result === 'string' ? result : undefined
 }
 
 // Lazy-load translations
-const translationCache: Record<Language, Record<string, any> | null> = {
+const translationCache: Record<Language, TranslationRecord | null> = {
   en: null,
   hi: null,
 }
 
-async function loadTranslations(lang: Language): Promise<Record<string, any>> {
+async function loadTranslations(lang: Language): Promise<TranslationRecord> {
   if (translationCache[lang]) return translationCache[lang]!
   
   try {
-    const module = await import(`./translations/${lang}.json`)
-    translationCache[lang] = module.default || module
+    const loadedModule = await import(`./translations/${lang}.json`)
+    translationCache[lang] = loadedModule.default || loadedModule
     return translationCache[lang]!
   } catch (e) {
     console.warn(`[i18n] Failed to load ${lang} translations:`, e)
@@ -41,17 +42,15 @@ async function loadTranslations(lang: Language): Promise<Record<string, any>> {
   }
 }
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>('en')
-  const [translations, setTranslations] = useState<Record<string, any>>({})
+function readSavedLanguage(): Language {
+  if (typeof window === 'undefined') return 'en'
+  const saved = window.localStorage.getItem('creeda-lang')
+  return saved === 'hi' ? 'hi' : 'en'
+}
 
-  // Load saved language preference
-  useEffect(() => {
-    const saved = localStorage.getItem('creeda-lang') as Language
-    if (saved && (saved === 'en' || saved === 'hi')) {
-      setLanguageState(saved)
-    }
-  }, [])
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguageState] = useState<Language>(() => readSavedLanguage())
+  const [translations, setTranslations] = useState<TranslationRecord>({})
 
   // Load translations when language changes
   useEffect(() => {

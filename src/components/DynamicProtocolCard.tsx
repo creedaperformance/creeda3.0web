@@ -123,12 +123,12 @@ export function DynamicProtocolCard({
                    <div className="h-1.5 w-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: color }} />
                    <div className="space-y-0.5">
                      <p className="text-[9px] font-black uppercase tracking-widest text-foreground/80">{exp.factor}</p>
-                     <p className="text-[10px] text-muted-foreground font-medium leading-tight">"{exp.reason}"</p>
+                     <p className="text-[10px] text-muted-foreground font-medium leading-tight">&quot;{exp.reason}&quot;</p>
                    </div>
                  </div>
                )) : (
                  <p className="text-[11px] font-medium text-muted-foreground leading-relaxed italic px-2">
-                   "{subtitle}"
+                   &quot;{subtitle}&quot;
                  </p>
                )}
              </div>

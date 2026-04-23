@@ -14,7 +14,6 @@ const ADAPTIVE_FORM_PROFILES_TABLE = 'adaptive_form_profiles'
 const ADAPTIVE_DAILY_LOGS_TABLE = 'adaptive_daily_logs'
 
 type SupabaseLike = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   from: (table: string) => any
 }
 
@@ -377,7 +376,7 @@ export async function getAdaptiveProfileSummary(args: {
     .eq('flow_id', flowId)
     .maybeSingle()
 
-  if (!data) {
+  if (!data && !error) {
     const hydrated = await hydrateAdaptiveProfileFromLegacy({
       supabase,
       userId,
@@ -442,7 +441,7 @@ export async function getAdaptiveProfilePrefill(args: {
     .eq('flow_id', flowId)
     .maybeSingle()
 
-  if (!data) {
+  if (!data && !error) {
     const hydrated = await hydrateAdaptiveProfileFromLegacy({
       supabase,
       userId,

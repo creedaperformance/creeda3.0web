@@ -247,18 +247,18 @@ export const IndividualDecisionHUD: React.FC<IndividualDecisionHUDProps> = ({ de
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
             <Link
-              href="/individual/logging"
+              href="/individual/sessions/today"
               className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary text-black font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all"
             >
               <CheckCircle2 className="w-4 h-4" />
-              Daily Check-In
+              Start Session
             </Link>
             <Link
-              href="/individual/review"
+              href="/individual/exercises"
               className="flex items-center justify-center gap-2 py-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-slate-300 hover:bg-white/[0.05] transition-all"
             >
               <Brain className="w-4 h-4" />
-              Weekly Review
+              Exercise Library
             </Link>
           </div>
         </section>

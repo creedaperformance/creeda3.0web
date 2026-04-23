@@ -9,7 +9,7 @@ import { JourneyProgressBar } from '@/components/journey/JourneyProgressBar'
 import { MobileJourneyNav } from '@/components/journey/MobileJourneyNav'
 import { useJourneyStore } from '@/lib/individual-journey-store'
 
-export function WeeklyReview() {
+function WeeklyReview() {
   const router = useRouter()
   const { state } = useJourneyStore()
   const analysis = state.analysis

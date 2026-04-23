@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import * as dotenv from 'dotenv'
 import path from 'path'
+import { acceptRequiredSignupConsents } from './utils/current-flows'
 
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') })
 
@@ -44,7 +45,7 @@ test.describe('Access Integrity Audit (No Tier Gating)', () => {
     await page.getByLabel(/Full Name/i).fill('Audit Athlete')
     await page.getByLabel(/Email Connection/i).fill(athleteEmail)
     await page.getByLabel(/Security Access/i).fill(password)
-    await page.locator('#consent').check()
+    await acceptRequiredSignupConsents(page)
     await page.getByRole('button', { name: /Continue to Athlete Onboarding/i }).click()
 
     await page.waitForURL(/\/(athlete\/onboarding|athlete\/dashboard|verify-email)/, { timeout: 30000 })
@@ -78,7 +79,7 @@ test.describe('Access Integrity Audit (No Tier Gating)', () => {
     await page.getByLabel(/Full Name/i).fill('Audit Coach')
     await page.getByLabel(/Email Connection/i).fill(coachEmail)
     await page.getByLabel(/Security Access/i).fill(password)
-    await page.locator('#consent').check()
+    await acceptRequiredSignupConsents(page)
     await page.getByRole('button', { name: /Create Coach Account/i }).click()
 
     await page.waitForURL(/\/(coach\/dashboard|coach\/onboarding|verify-email)/, { timeout: 30000 })

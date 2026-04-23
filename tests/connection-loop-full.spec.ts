@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 import {
+  acceptRequiredSignupConsents,
   completeAthleteOnboardingCurrent,
   completeCoachOnboardingCurrent,
   extractCoachLockerCode,
@@ -42,7 +43,7 @@ test.describe('Full Connection Loop', () => {
     await athletePage.getByLabel(/Coach Locker Code/i).fill(lockerCode)
     await verifyButton.click()
     await expect(athletePage.getByText(/Linked to Coach:/i)).toBeVisible({ timeout: 10000 })
-    await athletePage.locator('#consent').check()
+    await acceptRequiredSignupConsents(athletePage)
     await athletePage.getByRole('button', { name: /Continue to Athlete Onboarding/i }).click()
 
     await athletePage.waitForURL(/\/(athlete\/onboarding|verify-email|athlete\/dashboard)/, { timeout: 45000 })

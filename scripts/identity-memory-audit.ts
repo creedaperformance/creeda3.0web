@@ -17,12 +17,12 @@ async function runIdentityMemoryAudit() {
 
   for (const arch of archetypes) {
     console.log(`\n👤 Testing Archetype: ${arch.name}`)
-    let history: any[] = []
+    const history: any[] = []
     
     // Simulate 30 days
     for (let day = 1; day <= 30; day++) {
       const date = `2026-03-${day.toString().padStart(2, '0')}`
-      let currentLog: any = {
+      const currentLog: any = {
         date,
         sleep_quality: 'Good',
         energy_level: 'High',

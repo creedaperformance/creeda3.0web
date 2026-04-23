@@ -1,0 +1,480 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ResearchSourceKey {
+  pubmed
+  crossref
+  europe_pmc
+  openalex
+  semantic_scholar
+}
+
+enum ResearchSourceType {
+  metadata_api
+  fulltext_api
+  bulk_dump
+  enrichment_api
+}
+
+enum ResearchStudyType {
+  meta_analysis
+  systematic_review
+  rct
+  cohort
+  case_control
+  cross_sectional
+  review
+  narrative_review
+  consensus_statement
+  guideline
+  case_series
+  qualitative
+  mechanistic
+  diagnostic_validation
+  other
+}
+
+enum ResearchPopulation {
+  elite_athletes
+  youth_athletes
+  general_adults
+  recreational_athletes
+  clinical_rehab
+  female_athletes
+  male_athletes
+  indian_athletes
+  mixed
+  other
+}
+
+enum ResearchSport {
+  general
+  football
+  cricket
+  basketball
+  badminton
+  athletics
+  hockey
+  kabaddi
+  rugby
+  tennis
+  swimming
+  cycling
+  combat
+  mixed
+  other
+}
+
+enum ResearchSexGroup {
+  male
+  female
+  mixed
+  unknown
+}
+
+enum ResearchAgeGroup {
+  youth
+  adult
+  masters
+  mixed
+  unknown
+}
+
+enum ResearchAccessPolicy {
+  metadata_only
+  open_access_fulltext_allowed
+  licensed_fulltext_allowed
+  blocked_fulltext
+}
+
+enum ResearchRetractionStatus {
+  none
+  corrected
+  retracted
+  expression_of_concern
+}
+
+enum ResearchIngestionStatus {
+  raw
+  normalized
+  parsed
+  reviewed
+  rejected
+}
+
+enum ResearchEvidenceLevel {
+  excluded
+  very_low
+  low
+  moderate
+  high
+  very_high
+}
+
+enum ResearchTagType {
+  metric
+  outcome
+  intervention
+  sport
+  body_system
+  risk
+  population
+}
+
+enum ResearchFindingType {
+  association
+  threshold
+  intervention_effect
+  risk_factor
+  prediction
+}
+
+enum ResearchMetricKey {
+  sleep_duration
+  sleep_quality
+  hrv
+  acute_load
+  chronic_load
+  acute_chronic_ratio
+  soreness
+  mood
+  hydration_status
+  illness_flag
+  fatigue_risk
+  readiness
+  sprint_performance
+  injury_risk
+  recovery_quality
+  performance_reduction
+  training_tolerance
+  wellness
+}
+
+enum ResearchComparatorKey {
+  lt_6h
+  downward_trend
+  high
+  low
+  rising
+  falling
+  spike_above_baseline
+  present
+  absent
+  poor
+  low_target
+  reduced
+  elevated
+  lte_neg_8_pct
+  baseline
+  mixed
+  unknown
+  dehydrated
+}
+
+enum ResearchFindingDirection {
+  increases
+  decreases
+  mixed
+  neutral
+}
+
+enum ResearchExtractionMethod {
+  llm
+  rules
+  reviewer
+}
+
+enum ResearchDomain {
+  fatigue
+  readiness
+  hydration
+  injury
+  recovery
+  illness
+}
+
+enum ResearchBundleStatus {
+  draft
+  approved
+  deprecated
+}
+
+enum ResearchBundleStrength {
+  insufficient
+  limited
+  moderate
+  strong
+  very_strong
+}
+
+enum DecisionRuleStatus {
+  draft
+  approved
+  disabled
+}
+
+model ResearchSource {
+  id          String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         ResearchSourceKey          @unique
+  name        String
+  baseUrl     String                      @map("base_url")
+  sourceType  ResearchSourceType          @map("source_type")
+  isActive    Boolean                     @default(true) @map("is_active")
+  createdAt   DateTime                    @default(now()) @map("created_at")
+  sourceRecords ResearchPaperSourceRecord[]
+  checkpoints ResearchSyncCheckpoint[]
+
+  @@map("research_sources")
+}
+
+model ResearchPaper {
+  id                   String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  doi                  String?                        @unique
+  pmid                 String?                        @unique
+  pmcid                String?                        @unique
+  openalexId           String?                        @unique @map("openalex_id")
+  semanticScholarId    String?                        @unique @map("semantic_scholar_id")
+  title                String
+  abstract             String?                        @db.Text
+  publicationYear      Int?                           @map("publication_year")
+  publicationDate      DateTime?                      @map("publication_date") @db.Date
+  journal              String?
+  publisher            String?
+  studyType            ResearchStudyType?             @map("study_type")
+  population           ResearchPopulation?
+  sport                ResearchSport?
+  sexGroup             ResearchSexGroup?              @map("sex_group")
+  ageGroup             ResearchAgeGroup?              @map("age_group")
+  sampleSize           Int?                           @map("sample_size")
+  isOpenAccess         Boolean                        @default(false) @map("is_open_access")
+  license              String?
+  accessPolicy         ResearchAccessPolicy           @default(metadata_only) @map("access_policy")
+  accessPolicyReason   String?                        @map("access_policy_reason")
+  accessPolicyAuditJson Json?                         @map("access_policy_audit_json")
+  fullTextUrl          String?                        @map("full_text_url")
+  pdfUrl               String?                        @map("pdf_url")
+  citationCount        Int?                           @map("citation_count")
+  referenceCount       Int?                           @map("reference_count")
+  retractionStatus     ResearchRetractionStatus       @default(none) @map("retraction_status")
+  qualityScore         Float?                         @map("quality_score")
+  evidenceLevel        ResearchEvidenceLevel?         @map("evidence_level")
+  ingestionStatus      ResearchIngestionStatus        @default(raw) @map("ingestion_status")
+  createdAt            DateTime                       @default(now()) @map("created_at")
+  updatedAt            DateTime                       @default(now()) @updatedAt @map("updated_at")
+  authors              ResearchPaperAuthor[]
+  tags                 ResearchPaperTag[]
+  findings             ResearchFinding[]
+  passages             ResearchEvidencePassage[]
+  bundles              ResearchBundlePaper[]
+  sourceRecords        ResearchPaperSourceRecord[]
+  fieldProvenance      ResearchPaperFieldProvenance[]
+
+  @@index([publicationYear], map: "research_papers_publication_year_idx")
+  @@index([studyType], map: "research_papers_study_type_idx")
+  @@index([sport], map: "research_papers_sport_idx")
+  @@index([accessPolicy], map: "research_papers_access_policy_idx")
+  @@index([ingestionStatus], map: "research_papers_ingestion_status_idx")
+  @@map("research_papers")
+}
+
+model ResearchAuthor {
+  id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  orcid       String?
+  affiliation String?
+  papers      ResearchPaperAuthor[]
+
+  @@map("research_authors")
+}
+
+model ResearchPaperAuthor {
+  paperId      String         @map("paper_id") @db.Uuid
+  authorId     String         @map("author_id") @db.Uuid
+  authorOrder  Int            @map("author_order")
+  paper        ResearchPaper  @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  author       ResearchAuthor @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@id([paperId, authorId])
+  @@index([authorOrder], map: "research_paper_authors_author_order_idx")
+  @@map("research_paper_authors")
+}
+
+model ResearchTag {
+  id       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tagType  ResearchTagType @map("tag_type")
+  tagValue String          @map("tag_value")
+  papers   ResearchPaperTag[]
+
+  @@unique([tagType, tagValue], map: "research_tags_tag_type_tag_value_key")
+  @@map("research_tags")
+}
+
+model ResearchPaperTag {
+  paperId String        @map("paper_id") @db.Uuid
+  tagId   String        @map("tag_id") @db.Uuid
+  paper   ResearchPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  tag     ResearchTag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([paperId, tagId])
+  @@map("research_paper_tags")
+}
+
+model ResearchFinding {
+  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId          String                    @map("paper_id") @db.Uuid
+  findingType      ResearchFindingType       @map("finding_type")
+  subjectMetric    ResearchMetricKey         @map("subject_metric")
+  comparator       ResearchComparatorKey
+  outcomeMetric    ResearchMetricKey         @map("outcome_metric")
+  direction        ResearchFindingDirection
+  effectSize       String?                   @map("effect_size")
+  confidenceText   String?                   @map("confidence_text")
+  findingText      String                    @map("finding_text") @db.Text
+  extractionMethod ResearchExtractionMethod  @map("extraction_method")
+  isHumanVerified  Boolean                   @default(false) @map("is_human_verified")
+  createdAt        DateTime                  @default(now()) @map("created_at")
+  paper            ResearchPaper             @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([subjectMetric], map: "research_findings_subject_metric_idx")
+  @@index([outcomeMetric], map: "research_findings_outcome_metric_idx")
+  @@map("research_findings")
+}
+
+model ResearchEvidencePassage {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId    String        @map("paper_id") @db.Uuid
+  sectionName String       @map("section_name")
+  snippetText String       @map("snippet_text") @db.Text
+  charStart   Int          @map("char_start")
+  charEnd     Int          @map("char_end")
+  licenseOk   Boolean      @default(false) @map("license_ok")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  paper       ResearchPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@map("research_evidence_passages")
+}
+
+model ResearchEvidenceBundle {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bundleKey            String                 @unique @map("bundle_key")
+  title                String
+  domain               ResearchDomain
+  summary              String                 @db.Text
+  applicablePopulation ResearchPopulation?    @map("applicable_population")
+  applicableSport      ResearchSport?         @map("applicable_sport")
+  evidenceStrength     ResearchBundleStrength? @map("evidence_strength")
+  minPapersRequired    Int                    @default(2) @map("min_papers_required")
+  status               ResearchBundleStatus   @default(draft)
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @default(now()) @updatedAt @map("updated_at")
+  papers               ResearchBundlePaper[]
+  decisionRules        DecisionRule[]
+  auditLogs            DecisionAuditLog[]
+
+  @@index([status], map: "research_evidence_bundles_status_idx")
+  @@map("research_evidence_bundles")
+}
+
+model ResearchBundlePaper {
+  bundleId            String                  @map("bundle_id") @db.Uuid
+  paperId             String                  @map("paper_id") @db.Uuid
+  contributionWeight  Float                   @default(1) @map("contribution_weight")
+  bundle              ResearchEvidenceBundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  paper               ResearchPaper           @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@id([bundleId, paperId])
+  @@map("research_bundle_papers")
+}
+
+model DecisionRule {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ruleKey    String             @unique @map("rule_key")
+  domain     ResearchDomain
+  name       String
+  logicJson  Json               @map("logic_json")
+  outputJson Json               @map("output_json")
+  bundleId   String             @map("bundle_id") @db.Uuid
+  bundle     ResearchEvidenceBundle @relation(fields: [bundleId], references: [id], onDelete: Restrict)
+  status     DecisionRuleStatus @default(draft)
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @default(now()) @updatedAt @map("updated_at")
+  auditLogs  DecisionAuditLog[]
+
+  @@index([status], map: "decision_rules_status_idx")
+  @@map("decision_rules")
+}
+
+model DecisionAuditLog {
+  id               String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String                  @map("user_id")
+  ruleId           String                  @map("rule_id") @db.Uuid
+  bundleId         String                  @map("bundle_id") @db.Uuid
+  inputSnapshot    Json                    @map("input_snapshot")
+  outputSnapshot   Json                    @map("output_snapshot")
+  engineConfidence Float                   @map("engine_confidence")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  rule             DecisionRule            @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  bundle           ResearchEvidenceBundle  @relation(fields: [bundleId], references: [id], onDelete: Restrict)
+
+  @@index([userId], map: "decision_audit_logs_user_id_idx")
+  @@index([ruleId], map: "decision_audit_logs_rule_id_idx")
+  @@index([bundleId], map: "decision_audit_logs_bundle_id_idx")
+  @@index([createdAt], map: "decision_audit_logs_created_at_idx")
+  @@map("decision_audit_logs")
+}
+
+model ResearchPaperSourceRecord {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId      String?         @map("paper_id") @db.Uuid
+  sourceId      String         @map("source_id") @db.Uuid
+  externalId    String         @map("external_id")
+  sourceUrl     String?        @map("source_url")
+  payloadJson   Json           @map("payload_json")
+  fetchedAt     DateTime       @default(now()) @map("fetched_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  paper         ResearchPaper? @relation(fields: [paperId], references: [id], onDelete: SetNull)
+  source        ResearchSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  provenance    ResearchPaperFieldProvenance[]
+
+  @@unique([sourceId, externalId], map: "research_paper_source_records_source_id_external_id_key")
+  @@index([paperId], map: "research_paper_source_records_paper_id_idx")
+  @@map("research_paper_source_records")
+}
+
+model ResearchPaperFieldProvenance {
+  id             String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId        String                    @map("paper_id") @db.Uuid
+  sourceRecordId String                    @map("source_record_id") @db.Uuid
+  fieldName      String                    @map("field_name")
+  fieldValue     String?                   @map("field_value") @db.Text
+  isSelected     Boolean                   @default(false) @map("is_selected")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  paper          ResearchPaper             @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  sourceRecord   ResearchPaperSourceRecord @relation(fields: [sourceRecordId], references: [id], onDelete: Cascade)
+
+  @@unique([paperId, sourceRecordId, fieldName], map: "research_paper_field_provenance_unique")
+  @@index([fieldName], map: "research_paper_field_provenance_field_name_idx")
+  @@map("research_paper_field_provenance")
+}
+
+model ResearchSyncCheckpoint {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceId          String          @map("source_id") @db.Uuid
+  checkpointKey     String          @map("checkpoint_key")
+  cursor            String?
+  stateJson         Json?           @map("state_json")
+  lastAttemptedAt   DateTime?       @map("last_attempted_at")
+  lastSuccessfulAt  DateTime?       @map("last_successful_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @default(now()) @updatedAt @map("updated_at")
+  source            ResearchSource  @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, checkpointKey], map: "research_sync_checkpoints_source_id_checkpoint_key_key")
+  @@map("research_sync_checkpoints")
+}

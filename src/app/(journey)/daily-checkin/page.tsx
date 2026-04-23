@@ -44,7 +44,7 @@ function TapScale({
   )
 }
 
-export function DailyCheckin() {
+function DailyCheckin() {
   const router = useRouter()
   const { submitDailyCheckin } = useJourneyStore()
   const [energy, setEnergy] = useState(3)

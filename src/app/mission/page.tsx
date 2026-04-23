@@ -42,7 +42,7 @@ export default function MissionPage() {
             </div>
             <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mb-6">
               Our Mission:<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">Transforming India's Sports From the Ground Up</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">Transforming India&apos;s Sports From the Ground Up</span>
             </h1>
             <p className="mx-auto max-w-2xl text-lg sm:text-xl text-muted-foreground leading-relaxed">
               India has 1.4 billion people but chronically underperforms in global sport. The missing link? Sports science. CREEDA brings evidence-based athlete monitoring, injury prevention, and performance diagnostics to every level.
@@ -80,7 +80,7 @@ export default function MissionPage() {
                 <div className="w-full md:w-2/3 text-center md:text-right">
                   <h3 className="text-2xl font-bold mb-3">Global Standards, Local Roots</h3>
                   <p className="text-lg text-muted-foreground">
-                    World-class methodologies adapted for India's unique sporting ecosystem — from gully cricket to Olympic programs.
+                    World-class methodologies adapted for India&apos;s unique sporting ecosystem — from gully cricket to Olympic programs.
                   </p>
                 </div>
               </div>
@@ -95,7 +95,7 @@ export default function MissionPage() {
                 <div className="w-full md:w-2/3 text-center md:text-left">
                   <h3 className="text-2xl font-bold mb-3">Democratized Access</h3>
                   <p className="text-lg text-muted-foreground">
-                    Elite performance monitoring shouldn't only be for funded programs. CREEDA makes it accessible and affordable for every athlete.
+                    Elite performance monitoring shouldn&apos;t only be for funded programs. CREEDA makes it accessible and affordable for every athlete.
                   </p>
                 </div>
               </div>

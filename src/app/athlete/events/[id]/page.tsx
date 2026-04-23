@@ -2,14 +2,25 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, MapPin, Calendar, Clock, Ticket, Target, ShieldAlert, Zap } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
-export default function EventDetail({ params }: { params: { id: string } }) {
+type PlatformEvent = {
+  event_name: string
+  event_type: string
+  skill_level: string
+  location: string
+  event_date: string
+  description?: string | null
+  registration_link?: string | null
+}
+
+export default function EventDetail() {
   const router = useRouter()
-  const [event, setEvent] = useState<any>(null)
+  const params = useParams<{ id: string }>()
+  const [event, setEvent] = useState<PlatformEvent | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {

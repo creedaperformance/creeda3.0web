@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { HUDLabel } from "@/components/gamified/HUDLabel";
 import { PerformanceModeSwitch } from "@/components/gamified/PerformanceModeSwitch";
 import { useCreedaState } from "@/lib/state_engine";
@@ -20,11 +20,6 @@ import { cn } from "@/lib/utils";
 export const GamifiedAthleteDashboard: React.FC = () => {
   const { state, sync } = useCreedaState();
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -55,12 +50,6 @@ export const GamifiedAthleteDashboard: React.FC = () => {
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.5 },
   };
-
-  if (!isMounted) {
-    return <div className="min-h-screen bg-slate-950 text-white p-4 md:p-6 md:pl-72 pb-24 md:pb-6 flex items-center justify-center">
-      <div className="animate-pulse text-sm font-bold tracking-widest uppercase text-slate-500 font-orbitron">Initializing Core HUD...</div>
-    </div>;
-  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-4 md:p-6 md:pl-72 pb-24 md:pb-6">

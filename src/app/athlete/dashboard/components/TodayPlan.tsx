@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Dumbbell, Brain, Leaf, Apple, Heart, CheckCircle2 } from "lucide-react";
+import { Dumbbell, Brain, Leaf, Apple, Heart, CheckCircle2, CalendarDays, PlayCircle, BookOpenCheck } from "lucide-react";
 import type { CreedaDecision } from "@/lib/engine/types";
 import type { NutritionSafetySummary } from "@/lib/nutrition-safety";
 import { WorkoutPrescriptionView } from "./WorkoutPrescriptionView";
@@ -148,6 +149,30 @@ export const TodayPlan: React.FC<Props> = ({
           Expand Full Plan Details
         </button>
       )}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <Link
+          href="/athlete/sessions/today"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[var(--saffron)] px-4 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:brightness-110"
+        >
+          <PlayCircle className="h-4 w-4" />
+          Start Session
+        </Link>
+        <Link
+          href="/athlete/plans"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-200 transition hover:bg-white/[0.05]"
+        >
+          <CalendarDays className="h-4 w-4" />
+          Open Calendar
+        </Link>
+        <Link
+          href="/athlete/exercises"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-200 transition hover:bg-white/[0.05]"
+        >
+          <BookOpenCheck className="h-4 w-4" />
+          Exercise Library
+        </Link>
+      </div>
     </motion.div>
   );
 };

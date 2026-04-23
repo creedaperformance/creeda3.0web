@@ -13,7 +13,7 @@ const messages = [
   'Building your plan…',
 ]
 
-export function AnalysisScreen() {
+function AnalysisScreen() {
   const router = useRouter()
   const { runAnalysis } = useJourneyStore()
   const [messageIndex, setMessageIndex] = useState(0)

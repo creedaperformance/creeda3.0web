@@ -1,4 +1,5 @@
 import { Page } from '@playwright/test';
+import { acceptRequiredSignupConsents } from './current-flows';
 
 export async function signupAthlete(page: Page) {
   const testEmail = `testathlete_${Date.now()}@example.com`;
@@ -11,7 +12,7 @@ export async function signupAthlete(page: Page) {
   await page.getByLabel(/Full Name/i).fill('Test Athlete E2E');
   await page.getByLabel(/Email Address/i).fill(testEmail);
   await page.getByLabel(/Password/i).fill('TestPass123!');
-  await page.locator('#consent').check();
+  await acceptRequiredSignupConsents(page);
   
   await page.getByRole('button', { name: /Complete Signup/i }).click();
   
@@ -27,7 +28,7 @@ export async function signupCoach(page: Page) {
   await page.getByLabel(/Full Name/i).fill('Test Coach E2E');
   await page.getByLabel(/Email Address/i).fill(testEmail);
   await page.getByLabel(/Password/i).fill('TestPass123!');
-  await page.locator('#consent').check();
+  await acceptRequiredSignupConsents(page);
   
   await page.getByRole('button', { name: /Complete Signup/i }).click();
   

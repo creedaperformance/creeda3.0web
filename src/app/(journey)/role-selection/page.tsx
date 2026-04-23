@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Shield, Trophy, UserRound, UsersRound } from 'lucide-react'
+import { Trophy, UserRound, UsersRound } from 'lucide-react'
 import { JourneyShell } from '@/components/journey/JourneyShell'
 import { JourneyCard } from '@/components/journey/JourneyCard'
 import { JourneyButton } from '@/components/journey/JourneyButton'
@@ -36,7 +36,7 @@ const roleCards: Array<{
   },
 ]
 
-export function RoleSelection() {
+function RoleSelection() {
   const router = useRouter()
   const { setRole } = useJourneyStore()
 

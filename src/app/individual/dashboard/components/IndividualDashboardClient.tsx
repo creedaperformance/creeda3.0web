@@ -8,6 +8,7 @@ import {
   Apple,
   BarChart3,
   Brain,
+  BookOpenCheck,
   CalendarRange,
   CheckCircle2,
   Dumbbell,
@@ -32,6 +33,7 @@ import type { AdaptiveProfileSummary } from '@/forms/types'
 import { NutritionPrescriptionView } from '@/app/athlete/dashboard/components/NutritionPrescriptionView'
 import { WorkoutPrescriptionView } from '@/app/athlete/dashboard/components/WorkoutPrescriptionView'
 import { VideoAnalysisSummaryCard } from '@/components/video-analysis/VideoAnalysisSummaryCard'
+import { SkillIntelligencePanel } from '@/components/performance/SkillIntelligencePanel'
 
 import { IndividualDecisionHUD } from './IndividualDecisionHUD'
 
@@ -177,7 +179,10 @@ export function IndividualDashboardClient({
 
         <IndividualDecisionHUD decision={decision} />
 
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <QuickActionLink href="/individual/sessions/today" icon={Dumbbell} label="Start Today's Session" />
+          <QuickActionLink href="/individual/plans" icon={CalendarRange} label="Plan Calendar" />
+          <QuickActionLink href="/individual/exercises" icon={BookOpenCheck} label="Exercise Library" />
           <QuickActionLink href="/individual/logging" icon={CalendarRange} label="Daily Check-In" />
           <QuickActionLink href="/individual/review" icon={BarChart3} label="Weekly Review" />
           <QuickActionLink href="/individual/tests" icon={Timer} label="Objective Tests" />
@@ -194,6 +199,12 @@ export function IndividualDashboardClient({
         />
 
         <VideoAnalysisSummaryCard
+          role="individual"
+          latestReport={snapshot.latestVideoReport}
+          preferredSport={snapshot.sport}
+        />
+
+        <SkillIntelligencePanel
           role="individual"
           latestReport={snapshot.latestVideoReport}
           preferredSport={snapshot.sport}
@@ -349,8 +360,8 @@ export function IndividualDashboardClient({
           <section className="space-y-6">
             <SectionIntro
               eyebrow="Trend"
-              title="Estimated physiology and research notes"
-              body="Open this view when you want more detail on the estimated body map, longer-term trend, and the evidence anchors behind the plan."
+              title="Estimated physiology and plan notes"
+              body="Open this view when you want more detail on the estimated body map, longer-term trend, and the guardrails shaping the plan."
               icon={BarChart3}
             />
 
@@ -358,19 +369,22 @@ export function IndividualDashboardClient({
               <div className="relative">
                 <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">Why This Plan Exists</p>
                 <h2 className="mt-4 text-2xl font-bold tracking-tight text-white">
-                  The research anchors behind your plan
+                  The guardrails behind your plan
                 </h2>
                 <p className="mt-3 text-sm text-slate-400 leading-relaxed">
-                  These are the main evidence sources guiding your movement dose, progression floor, recovery target, and nutrition baseline.
+                  These are the main training and recovery guardrails shaping today&apos;s movement dose, progression floor, sleep target, and fueling direction.
                 </p>
 
                 <div className="mt-6 space-y-3">
-                  {decision.prescriptions.sources.map((source) => (
+                  {[
+                    ...decision.prescriptions.trainingFramework.rationale,
+                    ...decision.prescriptions.nutritionFramework.rationale,
+                  ].slice(0, 6).map((detail) => (
                     <SourceCard
-                      key={source.id}
-                      label={source.shortLabel}
-                      title={source.title}
-                      detail={source.application}
+                      key={detail}
+                      label="Plan"
+                      title={detail}
+                      detail="Internal research evidence stays behind the scenes. CREEDA only shows the action-ready takeaway."
                     />
                   ))}
                 </div>

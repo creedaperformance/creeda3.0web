@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { login } from './actions'
 import { Button } from '@/components/ui/button'
@@ -8,46 +8,73 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Eye, EyeOff } from 'lucide-react'
 
+type LoginFormState = {
+  email: string
+  password: string
+  rememberMe: boolean
+  savedAccounts: Record<string, string>
+}
+
+function readSavedLoginState(): LoginFormState {
+  const initialState: LoginFormState = {
+    email: '',
+    password: '',
+    rememberMe: false,
+    savedAccounts: {},
+  }
+
+  if (typeof window === 'undefined') return initialState
+
+  try {
+    const storedAccounts = window.localStorage.getItem('creeda_saved_accounts')
+    const parsedAccounts: Record<string, string> = storedAccounts ? JSON.parse(storedAccounts) : {}
+    const lastEmail = window.localStorage.getItem('creeda_last_email')
+
+    if (lastEmail && parsedAccounts[lastEmail]) {
+      return {
+        email: lastEmail,
+        password: parsedAccounts[lastEmail],
+        rememberMe: true,
+        savedAccounts: parsedAccounts,
+      }
+    }
+
+    return {
+      ...initialState,
+      savedAccounts: parsedAccounts,
+    }
+  } catch (e) {
+    console.error('Error loading saved accounts:', e)
+    return initialState
+  }
+}
+
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
-  
-  // Store all saved accounts in a dictionary: { "email": "password" }
-  const [savedAccounts, setSavedAccounts] = useState<Record<string, string>>({})
-
-  useEffect(() => {
-    try {
-      const storedAccounts = localStorage.getItem('creeda_saved_accounts')
-      const parsedAccounts = storedAccounts ? JSON.parse(storedAccounts) : {}
-      setSavedAccounts(parsedAccounts)
-      
-      const lastEmail = localStorage.getItem('creeda_last_email')
-      if (lastEmail && parsedAccounts[lastEmail]) {
-        setEmail(lastEmail)
-        setPassword(parsedAccounts[lastEmail])
-        setRememberMe(true)
-      }
-    } catch (e) {
-      console.error('Error loading saved accounts:', e)
-    }
-  }, [])
+  const [formState, setFormState] = useState<LoginFormState>(() => readSavedLoginState())
+  const { email, password, rememberMe, savedAccounts } = formState
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value
-    setEmail(newEmail)
     
     // Auto-fill password if the email is recognized
     if (savedAccounts[newEmail]) {
-      setPassword(savedAccounts[newEmail])
-      setRememberMe(true)
+      setFormState((current) => ({
+        ...current,
+        email: newEmail,
+        password: savedAccounts[newEmail],
+        rememberMe: true,
+      }))
     } else {
       // If the email is unknown, clear the password field to prevent logging in with previous user's password
-      setPassword('')
-      setRememberMe(false)
+      setFormState((current) => ({
+        ...current,
+        email: newEmail,
+        password: '',
+        rememberMe: false,
+      }))
     }
   }
 
@@ -58,13 +85,13 @@ export default function LoginPage() {
     const submittedPassword = formData.get('password') as string
     
     try {
-      let updatedAccounts = { ...savedAccounts }
+      const updatedAccounts = { ...savedAccounts }
       
       if (rememberMe && submittedEmail && submittedPassword) {
         updatedAccounts[submittedEmail] = submittedPassword
         localStorage.setItem('creeda_saved_accounts', JSON.stringify(updatedAccounts))
         localStorage.setItem('creeda_last_email', submittedEmail)
-        setSavedAccounts(updatedAccounts)
+        setFormState((current) => ({ ...current, savedAccounts: updatedAccounts }))
       } else if (!rememberMe && submittedEmail) {
         // If "Remember Me" is unchecked, remove this specific email from memory
         delete updatedAccounts[submittedEmail]
@@ -73,7 +100,7 @@ export default function LoginPage() {
         if (localStorage.getItem('creeda_last_email') === submittedEmail) {
           localStorage.removeItem('creeda_last_email')
         }
-        setSavedAccounts(updatedAccounts)
+        setFormState((current) => ({ ...current, savedAccounts: updatedAccounts }))
       }
     } catch (e) {
       console.error('Error saving account to local storage:', e)
@@ -136,7 +163,7 @@ export default function LoginPage() {
                 required
                 disabled={loading}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => setFormState((current) => ({ ...current, password: e.target.value }))}
                 className="transition-colors focus:border-primary pr-10"
               />
               <button
@@ -156,7 +183,7 @@ export default function LoginPage() {
               id="rememberMe"
               name="rememberMe"
               checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
+              onChange={(e) => setFormState((current) => ({ ...current, rememberMe: e.target.checked }))}
               className="h-4 w-4 rounded border-border bg-muted/40 text-primary focus:ring-primary focus:ring-offset-background"
             />
             <Label htmlFor="rememberMe" className="text-sm cursor-pointer text-muted-foreground">

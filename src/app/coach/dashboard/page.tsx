@@ -6,6 +6,7 @@ import { getRoleHomeRoute, isAppRole } from '@/lib/auth_utils'
 import { getCoachVideoReports } from '@/lib/video-analysis/service'
 import { coachOnboardingFlow } from '@/forms/flows/coachFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
+import { getCoachOperatingSnapshot } from '@/lib/product/operating-system/server'
 
 export default async function CoachDashboard() {
   const supabase = await createClient()
@@ -34,13 +35,16 @@ export default async function CoachDashboard() {
     }
   }
 
-  const videoReports = await getCoachVideoReports(supabase, user.id, 12)
-  const adaptiveProfile = await getAdaptiveProfileSummary({
-    supabase,
-    userId: user.id,
-    role: 'coach',
-    flowId: coachOnboardingFlow.id,
-  })
+  const [videoReports, adaptiveProfile, operatingSnapshot] = await Promise.all([
+    getCoachVideoReports(supabase, user.id, 12),
+    getAdaptiveProfileSummary({
+      supabase,
+      userId: user.id,
+      role: 'coach',
+      flowId: coachOnboardingFlow.id,
+    }),
+    getCoachOperatingSnapshot(supabase, user.id),
+  ])
 
   return (
     <CreedaProvider>
@@ -48,6 +52,7 @@ export default async function CoachDashboard() {
         videoReports={videoReports}
         lockerCode={profile?.locker_code ?? null}
         adaptiveProfile={adaptiveProfile}
+        operatingSnapshot={operatingSnapshot}
       />
     </CreedaProvider>
   )

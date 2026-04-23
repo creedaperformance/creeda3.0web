@@ -6,9 +6,11 @@
   },
   "nav": {
     "home": "होम",
+    "today": "आज",
     "scan": "स्कैन",
     "plans": "योजना",
     "learn": "सीखें",
+    "checkin": "चेक-इन",
     "profile": "प्रोफ़ाइल",
     "dashboard": "डैशबोर्ड",
     "settings": "सेटिंग्स",

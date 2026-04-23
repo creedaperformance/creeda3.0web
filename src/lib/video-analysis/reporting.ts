@@ -27,11 +27,20 @@ export interface VideoAnalysisRecommendation {
   nextRepFocus?: string
 }
 
+export interface VideoSessionValidation {
+  repEstimate: number | null
+  tempoLabel: 'slow' | 'controlled' | 'fast' | 'unknown'
+  executionScore: number
+  signalQuality: 'accepted' | 'limited' | 'rejected'
+  detail: string
+}
+
 export interface VideoAnalysisSummary {
   score: number
   status: 'clean' | 'watch' | 'corrective'
   headline: string
   coachSummary: string
+  validation?: VideoSessionValidation | null
 }
 
 export interface VideoAnalysisReportSummary {
@@ -63,6 +72,9 @@ type BuildArtifactsInput = {
   issuesDetected: string[]
   feedbackLog: VideoAnalysisFeedbackEvent[]
   visionFaults: VisionFault[]
+  clipDurationSeconds?: number | null
+  motionFrameLoad?: number | null
+  captureUsable?: boolean | null
 }
 
 type ResolvedBuildArtifactsInput = BuildArtifactsInput & {
@@ -122,6 +134,32 @@ function normalizeFeedbackLog(value: unknown): VideoAnalysisFeedbackEvent[] {
       }
     })
   return entries.filter((entry): entry is VideoAnalysisFeedbackEvent => Boolean(entry && entry.message))
+}
+
+function normalizeSessionValidation(value: unknown): VideoSessionValidation | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const tempoLabel =
+    raw.tempoLabel === 'slow' ||
+    raw.tempoLabel === 'controlled' ||
+    raw.tempoLabel === 'fast' ||
+    raw.tempoLabel === 'unknown'
+      ? raw.tempoLabel
+      : 'unknown'
+  const signalQuality =
+    raw.signalQuality === 'accepted' ||
+    raw.signalQuality === 'limited' ||
+    raw.signalQuality === 'rejected'
+      ? raw.signalQuality
+      : 'limited'
+
+  return {
+    repEstimate: typeof raw.repEstimate === 'number' ? raw.repEstimate : null,
+    tempoLabel,
+    executionScore: clamp(Number(raw.executionScore || 0), 0, 100),
+    signalQuality,
+    detail: String(raw.detail || ''),
+  }
 }
 
 export function normalizeVideoFaults(value: unknown): VisionFault[] {
@@ -206,6 +244,48 @@ function buildCoachSummary(
   return `${sportLabel} clip shows moderate technical leakage. Keep sport rhythm, but bias the next session toward corrective reps and lower-cost exposures.`
 }
 
+function buildSessionValidation(input: ResolvedBuildArtifactsInput): VideoSessionValidation | null {
+  if (!input.clipDurationSeconds || input.clipDurationSeconds <= 0) return null
+
+  const duration = input.clipDurationSeconds
+  const motionFrames = Math.max(0, Number(input.motionFrameLoad || 0))
+  const repEstimate =
+    motionFrames > 0
+      ? clamp(Math.round(motionFrames / 28), 1, 12)
+      : clamp(Math.round(duration / 4), 1, 8)
+  const secondsPerRep = repEstimate > 0 ? duration / repEstimate : 0
+  const tempoLabel =
+    secondsPerRep <= 1.8 ? 'fast' : secondsPerRep >= 5.5 ? 'slow' : 'controlled'
+  const faultPenalty = input.visionFaults.reduce(
+    (sum, fault) => sum + (fault.severity === 'high' ? 18 : fault.severity === 'moderate' ? 10 : 5),
+    0
+  )
+  const executionScore = clamp(
+    Math.round(82 + Math.min(input.positive, 6) * 2 - faultPenalty - Math.min(input.warnings, 8) * 2),
+    35,
+    98
+  )
+  const signalQuality =
+    input.captureUsable === false || hasInsufficientEvidence(input)
+      ? 'rejected'
+      : input.frameCount >= 60
+        ? 'accepted'
+        : 'limited'
+
+  return {
+    repEstimate,
+    tempoLabel,
+    executionScore,
+    signalQuality,
+    detail:
+      signalQuality === 'accepted'
+        ? `CREEDA estimated ${repEstimate} repeatable rep${repEstimate === 1 ? '' : 's'} at a ${tempoLabel} tempo from this clip.`
+        : signalQuality === 'limited'
+          ? `CREEDA saved a limited validation estimate of ${repEstimate} rep${repEstimate === 1 ? '' : 's'} because the clip had fewer tracked frames.`
+          : 'CREEDA did not trust this clip enough for execution validation.',
+  }
+}
+
 function buildRecommendations(input: ResolvedBuildArtifactsInput): VideoAnalysisRecommendation[] {
   if (hasInsufficientEvidence(input)) {
     return [
@@ -260,6 +340,7 @@ export function buildVideoAnalysisArtifacts(input: BuildArtifactsInput) {
     status,
     headline: buildHeadline(resolved, profile.familyLabel),
     coachSummary: '',
+    validation: buildSessionValidation(resolved),
   }
 
   summary.coachSummary = buildCoachSummary(resolved, summary, profile.sportLabel)
@@ -315,6 +396,10 @@ export function normalizeVideoAnalysisReport(row: unknown): VideoAnalysisReportS
               : base.summary.status,
           headline: String((raw.summary as Record<string, unknown>).headline || base.summary.headline),
           coachSummary: String((raw.summary as Record<string, unknown>).coachSummary || base.summary.coachSummary),
+          validation:
+            normalizeSessionValidation((raw.summary as Record<string, unknown>).validation) ||
+            base.summary.validation ||
+            null,
         }
       : base.summary
 
