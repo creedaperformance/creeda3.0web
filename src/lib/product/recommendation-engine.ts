@@ -191,6 +191,10 @@ function normalizeToken(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
 }
 
+function formatTokenLabel(value: string) {
+  return normalizeToken(value).replace(/_/g, ' ')
+}
+
 function overlaps(a: string[], b: string[]) {
   const right = b.map(normalizeToken)
   return a.some((item) => {
@@ -313,7 +317,9 @@ export function recommendExercises(args: {
 
     if (blockRule.preferredCategories.includes(exercise.category)) {
       score += 18
-      explanation.push(`Selected because ${exercise.category} work fits the ${args.blockType} block.`)
+      explanation.push(
+        `Selected for your ${formatTokenLabel(args.blockType)} because it prepares ${formatTokenLabel(exercise.movementPattern)} before the session cost rises.`
+      )
     }
 
     const exerciseIntents = exercise.trainingIntent.map(normalizeToken)
@@ -323,7 +329,7 @@ export function recommendExercises(args: {
 
     if (preferredMatches.length > 0) {
       score += 22 + preferredMatches.length * 4
-      explanation.push(`Selected because it directly supports your goal of ${normalizedGoal.replace(/_/g, ' ')}.`)
+      explanation.push(`Selected because your profile is prioritising ${normalizedGoal.replace(/_/g, ' ')}.`)
     } else if (secondaryMatches.length > 0) {
       score += 10 + secondaryMatches.length * 3
     }
@@ -349,7 +355,11 @@ export function recommendExercises(args: {
 
     if (exercise.sportTags.includes(context.sport)) {
       score += 14
-      explanation.push(`Selected because it matches the demands of ${context.sport.replace(/_/g, ' ')}.`)
+      explanation.push(
+        context.sport === 'general_fitness'
+          ? 'Selected because your current profile needs movement quality and repeatable control, not a sport-only drill.'
+          : `Selected because it matches ${context.position ? `${context.position} ` : ''}${context.sport.replace(/_/g, ' ')} demands.`
+      )
     }
 
     if ((exercise.positionTags || []).map(normalizeToken).includes(normalizeToken(context.position || ''))) {
@@ -366,7 +376,9 @@ export function recommendExercises(args: {
 
     if (overlaps(exercise.fitStartTags, context.bodyRegionsToImprove)) {
       score += 10
-      explanation.push(`Selected because it targets the body region or quality you asked to improve.`)
+      explanation.push(
+        `Selected because it targets ${context.bodyRegionsToImprove.slice(0, 2).join(' + ').replace(/_/g, ' ')}, which your profile asked to improve.`
+      )
     }
 
     if (args.blockType === 'rehab' && overlaps(exercise.rehabTags, context.rehabFocusAreas)) {
@@ -391,6 +403,7 @@ export function recommendExercises(args: {
 
     if (context.preferredTrainingEnvironment && exercise.environment.map(normalizeToken).includes(normalizeToken(context.preferredTrainingEnvironment))) {
       score += 6
+      explanation.push(`Selected because it fits your ${context.preferredTrainingEnvironment.replace(/_/g, ' ')} setup today.`)
     }
 
     if (context.availableEquipment.length <= 2 && exercise.equipmentRequired.every((item) => ['bodyweight', 'band'].includes(normalizeToken(item)))) {

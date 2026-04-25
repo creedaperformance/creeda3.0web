@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Supported hip airplane side view</title>
+  <desc id="desc">Side-view coaching frame for a supported hip airplane.</desc>
+  <rect width="1280" height="720" fill="#050816"/>
+  <rect x="0" y="558" width="1280" height="162" fill="#111827"/>
+  <path d="M150 558h980" stroke="#334155" stroke-width="5" stroke-linecap="round"/>
+  <path d="M285 170v388" stroke="#475569" stroke-width="18" stroke-linecap="round"/>
+  <path d="M240 180h90" stroke="#94a3b8" stroke-width="18" stroke-linecap="round"/>
+  <text x="70" y="96" fill="#e2e8f0" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800">Side view setup</text>
+  <text x="70" y="137" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="22">Use support lightly. Keep ribs stacked and rotate through the stance hip.</text>
+  <g transform="translate(15 0)">
+    <circle cx="565" cy="203" r="38" fill="#f8fafc"/>
+    <path d="M555 245c-44 44-74 91-90 141" stroke="#f8fafc" stroke-width="34" stroke-linecap="round" fill="none"/>
+    <path d="M520 283c-69-2-124-23-166-63" stroke="#38bdf8" stroke-width="24" stroke-linecap="round" fill="none"/>
+    <path d="M354 220c-42-16-72-17-92-7" stroke="#38bdf8" stroke-width="20" stroke-linecap="round" fill="none"/>
+    <path d="M534 286c66 16 126 10 180-18" stroke="#38bdf8" stroke-width="24" stroke-linecap="round" fill="none"/>
+    <path d="M465 386c-4 64 16 119 60 165" stroke="#fbbf24" stroke-width="30" stroke-linecap="round" fill="none"/>
+    <path d="M525 551c25 17 56 19 94 5" stroke="#fbbf24" stroke-width="24" stroke-linecap="round" fill="none"/>
+    <path d="M465 386c88-9 176-48 264-118" stroke="#f97316" stroke-width="30" stroke-linecap="round" fill="none"/>
+    <path d="M729 268c30-15 50-39 61-72" stroke="#f97316" stroke-width="24" stroke-linecap="round" fill="none"/>
+    <path d="M456 378c59-31 122-81 188-150" stroke="#22c55e" stroke-width="12" stroke-linecap="round" opacity=".85"/>
+  </g>
+  <g transform="translate(805 150)">
+    <rect x="0" y="0" width="365" height="245" rx="24" fill="#0f172a" stroke="#1e293b" stroke-width="2"/>
+    <text x="28" y="48" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="800">Coach checks</text>
+    <path d="M30 82h305" stroke="#1e293b" stroke-width="2"/>
+    <text x="32" y="122" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="20">1. Stance knee stays soft.</text>
+    <text x="32" y="160" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="20">2. Hips rotate as one unit.</text>
+    <text x="32" y="198" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="20">3. Back leg reaches long.</text>
+  </g>
+</svg>

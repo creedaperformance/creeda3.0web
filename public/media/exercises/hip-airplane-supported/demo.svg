@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Supported hip airplane animated demo</title>
+  <desc id="desc">A supported single-leg hip airplane movement with controlled hip rotation.</desc>
+  <defs>
+    <linearGradient id="floor" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="1280" height="720" fill="#050816"/>
+  <rect x="0" y="560" width="1280" height="160" fill="url(#floor)"/>
+  <path d="M130 560h1020" stroke="#334155" stroke-width="5" stroke-linecap="round"/>
+  <path d="M270 165v395" stroke="#475569" stroke-width="18" stroke-linecap="round"/>
+  <path d="M225 175h90" stroke="#94a3b8" stroke-width="18" stroke-linecap="round"/>
+  <path d="M230 250h85" stroke="#64748b" stroke-width="12" stroke-linecap="round"/>
+  <text x="70" y="96" fill="#e2e8f0" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800">Supported Hip Airplane</text>
+  <text x="70" y="137" fill="#94a3b8" font-family="Inter, Arial, sans-serif" font-size="22">Hinge, keep the stance knee soft, rotate from the hip, then return slowly.</text>
+  <g transform="translate(0 8)">
+    <g id="athlete" filter="url(#glow)">
+      <animateTransform attributeName="transform" type="rotate" values="-4 585 335;8 585 335;-4 585 335" dur="3.6s" repeatCount="indefinite"/>
+      <circle cx="560" cy="205" r="38" fill="#f8fafc"/>
+      <path d="M552 246c-40 50-64 94-70 132" stroke="#f8fafc" stroke-width="34" stroke-linecap="round" fill="none"/>
+      <path d="M520 288c-62-2-118-24-168-66" stroke="#38bdf8" stroke-width="24" stroke-linecap="round" fill="none"/>
+      <path d="M352 222c-42-16-72-17-92-7" stroke="#38bdf8" stroke-width="20" stroke-linecap="round" fill="none"/>
+      <path d="M535 286c50 2 101-14 153-48" stroke="#38bdf8" stroke-width="24" stroke-linecap="round" fill="none">
+        <animate attributeName="d" values="M535 286c50 2 101-14 153-48;M535 286c62 23 122 21 181-7;M535 286c50 2 101-14 153-48" dur="3.6s" repeatCount="indefinite"/>
+      </path>
+      <path d="M482 378c-6 62 10 118 48 170" stroke="#fbbf24" stroke-width="30" stroke-linecap="round" fill="none"/>
+      <path d="M530 548c22 19 52 23 90 12" stroke="#fbbf24" stroke-width="24" stroke-linecap="round" fill="none"/>
+      <path d="M482 378c74 30 158 43 252 39" stroke="#f97316" stroke-width="30" stroke-linecap="round" fill="none">
+        <animate attributeName="d" values="M482 378c74 30 158 43 252 39;M482 378c89-11 176-50 262-118;M482 378c74 30 158 43 252 39" dur="3.6s" repeatCount="indefinite"/>
+      </path>
+      <path d="M734 417c28 2 54-8 78-29" stroke="#f97316" stroke-width="24" stroke-linecap="round" fill="none">
+        <animate attributeName="d" values="M734 417c28 2 54-8 78-29;M744 260c30-15 50-39 61-72;M734 417c28 2 54-8 78-29" dur="3.6s" repeatCount="indefinite"/>
+      </path>
+      <path d="M473 367c52 28 110 31 174 10" stroke="#22c55e" stroke-width="12" stroke-linecap="round" opacity=".85">
+        <animate attributeName="d" values="M473 367c52 28 110 31 174 10;M473 367c53-26 111-76 174-150;M473 367c52 28 110 31 174 10" dur="3.6s" repeatCount="indefinite"/>
+      </path>
+    </g>
+  </g>
+  <g transform="translate(820 105)">
+    <rect x="0" y="0" width="350" height="132" rx="22" fill="#0f172a" stroke="#1e293b" stroke-width="2"/>
+    <circle cx="34" cy="38" r="8" fill="#22c55e"/>
+    <text x="58" y="45" fill="#f8fafc" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="800">Stance foot rooted</text>
+    <circle cx="34" cy="76" r="8" fill="#38bdf8"/>
+    <text x="58" y="83" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="18">Rotate pelvis, not low back</text>
+    <circle cx="34" cy="112" r="8" fill="#f97316"/>
+    <text x="58" y="119" fill="#cbd5e1" font-family="Inter, Arial, sans-serif" font-size="18">Return before balance breaks</text>
+  </g>
+</svg>

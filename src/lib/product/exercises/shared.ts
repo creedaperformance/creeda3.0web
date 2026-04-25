@@ -24,24 +24,25 @@ type ExerciseSeriesVariant = {
   name: string
 } & Partial<ExerciseSeed>
 
-const LOCAL_MEDIA_ROOT = '/media/exercises'
+const GENERATED_MEDIA_ROOT = '/api/exercises/media'
 
 export function createExercise(seed: ExerciseSeed): ExerciseLibraryItem {
   const id = seed.id || `exercise:${seed.slug}`
   const mediaOverride = exerciseMediaOverrides[seed.slug]
+  const generatedImageUrls = [
+    `${GENERATED_MEDIA_ROOT}/${seed.slug}/demo.svg`,
+    `${GENERATED_MEDIA_ROOT}/${seed.slug}/setup.svg`,
+  ]
   const media = {
     imageUrls: mediaOverride?.imageUrls?.length
       ? mediaOverride.imageUrls
       : seed.media?.imageUrls?.length
         ? seed.media.imageUrls
-      : [
-          `${LOCAL_MEDIA_ROOT}/fallback/${seed.category}.svg`,
-          `${LOCAL_MEDIA_ROOT}/fallback/${seed.category}-alt.svg`,
-        ],
+      : generatedImageUrls,
     videoUrl:
       mediaOverride?.videoUrl ||
       seed.media?.videoUrl ||
-      `${LOCAL_MEDIA_ROOT}/fallback/${seed.category}.svg`,
+      generatedImageUrls[0],
     slowMotionUrl:
       mediaOverride?.slowMotionUrl ??
       seed.media?.slowMotionUrl ??
@@ -53,15 +54,15 @@ export function createExercise(seed: ExerciseSeed): ExerciseLibraryItem {
     source:
       mediaOverride?.source ||
       seed.media?.source ||
-      'placeholder',
+      'generated',
     license:
       mediaOverride?.license ??
       seed.media?.license ??
-      'Creeda fallback illustration',
+      'Creeda generated exercise demo',
     attributionLabel:
       mediaOverride?.attributionLabel ??
       seed.media?.attributionLabel ??
-      'Creeda fallback media',
+      'Creeda exercise media',
     attributionUrl:
       mediaOverride?.attributionUrl ??
       seed.media?.attributionUrl ??

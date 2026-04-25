@@ -44,10 +44,15 @@ interface SessionHistoryLite {
   id: string
   sessionDate: string
   title: string
+  focus?: string
   mode: ExecutionSession['mode']
   status: SessionStatus
   expectedDurationMinutes: number
+  actualDurationMinutes?: number | null
   compliancePct: number | null
+  painFlags?: string[]
+  athleteNotes?: string | null
+  topExercises?: string[]
 }
 
 interface CoachFeedbackLite {
@@ -81,6 +86,7 @@ interface Props {
   recentHistory: SessionHistoryLite[]
   coachFeedback: CoachFeedbackLite[]
   role?: 'athlete' | 'individual'
+  preferredSport?: string | null
 }
 
 function slugify(value: string) {
@@ -100,11 +106,87 @@ function formatSeconds(value: number) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
+const GENERIC_SESSION_TITLES = new Set([
+  'Train Hard',
+  'Train Light',
+  'Recovery Session',
+  'Rehab Session',
+])
+
+const VIDEO_MEDIA_RE = /\.(mp4|webm|mov|m4v)(\?|$)/i
+
+function formatModeLabel(value: string) {
+  return value.replace(/_/g, ' ')
+}
+
+function isFallbackExerciseMediaUrl(value: string) {
+  return value.includes('/media/exercises/fallback/')
+}
+
+function isExerciseSpecificMediaUrl(value: string) {
+  return Boolean(value) && !isFallbackExerciseMediaUrl(value)
+}
+
+function hasActualVideo(value: string) {
+  return isExerciseSpecificMediaUrl(value) && VIDEO_MEDIA_RE.test(value)
+}
+
+function getGeneratedExerciseMediaUrl(exerciseSlug: string, frame: 'demo' | 'setup') {
+  return `/api/exercises/media/${encodeURIComponent(exerciseSlug)}/${frame}.svg`
+}
+
+function getPersonalizedSessionTitle(session: ExecutionSession) {
+  if (!GENERIC_SESSION_TITLES.has(session.title)) return session.title
+  return session.summary.focus
+}
+
+function getHistoryTitle(entry: SessionHistoryLite) {
+  if (entry.focus && GENERIC_SESSION_TITLES.has(entry.title)) return entry.focus
+  return entry.focus || entry.title
+}
+
+function buildCameraCoachHref(
+  routeBase: string,
+  exercise: SessionExercise,
+  preferredSport?: string | null
+) {
+  const params = new URLSearchParams({
+    coach: '1',
+    sport: preferredSport || 'other',
+    exercise: exercise.exerciseSlug,
+    exerciseName: exercise.name,
+    returnTo: `${routeBase}/sessions/today`,
+  })
+  const primaryCue = exercise.coachingCues[0] || exercise.instructions[0]
+  const demoUrl = isExerciseSpecificMediaUrl(exercise.media.videoUrl)
+    ? exercise.media.videoUrl
+    : exercise.media.imageUrls.find(isExerciseSpecificMediaUrl)
+
+  if (primaryCue) params.set('cue', primaryCue)
+  params.set('demo', demoUrl || getGeneratedExerciseMediaUrl(exercise.exerciseSlug, 'demo'))
+  if (exercise.media.demoMode) params.set('demoMode', exercise.media.demoMode)
+
+  const demoImages = exercise.media.imageUrls
+    .filter(isExerciseSpecificMediaUrl)
+    .slice(0, 3)
+  const resolvedDemoImages = demoImages.length
+    ? demoImages
+    : [
+        getGeneratedExerciseMediaUrl(exercise.exerciseSlug, 'demo'),
+        getGeneratedExerciseMediaUrl(exercise.exerciseSlug, 'setup'),
+      ]
+
+  resolvedDemoImages.forEach((imageUrl) => params.append('demoImage', imageUrl))
+
+  return `${routeBase}/scan/analyze?${params.toString()}`
+}
+
 export function SessionExecutionClient({
   initialSession,
   recentHistory,
   coachFeedback,
   role = 'athlete',
+  preferredSport,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -178,6 +260,7 @@ export function SessionExecutionClient({
   ).slice(0, 6)
 
   const routeBase = role === 'individual' ? '/individual' : '/athlete'
+  const personalizedSessionTitle = getPersonalizedSessionTitle(initialSession.session)
   const sessionSavedMessage =
     role === 'individual'
       ? 'Session saved. Your plan and history are up to date.'
@@ -374,10 +457,10 @@ export function SessionExecutionClient({
             </Link>
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[var(--chakra-neon)]">
-                Guided Session
+                Guided Session • {formatModeLabel(initialSession.session.mode)}
               </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight">
-                {initialSession.session.title}
+                {personalizedSessionTitle}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
                 {initialSession.session.explainability.headline}
@@ -575,7 +658,10 @@ export function SessionExecutionClient({
                   </div>
                 </div>
 
-                <ExerciseMediaPanel exercise={currentItem.exercise} />
+                <ExerciseMediaPanel
+                  key={currentItem.exercise.exerciseId}
+                  exercise={currentItem.exercise}
+                />
 
                 <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
                   <div className="space-y-5">
@@ -709,7 +795,7 @@ export function SessionExecutionClient({
                     </div>
 
                     <Link
-                      href={`${routeBase}/scan`}
+                      href={buildCameraCoachHref(routeBase, currentItem.exercise, preferredSport)}
                       className="flex items-start gap-3 rounded-[24px] border border-[var(--chakra-neon)]/20 bg-[var(--chakra-neon)]/10 p-5 transition hover:bg-[var(--chakra-neon)]/15"
                     >
                       <div className="rounded-2xl border border-[var(--chakra-neon)]/20 bg-black/20 p-2 text-[var(--chakra-neon)]">
@@ -718,7 +804,7 @@ export function SessionExecutionClient({
                       <div>
                         <p className="text-sm font-black text-white">Camera Coach</p>
                         <p className="mt-1 text-xs leading-relaxed text-blue-100/75">
-                          Record this movement when you want instant form feedback before repeating the next set.
+                          Open live recording for {currentItem.exercise.name} with the exercise demo under the camera.
                         </p>
                       </div>
                     </Link>
@@ -924,15 +1010,38 @@ export function SessionExecutionClient({
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-sm font-bold text-white">{entry.title}</p>
+                          <p className="line-clamp-2 text-sm font-bold leading-snug text-white">
+                            {getHistoryTitle(entry)}
+                          </p>
                           <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-slate-500">
-                            {formatDate(entry.sessionDate)} • {entry.mode.replace(/_/g, ' ')}
+                            {formatDate(entry.sessionDate)} • {formatModeLabel(entry.mode)} • {entry.expectedDurationMinutes}m
                           </p>
                         </div>
                         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-slate-300">
                           {entry.compliancePct !== null ? `${Math.round(entry.compliancePct)}%` : entry.status}
                         </span>
                       </div>
+                      {entry.topExercises?.length ? (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {entry.topExercises.slice(0, 3).map((exercise) => (
+                            <span
+                              key={exercise}
+                              className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold text-slate-300"
+                            >
+                              {exercise}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {entry.athleteNotes ? (
+                        <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-slate-400">
+                          Last note: {entry.athleteNotes}
+                        </p>
+                      ) : entry.painFlags?.length ? (
+                        <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-amber-100/80">
+                          Watch: {entry.painFlags.slice(0, 2).join(' + ')}
+                        </p>
+                      ) : null}
                     </div>
                   ))
                 ) : (
@@ -1098,24 +1207,29 @@ function ExerciseMediaPanel({ exercise }: { exercise: SessionExercise }) {
   const [videoBroken, setVideoBroken] = useState(false)
   const [brokenImages, setBrokenImages] = useState<string[]>([])
   const [sequenceIndex, setSequenceIndex] = useState(0)
-  const hasRealVideo =
-    exercise.media.demoMode === 'video' &&
-    /\.(mp4|webm|mov|m4v)(\?|$)/i.test(exercise.media.videoUrl)
+  const exerciseSpecificImageUrls = exercise.media.imageUrls.filter(isExerciseSpecificMediaUrl)
+  const displayImageUrls = exerciseSpecificImageUrls.length
+    ? exerciseSpecificImageUrls
+    : [
+        getGeneratedExerciseMediaUrl(exercise.exerciseSlug, 'demo'),
+        getGeneratedExerciseMediaUrl(exercise.exerciseSlug, 'setup'),
+      ]
+  const hasRealVideo = exercise.media.demoMode === 'video' && hasActualVideo(exercise.media.videoUrl)
 
   useEffect(() => {
     if (
       exercise.media.demoMode !== 'image_sequence' ||
-      exercise.media.imageUrls.length < 2
+      displayImageUrls.length < 2
     ) {
       return
     }
 
     const interval = window.setInterval(() => {
-      setSequenceIndex((value) => (value + 1) % exercise.media.imageUrls.length)
+      setSequenceIndex((value) => (value + 1) % displayImageUrls.length)
     }, 1400)
 
     return () => window.clearInterval(interval)
-  }, [exercise.media.demoMode, exercise.media.imageUrls])
+  }, [displayImageUrls.length, exercise.exerciseId, exercise.media.demoMode])
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
@@ -1130,35 +1244,35 @@ function ExerciseMediaPanel({ exercise }: { exercise: SessionExercise }) {
           >
             <source src={exercise.media.videoUrl} />
           </video>
-        ) : exercise.media.imageUrls.length > 0 ? (
+        ) : displayImageUrls.length > 0 ? (
           <div className="relative aspect-video overflow-hidden bg-black/35">
             <img
-              src={exercise.media.imageUrls[sequenceIndex % exercise.media.imageUrls.length]}
+              src={displayImageUrls[sequenceIndex % displayImageUrls.length]}
               alt={exercise.name}
               onError={() =>
                 setBrokenImages((current) => [
                   ...current,
-                  exercise.media.imageUrls[sequenceIndex % exercise.media.imageUrls.length],
+                  displayImageUrls[sequenceIndex % displayImageUrls.length],
                 ])
               }
-              className="h-full w-full object-cover transition-opacity duration-500"
+              className="h-full w-full object-contain transition-opacity duration-500"
             />
             <div className="absolute left-4 top-4 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-200">
               {exercise.media.demoMode === 'animated_image'
-                ? 'Animated demo'
+                ? 'Animated exercise demo'
                 : exercise.media.demoMode === 'image_sequence'
-                  ? 'Motion sequence'
+                  ? 'Exercise motion sequence'
                   : 'Technique still'}
             </div>
           </div>
         ) : (
-          <div className="flex aspect-video items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(255,153,51,0.16),transparent_45%),rgba(255,255,255,0.02)] p-8">
+          <div className="flex aspect-video items-center justify-center bg-black/30 p-8">
             <div className="max-w-sm text-center">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                No visual demo attached
+                Exercise demo unavailable
               </p>
               <p className="mt-3 text-sm leading-relaxed text-slate-300">
-                Use the written cues for this set, then record it with Camera Coach if form needs validation.
+                This drill has written cues, but no exercise-specific media has been attached yet.
               </p>
             </div>
           </div>
@@ -1166,7 +1280,7 @@ function ExerciseMediaPanel({ exercise }: { exercise: SessionExercise }) {
       </div>
 
       <div className="grid gap-4">
-        {exercise.media.imageUrls.slice(0, 2).map((imageUrl) => (
+        {displayImageUrls.slice(0, 2).map((imageUrl) => (
           <div
             key={imageUrl}
             className="overflow-hidden rounded-[24px] border border-white/8 bg-black/25"

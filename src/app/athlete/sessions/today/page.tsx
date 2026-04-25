@@ -25,7 +25,7 @@ export default async function AthleteTodaySessionPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, onboarding_completed')
+    .select('role, onboarding_completed, primary_sport')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -48,6 +48,7 @@ export default async function AthleteTodaySessionPage() {
       initialSession={session}
       recentHistory={history}
       coachFeedback={feedback}
+      preferredSport={profile.primary_sport || null}
     />
   )
 }

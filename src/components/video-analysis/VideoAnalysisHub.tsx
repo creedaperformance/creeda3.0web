@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, Camera, ChevronRight, History, Search, Video } from 'lucide-react'
+import { ArrowLeft, Camera, ChevronRight, History, Search, ShieldCheck, Video } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 import { createClient } from '@/lib/supabase/client'
@@ -99,6 +99,22 @@ export function VideoAnalysisHub({ role, dashboardHref, preferredSport }: Props)
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
           <div className="space-y-6">
+            <Link
+              href={`/${role}/diagnostic`}
+              className="flex items-center gap-4 rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-5 transition hover:border-cyan-200/50"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-cyan-300 text-slate-950">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-white">Movement Diagnostic Coach</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-cyan-50/70">
+                  Start with a complaint, answer a few guided questions, and let CREEDA prescribe the right movement screen.
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-cyan-100/50" />
+            </Link>
+
             <div className="rounded-3xl border border-white/[0.06] bg-white/[0.02] p-5">
               <div className="flex items-center gap-3 mb-4">
                 <div className="h-10 w-10 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-300">

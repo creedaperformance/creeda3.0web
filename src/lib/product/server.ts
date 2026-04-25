@@ -9,6 +9,7 @@ import {
   type IndividualDashboardSnapshot,
 } from '@/lib/dashboard_decisions'
 import { buildSkillIntelligenceSnapshot } from '@/lib/product/skill-intelligence'
+import { hydrateExecutionSessionExerciseMedia } from '@/lib/product/session-media'
 import { buildExecutionSession } from '@/lib/product/session-builder'
 import type {
   ExecutionMode,
@@ -72,6 +73,7 @@ export interface SessionHistoryEntry {
   id: string
   sessionDate: string
   title: string
+  focus: string
   mode: ExecutionMode
   status: 'planned' | 'in_progress' | 'completed' | 'skipped'
   expectedDurationMinutes: number
@@ -543,7 +545,7 @@ async function getUserEquipmentAndPreference(supabase: SupabaseLike, userId: str
 }
 
 function normalizeSessionRow(row: TrainingSessionRow): PersistedExecutionSession {
-  const session = row.plan_json as ExecutionSession
+  const session = hydrateExecutionSessionExerciseMedia(row.plan_json as ExecutionSession)
   return {
     id: row.id ? String(row.id) : null,
     athleteId: String(row.athlete_id),
@@ -744,11 +746,12 @@ export async function listExecutionHistory(supabase: SupabaseLike, userId: strin
   )
 
   return (result.data as TrainingSessionRow[]).map((row) => {
-    const session = row.plan_json as ExecutionSession
+    const session = hydrateExecutionSessionExerciseMedia(row.plan_json as ExecutionSession)
     return {
       id: String(row.id),
       sessionDate: String(row.session_date),
       title: String(row.title || session.title),
+      focus: session.summary.focus,
       mode: row.mode as ExecutionMode,
       status: row.status || 'planned',
       expectedDurationMinutes: Number(row.expected_duration_minutes || session.summary.expectedDurationMinutes || 0),

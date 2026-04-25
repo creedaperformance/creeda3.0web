@@ -5,6 +5,7 @@ import {
   allExerciseLibraryItems,
   buildExecutionSession,
   buildSkillIntelligenceSnapshot,
+  hydrateExecutionSessionExerciseMedia,
   queryExercises,
   recommendExercises,
   type ExerciseRecommendationContext,
@@ -64,6 +65,99 @@ test('exercise library is curated, rich, and scalable', () => {
   assert.ok(sample?.instructions.length >= 3, 'exercise should have detailed instructions')
   assert.ok(sample?.coachingCues.length >= 2, 'exercise should have coaching cues')
   assert.ok(sample?.media.videoUrl.length > 0, 'exercise should include media placeholder')
+  assert.ok(
+    allExerciseLibraryItems.every((item) =>
+      item.media.videoUrl &&
+      !item.media.videoUrl.includes('/media/exercises/fallback/') &&
+      item.media.imageUrls.length > 0 &&
+      item.media.imageUrls.every((url) => !url.includes('/media/exercises/fallback/'))
+    ),
+    'every exercise should have exercise-specific media rather than generic category fallbacks'
+  )
+})
+
+test('persisted sessions hydrate stale fallback media from the current catalog', () => {
+  const catalogExercise = allExerciseLibraryItems.find((item) => item.slug === 'hip-airplane-supported')
+
+  assert.ok(catalogExercise, 'fixture should include Supported Hip Airplane')
+
+  const session = {
+    id: 'session:media-hydration',
+    athleteId: 'athlete_123',
+    date: '2026-04-23',
+    mode: 'train_light' as const,
+    source: 'test',
+    title: 'Train Light',
+    summary: {
+      focus: 'Stale media hydration fixture.',
+      expectedDurationMinutes: 20,
+      difficulty: 'moderate' as const,
+      completionTarget: 'Complete the movement prep.',
+    },
+    readiness: {
+      band: 'moderate' as const,
+      score: 64,
+    },
+    explainability: {
+      headline: 'Hydrate stale exercise media.',
+      reasons: ['Saved sessions should receive current catalog media.'],
+      warnings: [],
+    },
+    blocks: [
+      {
+        id: 'warmup:hip-airplane-supported',
+        type: 'warmup' as const,
+        title: 'Warmup',
+        notes: 'Fixture block',
+        intensity: 'prep',
+        exercises: [
+          {
+            exerciseId: catalogExercise.id,
+            exerciseSlug: catalogExercise.slug,
+            name: catalogExercise.name,
+            category: catalogExercise.category,
+            subcategory: catalogExercise.subcategory,
+            instructions: catalogExercise.instructions,
+            coachingCues: catalogExercise.coachingCues,
+            commonMistakes: catalogExercise.commonMistakes,
+            prescribed: catalogExercise.defaultPrescription,
+            substitutions: catalogExercise.substitutions.slice(0, 2),
+            explanation: ['Fixture exercise'],
+            painCaution: [],
+            media: {
+              imageUrls: [
+                '/media/exercises/fallback/mobility.svg',
+                '/media/exercises/fallback/mobility-alt.svg',
+              ],
+              videoUrl: '/media/exercises/fallback/mobility.svg',
+              slowMotionUrl: null,
+              demoMode: 'image_sequence' as const,
+              source: 'placeholder' as const,
+              license: 'Creeda fallback illustration',
+              attributionLabel: 'Creeda fallback media',
+              attributionUrl: null,
+              techniqueNote: null,
+            },
+          },
+        ],
+      },
+    ],
+  }
+
+  const hydrated = hydrateExecutionSessionExerciseMedia(session)
+  const hydratedExercise = hydrated.blocks
+    .flatMap((block) => block.exercises)
+    .find((exercise) => exercise.exerciseSlug === 'hip-airplane-supported')
+
+  assert.ok(hydratedExercise, 'hydrated session should preserve the exercise')
+  assert.ok(
+    hydratedExercise.media.imageUrls.every((url) => !url.includes('/media/exercises/fallback/')),
+    'fallback image URLs should be replaced from the catalog'
+  )
+  assert.ok(
+    hydratedExercise.media.videoUrl.includes('hip-airplane-supported'),
+    'exercise-specific media should be restored for stale saved sessions'
+  )
 })
 
 test('recommendation engine prioritizes safe rehab-aware alternatives under shoulder pain and low readiness', () => {

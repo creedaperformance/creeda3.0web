@@ -3,7 +3,7 @@ const tsJestTransformer = require.resolve('ts-jest')
 /** @type {import('jest').Config} */
 module.exports = {
   testEnvironment: 'node',
-  roots: ['<rootDir>/src/lib/research/__tests__'],
+  roots: ['<rootDir>/src/lib/research/__tests__', '<rootDir>/src/lib/diagnostics/__tests__'],
   testMatch: ['**/*.test.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

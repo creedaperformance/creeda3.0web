@@ -22,7 +22,26 @@ export const mobilityRecoveryRehabCatalog = [
       { slug: 'worlds-greatest-stretch', name: "World's Greatest Stretch" },
       { slug: 'spiderman-lunge-rotation', name: 'Spiderman Lunge Rotation' },
       { slug: 'shinbox-switch', name: 'Shinbox Switch', category: 'mobility', suitableBlocks: ['warmup', 'recovery'] },
-      { slug: 'hip-airplane-supported', name: 'Supported Hip Airplane', category: 'mobility', suitableBlocks: ['warmup', 'rehab'], trainingIntent: ['mobility', 'stability', 'movement_prep'] },
+      {
+        slug: 'hip-airplane-supported',
+        name: 'Supported Hip Airplane',
+        category: 'mobility',
+        suitableBlocks: ['warmup', 'rehab'],
+        trainingIntent: ['mobility', 'stability', 'movement_prep'],
+        media: {
+          imageUrls: [
+            '/media/exercises/hip-airplane-supported/demo.svg',
+            '/media/exercises/hip-airplane-supported/side.svg',
+          ],
+          videoUrl: '/media/exercises/hip-airplane-supported/demo.svg',
+          demoMode: 'animated_image',
+          source: 'generated',
+          license: 'Creeda generated movement demo',
+          attributionLabel: 'Creeda exercise media',
+          techniqueNote:
+            'Use the support lightly, keep the stance knee soft, and rotate through the hip instead of the low back.',
+        },
+      },
       { slug: 'adductor-rockback', name: 'Adductor Rockback', category: 'mobility', suitableBlocks: ['warmup', 'cooldown', 'rehab'] },
       { slug: 'lateral-lunge-pry', name: 'Lateral Lunge Pry', category: 'mobility', suitableBlocks: ['warmup', 'accessory'] },
     ]

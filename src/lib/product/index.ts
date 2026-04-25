@@ -1,5 +1,6 @@
 export { allExerciseLibraryItems, findExerciseBySlug } from '@/lib/product/exercises/catalog'
 export { buildExecutionSession, resolveSubstitutionName } from '@/lib/product/session-builder'
+export { hydrateExecutionSessionExerciseMedia } from '@/lib/product/session-media'
 export { queryExercises, recommendExercises } from '@/lib/product/recommendation-engine'
 export { buildSkillIntelligenceSnapshot } from '@/lib/product/skill-intelligence'
 export {

@@ -40,6 +40,22 @@ interface Props {
   role: VideoAnalysisRole
 }
 
+type CameraCoachExerciseContext = {
+  exerciseSlug: string | null
+  exerciseName: string
+  demoUrl: string | null
+  demoImages: string[]
+  demoMode: string | null
+  cue: string | null
+  returnTo: string | null
+}
+
+const VIDEO_MEDIA_RE = /\.(mp4|webm|mov|m4v)(\?|$)/i
+
+function isVideoMediaUrl(value: string | null | undefined) {
+  return Boolean(value && VIDEO_MEDIA_RE.test(value))
+}
+
 function shouldFallbackToBaseReportInsert(error: { message?: string | null; details?: string | null; hint?: string | null } | null | undefined) {
   const details = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase()
   return (
@@ -79,6 +95,18 @@ function AnalyzeContent({ role }: Props) {
   const searchParams = useSearchParams()
   const selectedSport = canonicalizeSportId(searchParams?.get('sport') || '') || 'other'
   const profile = useMemo(() => resolveVideoAnalysisProfile(selectedSport), [selectedSport])
+  const cameraCoach = useMemo<CameraCoachExerciseContext | null>(() => {
+    if (searchParams?.get('coach') !== '1') return null
+    return {
+      exerciseSlug: searchParams.get('exercise'),
+      exerciseName: searchParams.get('exerciseName') || 'This movement',
+      demoUrl: searchParams.get('demo'),
+      demoImages: searchParams.getAll('demoImage').filter(Boolean),
+      demoMode: searchParams.get('demoMode'),
+      cue: searchParams.get('cue'),
+      returnTo: searchParams.get('returnTo'),
+    }
+  }, [searchParams])
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -91,6 +119,8 @@ function AnalyzeContent({ role }: Props) {
   const smootherRef = useRef<LandmarkSmoother>(new LandmarkSmoother(3))
   const analysisRef = useRef<AnalysisState>(createAnalysisState(selectedSport))
   const reqRef = useRef<number>(0)
+  const liveReqRef = useRef<number>(0)
+  const lastLiveFeedbackAtRef = useRef<number>(0)
   const lastVideoTimeRef = useRef<number>(-1)
 
   const [userProfile, setUserProfile] = useState<ProfileState>({ role, position: null })
@@ -109,6 +139,7 @@ function AnalyzeContent({ role }: Props) {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [recordingSeconds, setRecordingSeconds] = useState(0)
+  const [cameraAutoOpened, setCameraAutoOpened] = useState(false)
   const [analysisState, setAnalysisState] = useState<AnalysisState>(createAnalysisState(selectedSport))
   const [activeFeedback, setActiveFeedback] = useState<FeedbackEvent | null>(null)
   const captureAssessment = useMemo(
@@ -134,7 +165,8 @@ function AnalyzeContent({ role }: Props) {
   }, [analysisState, captureAssessment.usable, clipMetadata, progress, role, selectedSport, userProfile.position])
   const analysisUnavailable = Boolean(engineError) && !isEngineReady
 
-  const backHref = `/${role}/scan`
+  const scanHref = `/${role}/scan`
+  const backHref = cameraCoach?.returnTo || scanHref
   const dashboardHref = `/${role}/dashboard`
 
   const syncEngineStatus = useCallback((engine: EngineType) => {
@@ -196,7 +228,7 @@ function AnalyzeContent({ role }: Props) {
     [resetTrackedAnalysis]
   )
 
-  async function openCamera() {
+  const openCamera = useCallback(async () => {
     setCameraError(null)
     setCaptureError(null)
 
@@ -218,7 +250,7 @@ function AnalyzeContent({ role }: Props) {
     } catch {
       setCameraError('CREEDA could not access the camera. Check browser permission and try again.')
     }
-  }
+  }, [])
 
   function getRecordingMimeType() {
     if (typeof MediaRecorder === 'undefined') return ''
@@ -302,6 +334,30 @@ function AnalyzeContent({ role }: Props) {
     cameraVideoRef.current.srcObject = cameraStream
     void cameraVideoRef.current.play()
   }, [cameraStream])
+
+  useEffect(() => {
+    if (
+      !cameraCoach ||
+      cameraAutoOpened ||
+      cameraStream ||
+      videoUrl ||
+      isLoading ||
+      !isEngineReady
+    ) {
+      return
+    }
+
+    setCameraAutoOpened(true)
+    void openCamera()
+  }, [
+    cameraAutoOpened,
+    cameraCoach,
+    cameraStream,
+    isEngineReady,
+    isLoading,
+    openCamera,
+    videoUrl,
+  ])
 
   useEffect(() => stopCamera, [stopCamera])
 
@@ -521,6 +577,69 @@ function AnalyzeContent({ role }: Props) {
     }
   }, [handleEngineRuntimeFailure, selectedSport, syncVisibleState])
 
+  const runLiveCameraFrame = useCallback(() => {
+    const video = cameraVideoRef.current
+    const engine = engineRef.current
+
+    if (!cameraCoach || !video || !engine || !isEngineReady || video.readyState < 2) {
+      return
+    }
+
+    const current = analysisRef.current
+    current.processedFrames += 1
+
+    let result: ReturnType<EngineType['detect']>
+
+    try {
+      result = engine.detect(video, performance.now())
+    } catch (error) {
+      handleEngineRuntimeFailure(error)
+      return
+    }
+
+    if (result.landmarks && result.landmarks.length > 0) {
+      const smoothed = smootherRef.current.smooth(result.landmarks[0])
+      updateCaptureMetrics(smoothed, current)
+      const feedback = runDeterministicRules(selectedSport, smoothed, current)
+
+      if (feedback) {
+        const now = performance.now()
+        if (now - lastLiveFeedbackAtRef.current > 900) {
+          lastLiveFeedbackAtRef.current = now
+          setActiveFeedback({ ...feedback, timestampMs: Math.round(now) })
+          if (feedback.isError) current.warnings += 1
+          else current.positive += 1
+          current.feedbackLog.push({ ...feedback, timestampMs: Math.round(now) })
+        }
+      }
+
+      if (feedback || current.processedFrames % 15 === 0) {
+        syncVisibleState()
+      }
+    }
+  }, [
+    cameraCoach,
+    handleEngineRuntimeFailure,
+    isEngineReady,
+    selectedSport,
+    syncVisibleState,
+  ])
+
+  useEffect(() => {
+    if (!cameraCoach || !cameraStream || videoUrl || !isEngineReady) return
+
+    const step = () => {
+      runLiveCameraFrame()
+      liveReqRef.current = requestAnimationFrame(step)
+    }
+
+    liveReqRef.current = requestAnimationFrame(step)
+
+    return () => {
+      if (liveReqRef.current) cancelAnimationFrame(liveReqRef.current)
+    }
+  }, [cameraCoach, cameraStream, isEngineReady, runLiveCameraFrame, videoUrl])
+
   useEffect(() => {
     if (isPlaying) {
       const step = () => {
@@ -540,6 +659,23 @@ function AnalyzeContent({ role }: Props) {
       if (reqRef.current) cancelAnimationFrame(reqRef.current)
     }
   }, [isPlaying, runAnalysisFrame])
+
+  useEffect(() => {
+    if (!cameraCoach || !videoUrl || !isEngineReady) return
+
+    const timeout = window.setTimeout(() => {
+      const video = videoRef.current
+      if (!video) return
+
+      void video.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {
+          setCaptureError('Tap play to finish the Camera Coach analysis.')
+        })
+    }, 150)
+
+    return () => window.clearTimeout(timeout)
+  }, [cameraCoach, isEngineReady, videoUrl])
 
   const togglePlay = () => {
     if (!videoRef.current) return
@@ -644,7 +780,7 @@ function AnalyzeContent({ role }: Props) {
       return
     }
 
-    router.push(`${backHref}/report/${insertResult.data.id}`)
+    router.push(`${scanHref}/report/${insertResult.data.id}`)
   }
 
   return (
@@ -655,9 +791,13 @@ function AnalyzeContent({ role }: Props) {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">{profile.sportLabel} Analysis</h1>
+            <h1 className="text-lg font-bold tracking-tight">
+              {cameraCoach ? 'Camera Coach' : `${profile.sportLabel} Analysis`}
+            </h1>
             <p className="text-[10px] text-white/45 font-medium">
-              {profile.familyLabel} • {profile.captureView}
+              {cameraCoach
+                ? `${cameraCoach.exerciseName} • ${profile.captureView}`
+                : `${profile.familyLabel} • ${profile.captureView}`}
             </p>
             {isLoading ? (
               <p className="text-[10px] text-orange-300 flex items-center gap-1 font-semibold mt-1">
@@ -680,6 +820,164 @@ function AnalyzeContent({ role }: Props) {
 
       <main className="flex-1 px-5 mt-2 overflow-hidden flex flex-col">
         {!videoUrl ? (
+          cameraCoach ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-4 pb-6">
+            <input
+              type="file"
+              accept="video/mp4,video/quicktime,video/webm"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              data-testid="video-upload-input"
+            />
+
+            <section className="relative min-h-[42dvh] overflow-hidden rounded-3xl border border-white/[0.08] bg-black shadow-2xl">
+              {cameraStream ? (
+                <video
+                  ref={cameraVideoRef}
+                  muted
+                  playsInline
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full min-h-[42dvh] flex-col items-center justify-center p-6 text-center">
+                  <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
+                    <Camera className="h-8 w-8" />
+                  </div>
+                  <h2 className="text-xl font-bold">Open camera for {cameraCoach.exerciseName}</h2>
+                  <p className="mt-2 max-w-sm text-sm leading-relaxed text-slate-400">
+                    CREEDA will read posture and movement while you frame the rep.
+                  </p>
+                  <Button
+                    onClick={openCamera}
+                    disabled={isLoading || !isEngineReady}
+                    className="mt-6 h-12 rounded-2xl bg-orange-500 px-6 text-sm font-black text-black hover:brightness-110 disabled:opacity-50"
+                  >
+                    <Camera className="mr-2 h-4 w-4" />
+                    Open Camera
+                  </Button>
+                </div>
+              )}
+
+              <div className="absolute left-4 top-4 right-4 flex items-start justify-between gap-3">
+                <div className="rounded-2xl border border-white/[0.08] bg-black/55 px-4 py-3 backdrop-blur-md">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-orange-200">
+                    Live Camera Coach
+                  </p>
+                  <p className="mt-1 text-sm font-black text-white">{cameraCoach.exerciseName}</p>
+                </div>
+                <div className="rounded-2xl border border-white/[0.08] bg-black/55 px-4 py-3 text-right backdrop-blur-md">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    Tracked frames
+                  </p>
+                  <p className="mt-1 text-lg font-black text-white">{analysisState.frameCount}</p>
+                </div>
+              </div>
+
+              {activeFeedback && cameraStream && (
+                <div
+                  className={`absolute left-4 right-4 top-28 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${
+                    activeFeedback.isError
+                      ? 'border-red-500/50 bg-red-500/20 text-red-100'
+                      : 'border-green-500/50 bg-green-500/20 text-green-100'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Activity className={`mt-0.5 h-5 w-5 shrink-0 ${activeFeedback.isError ? 'text-red-300' : 'text-green-300'}`} />
+                    <p className="text-sm font-bold leading-snug">{activeFeedback.message}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="absolute bottom-0 left-0 right-0 border-t border-white/[0.08] bg-black/70 px-4 py-3 backdrop-blur-md">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-300">
+                      {isRecording
+                        ? `${recordingSeconds}s recorded. Stop after the movement is complete.`
+                        : cameraStream
+                          ? 'Frame head-to-feet, rehearse once, then record.'
+                          : 'Camera opens automatically when permission is available.'}
+                    </p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                      Corrections {analysisState.warnings} • Positive reads {analysisState.positive}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {cameraStream ? (
+                      <button
+                        type="button"
+                        onClick={isRecording ? stopRecording : startRecording}
+                        className={`inline-flex h-11 items-center justify-center gap-2 rounded-2xl px-4 text-xs font-black uppercase tracking-[0.16em] transition ${
+                          isRecording
+                            ? 'bg-red-500 text-white hover:bg-red-400'
+                            : 'bg-orange-500 text-black hover:brightness-110'
+                        }`}
+                      >
+                        {isRecording ? <Square className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+                        {isRecording ? 'Stop' : 'Record'}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isLoading || !isEngineReady || isRecording}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.05] px-4 text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:bg-white/[0.09] disabled:opacity-50"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="grid min-h-[32dvh] gap-4 rounded-3xl border border-white/[0.08] bg-white/[0.03] p-4 lg:grid-cols-[1.15fr_0.85fr]">
+              <CameraCoachReferenceDemo context={cameraCoach} />
+              <div className="flex flex-col justify-between rounded-2xl border border-white/[0.06] bg-black/25 p-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+                    Live feedback target
+                  </p>
+                  <h3 className="mt-2 text-lg font-black text-white">{profile.familyLabel}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-300">
+                    {cameraCoach.cue || profile.shortPrompt}
+                  </p>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <MiniValidation label="Corrections" value={String(analysisState.warnings)} />
+                  <MiniValidation label="Positive" value={String(analysisState.positive)} />
+                </div>
+              </div>
+            </section>
+
+            {cameraStream && !isRecording && (
+              <button
+                type="button"
+                onClick={stopCamera}
+                className="self-center text-xs font-semibold text-white/40 transition hover:text-white"
+              >
+                Close camera
+              </button>
+            )}
+
+            {cameraError && (
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+                {cameraError}
+              </div>
+            )}
+
+            {captureError && (
+              <div
+                data-testid="capture-error"
+                className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100"
+              >
+                {captureError}. Record or upload a clearer clip to continue.
+              </div>
+            )}
+          </div>
+          ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed border-white/[0.08] rounded-3xl bg-white/[0.02] mb-10">
             <input
               type="file"
@@ -799,6 +1097,7 @@ function AnalyzeContent({ role }: Props) {
               </div>
             )}
           </div>
+          )
         ) : (
           <div className="flex-1 flex flex-col min-h-0 relative">
             <div className="relative w-full flex-1 bg-black rounded-3xl overflow-hidden border border-white/[0.08] shadow-2xl">
@@ -1008,6 +1307,54 @@ function MiniValidation({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
       <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       <p className="mt-1 truncate text-sm font-black capitalize text-white">{value}</p>
+    </div>
+  )
+}
+
+function CameraCoachReferenceDemo({ context }: { context: CameraCoachExerciseContext }) {
+  const referenceUrl = context.demoUrl || context.demoImages[0] || null
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-black/35">
+      <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+            Exercise to perform
+          </p>
+          <p className="mt-1 text-sm font-black text-white">{context.exerciseName}</p>
+        </div>
+        {context.demoMode ? (
+          <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-300">
+            {context.demoMode.replace(/_/g, ' ')}
+          </span>
+        ) : null}
+      </div>
+
+      {referenceUrl ? (
+        isVideoMediaUrl(referenceUrl) ? (
+          <video
+            src={referenceUrl}
+            muted
+            loop
+            autoPlay
+            playsInline
+            controls
+            className="aspect-video w-full bg-black object-contain"
+          />
+        ) : (
+          <img
+            src={referenceUrl}
+            alt={context.exerciseName}
+            className="aspect-video w-full bg-black object-contain"
+          />
+        )
+      ) : (
+        <div className="flex aspect-video items-center justify-center p-6 text-center">
+          <p className="max-w-sm text-sm leading-relaxed text-slate-400">
+            No exercise-specific reference media is attached for this movement yet.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
