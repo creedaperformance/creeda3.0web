@@ -35,6 +35,17 @@ function normalizeEnvValue(value: string | undefined) {
   return trimmed
 }
 
+function normalizeSupabaseProjectUrl(value: string | undefined) {
+  const normalized = normalizeEnvValue(value)
+  if (!normalized) return normalized
+
+  try {
+    return new URL(normalized).origin
+  } catch {
+    return normalized
+  }
+}
+
 export function getSupabaseProjectRef(supabaseUrl: string) {
   try {
     return new URL(supabaseUrl).hostname.split('.')[0] || 'unknown'
@@ -45,7 +56,7 @@ export function getSupabaseProjectRef(supabaseUrl: string) {
 
 export function getPublicSupabaseEnv() {
   const parsed = publicSupabaseEnvSchema.safeParse({
-    NEXT_PUBLIC_SUPABASE_URL: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    NEXT_PUBLIC_SUPABASE_URL: normalizeSupabaseProjectUrl(process.env.NEXT_PUBLIC_SUPABASE_URL),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
   })
   if (!parsed.success) {
@@ -57,7 +68,7 @@ export function getPublicSupabaseEnv() {
 
 export function getAdminSupabaseEnv() {
   const parsed = adminSupabaseEnvSchema.safeParse({
-    NEXT_PUBLIC_SUPABASE_URL: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    NEXT_PUBLIC_SUPABASE_URL: normalizeSupabaseProjectUrl(process.env.NEXT_PUBLIC_SUPABASE_URL),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
     SUPABASE_SERVICE_ROLE_KEY: normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY),
   })

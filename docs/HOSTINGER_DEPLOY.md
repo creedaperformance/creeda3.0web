@@ -52,6 +52,8 @@ DATABASE_URL=postgres://postgres:<password>@db.<project-ref>.supabase.co:5432/po
 NODE_ENV=production
 ```
 
+Use only the Supabase project origin for `NEXT_PUBLIC_SUPABASE_URL`. Do not paste a REST endpoint such as `/rest/v1`; the app normalizes this defensively, but the clean value should look exactly like `https://abc123.supabase.co`.
+
 Optional (only if you've configured these features):
 
 ```
