@@ -51,6 +51,55 @@ type LockerCoachProfile = {
   primary_sport?: string
 }
 
+function publicSignupError(error: { message?: string; code?: string; status?: number }) {
+  const normalizedMessage = String(error.message || '').toLowerCase()
+  const normalizedCode = String(error.code || '').toLowerCase()
+
+  if (
+    normalizedMessage.includes('already registered') ||
+    normalizedMessage.includes('already been registered') ||
+    normalizedMessage.includes('already exists')
+  ) {
+    return 'We could not create your account with the provided details.'
+  }
+
+  if (normalizedMessage.includes('password')) {
+    return 'Please use a stronger password with at least 12 characters, uppercase and lowercase letters, a number, and a special character.'
+  }
+
+  if (
+    normalizedMessage.includes('invalid api key') ||
+    normalizedMessage.includes('invalid jwt') ||
+    normalizedMessage.includes('jwt') ||
+    normalizedCode.includes('invalid_credentials')
+  ) {
+    return 'Signup is temporarily misconfigured. Please contact CREEDA support.'
+  }
+
+  if (normalizedMessage.includes('signup') && normalizedMessage.includes('disabled')) {
+    return 'Signup is currently disabled in authentication settings. Please contact CREEDA support.'
+  }
+
+  if (normalizedMessage.includes('redirect') || normalizedMessage.includes('not allowed')) {
+    return 'Signup email redirect is not configured for this domain. Please contact CREEDA support.'
+  }
+
+  if (normalizedMessage.includes('database') || normalizedMessage.includes('saving new user')) {
+    return 'Your login account was accepted, but CREEDA could not create the linked profile. Please contact CREEDA support.'
+  }
+
+  return 'We could not create your account right now. Please try again later.'
+}
+
+function logSignupAuthError(error: { message?: string; code?: string; status?: number; name?: string }) {
+  console.error('[signup] Supabase auth signUp failed', {
+    name: error.name || 'AuthError',
+    status: error.status || null,
+    code: error.code || null,
+    message: error.message || 'Unknown Supabase auth error',
+  })
+}
+
 function getSerializableSession(session: Session | null) {
   if (!session) return null
 
@@ -165,21 +214,10 @@ export async function performCreedaSignup(args: {
   })
 
   if (error) {
-    const normalizedMessage = error.message.toLowerCase()
-    if (
-      normalizedMessage.includes('already registered') ||
-      normalizedMessage.includes('already been registered') ||
-      normalizedMessage.includes('already exists')
-    ) {
-      return {
-        success: false,
-        error: 'We could not create your account with the provided details.',
-      }
-    }
-
+    logSignupAuthError(error)
     return {
       success: false,
-      error: 'We could not create your account right now. Please try again later.',
+      error: publicSignupError(error),
     }
   }
 

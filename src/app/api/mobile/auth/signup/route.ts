@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } = getPublicSupabaseEnv()
   const supabase = createClient(NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : undefined
+  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ? createAdminClient() : undefined
 
   const result = await performCreedaSignup({
     supabase,

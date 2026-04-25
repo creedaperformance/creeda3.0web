@@ -10,6 +10,7 @@ import { resolveTrustedOriginFromHeaders } from '@/lib/security/request'
 import {
   findCoachByLockerCodeWithClient,
   performCreedaSignup,
+  signupPayloadSchema,
 } from '@/lib/signup'
 import { getRoleOnboardingRoute, isAppRole } from '@/lib/role_routes'
 
@@ -42,26 +43,34 @@ export async function signup(formData: FormData) {
     return { error: 'Please complete all required legal acknowledgements to continue.' }
   }
 
+  const parsed = signupPayloadSchema.safeParse({
+    fullName,
+    email,
+    password,
+    role,
+    coachLockerCode,
+    inviteToken: '',
+    termsPrivacyConsent,
+    medicalDisclaimerConsent,
+    dataProcessingConsent,
+    aiAcknowledgementConsent,
+    marketingConsent,
+  })
+  if (!parsed.success) {
+    const firstFieldError = Object.values(parsed.error.flatten().fieldErrors)
+      .flat()
+      .find(Boolean)
+    return { error: firstFieldError || 'Please check your signup details and try again.' }
+  }
+
   const supabase = await createClient()
-  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : undefined
+  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ? createAdminClient() : undefined
   const headersList = await headers()
   const origin = resolveTrustedOriginFromHeaders(headersList)
   const result = await performCreedaSignup({
     supabase,
     adminSupabase: admin,
-    payload: {
-      fullName,
-      email,
-      password,
-      role: role as 'athlete' | 'coach' | 'individual',
-      coachLockerCode,
-      inviteToken: '',
-      termsPrivacyConsent,
-      medicalDisclaimerConsent,
-      dataProcessingConsent,
-      aiAcknowledgementConsent,
-      marketingConsent,
-    },
+    payload: parsed.data,
     origin,
     auditMeta: {
       userAgent: headersList.get('user-agent'),
@@ -106,7 +115,7 @@ export async function verifyLockerCode(code: string) {
   }
 
   const supabase = await createClient()
-  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : undefined
+  const admin = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ? createAdminClient() : undefined
 
   const coach = await findCoachByLockerCodeWithClient({
     supabase,

@@ -23,10 +23,30 @@ function formatIssues(result: z.ZodError) {
   return result.issues.map((issue) => issue.message).join(' ')
 }
 
+function normalizeEnvValue(value: string | undefined) {
+  const trimmed = value?.trim() || ''
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim()
+  }
+
+  return trimmed
+}
+
+export function getSupabaseProjectRef(supabaseUrl: string) {
+  try {
+    return new URL(supabaseUrl).hostname.split('.')[0] || 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
 export function getPublicSupabaseEnv() {
   const parsed = publicSupabaseEnvSchema.safeParse({
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_SUPABASE_URL: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
   })
   if (!parsed.success) {
     throw new Error(`Invalid public Supabase environment configuration. ${formatIssues(parsed.error)}`)
@@ -37,9 +57,9 @@ export function getPublicSupabaseEnv() {
 
 export function getAdminSupabaseEnv() {
   const parsed = adminSupabaseEnvSchema.safeParse({
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    NEXT_PUBLIC_SUPABASE_URL: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: normalizeEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+    SUPABASE_SERVICE_ROLE_KEY: normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY),
   })
   if (!parsed.success) {
     throw new Error(`Invalid admin Supabase environment configuration. ${formatIssues(parsed.error)}`)
@@ -54,7 +74,7 @@ export function hasDatabaseUrl() {
 
 export function getDatabaseUrl() {
   const parsed = databaseEnvSchema.safeParse({
-    DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_URL: normalizeEnvValue(process.env.DATABASE_URL),
   })
   if (!parsed.success) {
     throw new Error(`Invalid database configuration. ${formatIssues(parsed.error)}`)
@@ -64,7 +84,7 @@ export function getDatabaseUrl() {
 }
 
 export function getSiteUrl() {
-  const candidate = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  const candidate = normalizeEnvValue(process.env.NEXT_PUBLIC_SITE_URL)
   if (!candidate) return DEFAULT_SITE_URL
 
   const parsed = z.string().url().safeParse(candidate)
