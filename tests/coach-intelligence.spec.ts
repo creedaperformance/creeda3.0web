@@ -21,20 +21,24 @@ test.describe('Coach Squad Intelligence', () => {
     }
   }
 
-  test('Coach view of squad risk indicators', async ({ page }) => {
+  test('Squad pulse zone surfaces red/amber/green or empty-squad state', async ({ page }) => {
     await ensureCoachDashboard(page);
-    
-    await expect(page.getByText(/Command Center Active/i).first()).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText(/No Active Squad Detected|Intervention Queue/i).first()).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/Squad Technical Repository/i)).toBeVisible({ timeout: 15000 });
+
+    await expect(page.locator('[data-persona="coach"]')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('[data-testid="zone-decision"]')).toBeVisible();
+
+    // Either the populated pulse heading shows up, or the empty-squad CTA does.
+    const populatedOrEmpty = page
+      .locator('[data-testid="zone-decision"]')
+      .getByText(/Squad pulse|No athletes linked yet/i);
+    await expect(populatedOrEmpty.first()).toBeVisible({ timeout: 15000 });
   });
 
-  test('Coach management intelligence labels', async ({ page }) => {
+  test('Triage and video review zones are visible', async ({ page }) => {
     await ensureCoachDashboard(page);
-    
-    await expect(page.getByText(/Command Center Active/i)).toBeVisible();
-    await expect(page.getByText(/Operator Locker Code/i)).toBeVisible();
-    await expect(page.getByText(/Weekly Operating View/i)).toBeVisible();
-    await expect(page.getByText(/Academy Layer/i)).toBeVisible();
+
+    await expect(page.locator('[data-testid="zone-plan"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="zone-week"]')).toBeVisible();
+    await expect(page.locator('[data-testid="zone-next"]')).toBeVisible();
   });
 });

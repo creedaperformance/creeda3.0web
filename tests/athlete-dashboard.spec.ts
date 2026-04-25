@@ -4,7 +4,7 @@ import {
   submitAthleteQuickCheckInCurrent,
 } from './utils/current-flows';
 
-test.describe('Athlete Dashboard Deep Dive', () => {
+test.describe('Athlete Performance View', () => {
   test.describe.configure({ timeout: 60000 });
 
   test.beforeEach(async ({ page }) => {
@@ -16,13 +16,18 @@ test.describe('Athlete Dashboard Deep Dive', () => {
     });
   });
 
-  test('complete onboarding as a new athlete', async ({ page }) => {
+  test('complete onboarding lands on the 4-zone Performance View', async ({ page }) => {
     await page.goto('/athlete/onboarding');
 
     await expect(page).toHaveURL(/\/athlete\/onboarding/);
     await completeAthleteOnboardingCurrent(page, 'Test Athlete QA', String(Date.now()));
     await expect(page).toHaveURL(/\/athlete\/dashboard/, { timeout: 30000 });
-    await expect(page.getByText(/Today|Science|Trust/i).first()).toBeVisible({ timeout: 15000 });
+
+    await expect(page.locator('[data-persona="athlete"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="zone-decision"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-testid="zone-plan"]')).toBeVisible();
+    await expect(page.locator('[data-testid="zone-week"]')).toBeVisible();
+    await expect(page.locator('[data-testid="zone-next"]')).toBeVisible();
   });
 
   test('submit an athlete daily check-in and open video analysis', async ({ page }) => {

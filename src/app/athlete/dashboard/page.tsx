@@ -4,7 +4,8 @@ import { getAthleteDashboardSnapshot } from '@/lib/dashboard_decisions'
 import { getDailyOperatingSnapshot } from '@/lib/product/operating-system/server'
 import { athleteOnboardingFlow } from '@/forms/flows/athleteFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
-import { DecisionHUD } from './DecisionHUD'
+import { countUnreadCommentsForAthlete } from '@/lib/video-analysis/comments'
+import { AthletePerformanceView } from './AthletePerformanceView'
 import { getRoleHomeRoute, getRoleOnboardingRoute, isAppRole } from '@/lib/auth_utils'
 
 export const dynamic = 'force-dynamic'
@@ -35,7 +36,7 @@ export default async function AthletePage() {
   }
 
   const snapshot = await getAthleteDashboardSnapshot(supabase, user.id)
-  const [adaptiveProfile, operatingSnapshot] = await Promise.all([
+  const [adaptiveProfile, operatingSnapshot, unreadCoachComments] = await Promise.all([
     getAdaptiveProfileSummary({
       supabase,
       userId: user.id,
@@ -43,10 +44,11 @@ export default async function AthletePage() {
       flowId: athleteOnboardingFlow.id,
     }),
     getDailyOperatingSnapshot(supabase, user.id, snapshot),
+    countUnreadCommentsForAthlete(supabase, user.id),
   ])
 
   return (
-    <DecisionHUD
+    <AthletePerformanceView
       result={snapshot.decisionResult}
       performanceProfile={snapshot.performanceProfile}
       healthSummary={snapshot.healthSummary}
@@ -56,6 +58,8 @@ export default async function AthletePage() {
       nutritionSafety={snapshot.nutritionSafety}
       adaptiveProfile={adaptiveProfile}
       operatingSnapshot={operatingSnapshot}
+      profile={snapshot.profile}
+      unreadCoachComments={unreadCoachComments}
     />
   )
 }

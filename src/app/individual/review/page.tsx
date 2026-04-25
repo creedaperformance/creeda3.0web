@@ -206,20 +206,13 @@ export default async function IndividualReviewPage() {
               </p>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
               <Link
                 href="/individual/logging"
                 className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-black hover:brightness-110 transition-all"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 Daily Check-In
-              </Link>
-              <Link
-                href="/individual/tests"
-                className="flex items-center justify-center gap-2 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-xs font-bold uppercase tracking-[0.2em] text-blue-200 hover:bg-blue-500/15 transition-all"
-              >
-                <Timer className="h-4 w-4" />
-                Objective Test
               </Link>
               <Link
                 href="/individual/dashboard"

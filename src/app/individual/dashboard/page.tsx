@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { getIndividualDashboardSnapshot } from '@/lib/dashboard_decisions'
 import { individualOnboardingFlow } from '@/forms/flows/individualFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
-import { IndividualDashboardClient } from './components/IndividualDashboardClient'
+import { IndividualPerformanceView } from './IndividualPerformanceView'
 import { CreedaProvider } from '@/lib/state_engine'
 
 export default async function IndividualDashboard() {
@@ -44,7 +44,7 @@ export default async function IndividualDashboard() {
 
   return (
     <CreedaProvider initialData={initialData}>
-      <IndividualDashboardClient profile={profile} snapshot={snapshot} adaptiveProfile={adaptiveProfile} />
+      <IndividualPerformanceView profile={profile} snapshot={snapshot} adaptiveProfile={adaptiveProfile} />
     </CreedaProvider>
   )
 }

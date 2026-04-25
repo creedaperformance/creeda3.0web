@@ -11,9 +11,10 @@ test.describe('Coach End-to-End Journey', () => {
     await completeCoachOnboardingCurrent(page, 'Master Coach', suffix, 'Master Squad')
 
     await page.goto('/coach/dashboard')
-    await expect(page.getByText(/Command Center Active/i)).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText(/Operator Locker Code/i)).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText(/Squad Technical Repository/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('[data-persona="coach"]')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('[data-testid="zone-decision"]')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('[data-testid="zone-plan"]')).toBeVisible()
+    await expect(page.locator('[data-testid="zone-next"]')).toBeVisible()
 
     await page.goto('/coach/analytics')
     await expect(page.getByText(/Coach Analytics/i).first()).toBeVisible({ timeout: 15000 })

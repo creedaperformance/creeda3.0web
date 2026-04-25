@@ -301,20 +301,25 @@ export function listVideoAnalysisSports(preferredSport?: string | null): VideoAn
   return Object.values(SPORTS_DATABASE)
     .map((sport) => {
       const profile = resolveVideoAnalysisProfile(sport.id)
+      const isUniversal = sport.id === 'other'
       return {
         sportId: sport.id,
-        sportLabel: sport.name,
-        emoji: profile.emoji,
+        sportLabel: isUniversal ? 'Universal Movement Screen' : sport.name,
+        emoji: isUniversal ? '🧍' : profile.emoji,
         family: profile.family,
         captureView: profile.captureView,
-        shortPrompt: profile.shortPrompt,
+        shortPrompt: isUniversal
+          ? 'No sport in mind? The universal screen checks posture, knee tracking, hip drop, head position, and shoulder symmetry on any movement.'
+          : profile.shortPrompt,
       }
     })
     .sort((a, b) => {
       if (a.sportId === preferredId) return -1
       if (b.sportId === preferredId) return 1
-      if (a.sportId === 'other') return 1
-      if (b.sportId === 'other') return -1
+      // Pin the universal General Movement Screen second so it's always the
+      // obvious "I just want to scan any movement" entry point.
+      if (a.sportId === 'other' && b.sportId !== preferredId) return -1
+      if (b.sportId === 'other' && a.sportId !== preferredId) return 1
       return a.sportLabel.localeCompare(b.sportLabel)
     })
 }

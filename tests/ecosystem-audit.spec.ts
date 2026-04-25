@@ -49,8 +49,8 @@ test.describe('Creeda Ecosystem Full Audit', () => {
     await completeCoachOnboardingCurrent(page, fullName, suffix, `Audit Squad ${suffix}`)
 
     await page.goto('/coach/dashboard')
-    await expect(page.getByText(/Command Center Active/i)).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText(/Operator Locker Code/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('[data-persona="coach"]')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('[data-testid="zone-decision"]')).toBeVisible({ timeout: 15000 })
   })
 
   test('Individual End-to-End Pathway', async ({ page }) => {

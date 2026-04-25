@@ -69,6 +69,24 @@
   --info: var(--chakra-neon);
   --info-glow: var(--chakra-glow);
 
+  /* ── Persona / Sport / Region Modulators ────────────────
+     Override these via [data-persona], [data-sport], [data-region]
+     attributes set on the PerformanceShell or any wrapping element.
+     The defaults below match the Athlete x General x India base. */
+
+  /* Persona accents */
+  --persona-accent: #FF5F1F;          /* athlete: saffron */
+  --persona-accent-soft: rgba(255, 95, 31, 0.15);
+  --persona-tone: 'sharp';
+
+  /* Sport accents */
+  --sport-accent: #FF5F1F;            /* general: saffron */
+  --sport-accent-soft: rgba(255, 95, 31, 0.15);
+  --sport-secondary: #00E5FF;
+
+  /* Region accents */
+  --region-accent: #FF5F1F;           /* india: saffron */
+
   /* ── Neon-Desi Gradients ── */
   --gradient-saffron: linear-gradient(135deg, #FF5F1F 0%, #FF8C5A 100%);
   --gradient-desi-aura: linear-gradient(135deg, #FF5F1F 0%, #0055FF 100%);
@@ -105,6 +123,76 @@
   --font-hindi: var(--font-noto-devanagari), var(--font-poppins), sans-serif;
   --font-display: var(--font-poppins), 'Poppins', sans-serif;
   --font-mono: var(--font-geist-mono), 'Geist Mono', monospace;
+}
+
+/* ═══════════════════════════════
+   MODULATOR OVERRIDES
+   Applied via data-attributes on PerformanceShell.
+   Order: persona base → sport overlay → region overlay.
+   ═══════════════════════════════ */
+
+/* Persona overrides */
+[data-persona="athlete"] {
+  --persona-accent: #FF3A5C;
+  --persona-accent-soft: rgba(255, 58, 92, 0.15);
+  --persona-tone: 'sharp';
+}
+[data-persona="individual"] {
+  --persona-accent: #3DDC97;
+  --persona-accent-soft: rgba(61, 220, 151, 0.18);
+  --persona-tone: 'calm';
+}
+[data-persona="coach"] {
+  --persona-accent: #7C5CFF;
+  --persona-accent-soft: rgba(124, 92, 255, 0.18);
+  --persona-tone: 'operational';
+}
+
+/* Sport overlays — paint --sport-accent / --sport-secondary */
+[data-sport="cricket"] {
+  --sport-accent: #1B5E20;
+  --sport-accent-soft: rgba(27, 94, 32, 0.18);
+  --sport-secondary: #FFD600;
+}
+[data-sport="football"] {
+  --sport-accent: #0D47A1;
+  --sport-accent-soft: rgba(13, 71, 161, 0.18);
+  --sport-secondary: #FFFFFF;
+}
+[data-sport="badminton"] {
+  --sport-accent: #6A1B9A;
+  --sport-accent-soft: rgba(106, 27, 154, 0.18);
+  --sport-secondary: #FFEB3B;
+}
+[data-sport="athletics"] {
+  --sport-accent: #FF6F00;
+  --sport-accent-soft: rgba(255, 111, 0, 0.18);
+  --sport-secondary: #212121;
+}
+[data-sport="strength"] {
+  --sport-accent: #37474F;
+  --sport-accent-soft: rgba(55, 71, 79, 0.22);
+  --sport-secondary: #FF3A5C;
+}
+[data-sport="general"] {
+  --sport-accent: var(--persona-accent);
+  --sport-accent-soft: var(--persona-accent-soft);
+  --sport-secondary: #00E5FF;
+}
+
+/* Region overlays — currently affect background tint + region accent.
+   Saffron-leaning illustrations on India, cooler greens for SE Asia, etc. */
+[data-region="in"] {
+  --region-accent: #FF9933; /* saffron-leaning */
+}
+[data-region="sea"] {
+  --region-accent: #138808;
+}
+[data-region="me"] {
+  --region-accent: #C9A227;
+}
+[data-region="us"], [data-region="uk"] {
+  --region-accent: #00E5FF;
 }
 
 /* ═══════════════════════════════

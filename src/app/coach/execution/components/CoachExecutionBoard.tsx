@@ -302,18 +302,12 @@ export function CoachExecutionBoard({
               <p className="mt-2 text-sm leading-relaxed text-slate-400">
                 Once athletes connect to your squad, this board becomes your execution control room.
               </p>
-              <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <div className="mt-6 flex justify-center">
                 <Link
                   href="/coach/dashboard"
                   className="inline-flex h-12 items-center justify-center rounded-2xl bg-[var(--saffron)] px-6 text-sm font-black text-black transition hover:brightness-110"
                 >
                   Open locker code
-                </Link>
-                <Link
-                  href="/coach/academy"
-                  className="inline-flex h-12 items-center justify-center rounded-2xl border border-white/12 bg-white/5 px-6 text-sm font-bold text-white transition hover:bg-white/10"
-                >
-                  Academy Ops
                 </Link>
               </div>
             </div>

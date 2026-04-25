@@ -16,7 +16,6 @@ import {
   ClipboardList,
   BarChart3,
   ChevronRight,
-  Timer,
   ShieldCheck,
   Dumbbell,
   BookOpenCheck,
@@ -87,41 +86,35 @@ export function DashboardLayout({ children, user, type, hasSyncedToday }: Dashbo
   const athleteLinks = [
     { href: '/athlete/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/athlete/sessions/today', icon: Dumbbell, label: "Today's Session", badge: 'START' },
-    { href: '/athlete/exercises', icon: BookOpenCheck, label: 'Exercise Library', badge: 'NEW' },
-    { href: '/athlete/scan', icon: ScanLine, label: 'Video Analysis', badge: 'NEW' },
-    { href: '/athlete/progress', icon: BarChart3, label: 'Progress Proof', badge: 'NEW' },
-    { href: '/athlete/tests', icon: Timer, label: 'Objective Tests', badge: 'BETA' },
-    { href: '/athlete/family', icon: ShieldCheck, label: 'Guardian & Family', badge: 'NEW' },
-    { href: '/athlete/nutrition-safety', icon: ShieldCheck, label: 'Nutrition Safety', badge: 'NEW' },
-    { href: '/athlete/plans', icon: ClipboardList, label: 'Training Plans', badge: 'NEW' },
+    { href: '/athlete/exercises', icon: BookOpenCheck, label: 'Exercise Library' },
+    { href: '/athlete/scan', icon: ScanLine, label: 'Video Analysis' },
+    { href: '/athlete/progress', icon: BarChart3, label: 'Progress' },
+    { href: '/athlete/plans', icon: ClipboardList, label: 'Training Plans' },
     { href: '/athlete/checkin', icon: Calendar, label: 'Daily Check-In' },
     { href: '/athlete/review', icon: TrendingUp, label: 'Weekly Review' },
-    { href: '/athlete/legal', icon: ShieldCheck, label: 'Legal & Privacy', badge: 'NEW' },
+    { href: '/athlete/legal', icon: ShieldCheck, label: 'Legal & Privacy' },
     { href: '/athlete/settings', icon: Settings, label: 'Settings' },
   ]
 
   const coachLinks = [
     { href: '/coach/dashboard', icon: LayoutDashboard, label: 'Squad Roster' },
     { href: '/coach/execution', icon: ClipboardList, label: 'Execution Board', badge: 'ASSIGN' },
-    { href: '/coach/academy', icon: ShieldCheck, label: 'Academy Ops', badge: 'NEW' },
-    { href: '/coach/review', icon: TrendingUp, label: 'Weekly Review', badge: 'NEW' },
+    { href: '/coach/review', icon: TrendingUp, label: 'Weekly Review' },
     { href: '/coach/analytics', icon: BarChart3, label: 'Analytics' },
-    { href: '/coach/reports', icon: ClipboardList, label: 'Reports', badge: 'NEW' },
-    { href: '/coach/legal', icon: ShieldCheck, label: 'Legal & Privacy', badge: 'NEW' },
+    { href: '/coach/reports', icon: ClipboardList, label: 'Reports' },
+    { href: '/coach/legal', icon: ShieldCheck, label: 'Legal & Privacy' },
     { href: '/coach/settings', icon: Settings, label: 'Settings' },
   ]
 
   const individualLinks = [
     { href: '/individual/dashboard', icon: LayoutDashboard, label: 'Home' },
     { href: '/individual/sessions/today', icon: Dumbbell, label: "Today's Session", badge: 'START' },
-    { href: '/individual/plans', icon: ClipboardList, label: 'Plan Calendar', badge: 'NEW' },
-    { href: '/individual/exercises', icon: BookOpenCheck, label: 'Exercise Library', badge: 'NEW' },
-    { href: '/individual/scan', icon: ScanLine, label: 'Movement Analysis', badge: 'NEW' },
-    { href: '/individual/tests', icon: Timer, label: 'Objective Tests', badge: 'BETA' },
-    { href: '/individual/nutrition-safety', icon: ShieldCheck, label: 'Nutrition Safety', badge: 'NEW' },
+    { href: '/individual/plans', icon: ClipboardList, label: 'Plan Calendar' },
+    { href: '/individual/exercises', icon: BookOpenCheck, label: 'Exercise Library' },
+    { href: '/individual/scan', icon: ScanLine, label: 'Movement Analysis' },
     { href: '/individual/logging', icon: Calendar, label: 'Daily Check-In' },
     { href: '/individual/review', icon: BarChart3, label: 'Weekly Review' },
-    { href: '/individual/legal', icon: ShieldCheck, label: 'Legal & Privacy', badge: 'NEW' },
+    { href: '/individual/legal', icon: ShieldCheck, label: 'Legal & Privacy' },
   ]
 
 

@@ -9,12 +9,10 @@ import {
   CalendarDays,
   ClipboardList,
   Dumbbell,
-  GraduationCap,
   LayoutDashboard,
   ScanLine,
   Settings,
   ShieldCheck,
-  Timer,
   TrendingUp,
   Users,
   type LucideIcon,
@@ -37,7 +35,6 @@ const ATHLETE_NAV: NavItem[] = [
   { href: '/athlete/exercises', label: 'Exercise Library', icon: BookOpenCheck, badge: 'New' },
   { href: '/athlete/scan', label: 'Video Analysis', icon: ScanLine },
   { href: '/athlete/checkin', label: 'Daily Check-In', icon: ClipboardList },
-  { href: '/athlete/tests', label: 'Objective Tests', icon: Timer },
   { href: '/athlete/review', label: 'Weekly Review', icon: TrendingUp },
   { href: '/athlete/settings', label: 'Settings', icon: Settings },
 ]
@@ -47,7 +44,6 @@ const COACH_NAV: NavItem[] = [
   { href: '/coach/execution', label: 'Execution Board', icon: ClipboardList, badge: 'Assign' },
   { href: '/coach/review', label: 'Weekly Review', icon: TrendingUp },
   { href: '/coach/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/coach/academy', label: 'Academy Ops', icon: GraduationCap },
   { href: '/coach/reports', label: 'Reports', icon: ShieldCheck },
   { href: '/coach/settings', label: 'Settings', icon: Settings },
 ]
@@ -59,7 +55,6 @@ const INDIVIDUAL_NAV: NavItem[] = [
   { href: '/individual/exercises', label: 'Exercise Library', icon: BookOpenCheck, badge: 'New' },
   { href: '/individual/scan', label: 'Movement Analysis', icon: ScanLine },
   { href: '/individual/logging', label: 'Daily Check-In', icon: ClipboardList },
-  { href: '/individual/tests', label: 'Objective Tests', icon: Timer },
   { href: '/individual/review', label: 'Weekly Review', icon: TrendingUp },
   { href: '/individual/legal', label: 'Legal & Privacy', icon: ShieldCheck },
 ]

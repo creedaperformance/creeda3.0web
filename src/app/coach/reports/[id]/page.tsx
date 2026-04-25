@@ -2,8 +2,10 @@ import { notFound, redirect } from 'next/navigation'
 
 import { DashboardLayout } from '@/components/DashboardLayout'
 import { VideoAnalysisReportView } from '@/components/video-analysis/VideoAnalysisReportView'
+import { CoachAthleteCommentThread } from '@/components/video-analysis/CoachAthleteCommentThread'
 import { createClient } from '@/lib/supabase/server'
 import { getCoachVideoReportById } from '@/lib/video-analysis/service'
+import { listVideoComments } from '@/lib/video-analysis/comments'
 import { getRoleHomeRoute, isAppRole } from '@/lib/auth_utils'
 
 export default async function CoachVideoReportPage(props: { params: Promise<{ id: string }> }) {
@@ -28,6 +30,8 @@ export default async function CoachVideoReportPage(props: { params: Promise<{ id
   const report = await getCoachVideoReportById(supabase, user.id, params.id)
   if (!report) notFound()
 
+  const comments = await listVideoComments(supabase, params.id)
+
   return (
     <DashboardLayout user={{ email: user.email ?? null }} type="coach">
       <VideoAnalysisReportView
@@ -36,6 +40,9 @@ export default async function CoachVideoReportPage(props: { params: Promise<{ id
         dashboardHref="/coach/dashboard"
         scanHref="/coach/reports"
       />
+      <div className="mt-6">
+        <CoachAthleteCommentThread reportId={params.id} comments={comments} canPost />
+      </div>
     </DashboardLayout>
   )
 }

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { GamifiedCoachDashboard } from './GamifiedCoachDashboard'
+import { CoachPerformanceView } from './CoachPerformanceView'
 import { CreedaProvider } from '@/lib/state_engine'
 import { getRoleHomeRoute, isAppRole } from '@/lib/auth_utils'
 import { getCoachVideoReports } from '@/lib/video-analysis/service'
@@ -48,7 +48,7 @@ export default async function CoachDashboard() {
 
   return (
     <CreedaProvider>
-      <GamifiedCoachDashboard
+      <CoachPerformanceView
         videoReports={videoReports}
         lockerCode={profile?.locker_code ?? null}
         adaptiveProfile={adaptiveProfile}
