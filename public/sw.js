@@ -1,8 +1,7 @@
-const CACHE_VERSION = 'creeda-v2026-03-31-1';
+const CACHE_VERSION = 'creeda-v2026-04-25-1';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGE_CACHE = `${CACHE_VERSION}-pages`;
 const PRECACHE_URLS = [
-  '/',
   '/offline',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
@@ -49,7 +48,12 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok && response.headers.get('content-type')?.includes('text/html')) {
+          const cacheControl = response.headers.get('cache-control') || '';
+          if (
+            response.ok &&
+            response.headers.get('content-type')?.includes('text/html') &&
+            !cacheControl.includes('no-store')
+          ) {
             const clone = response.clone();
             event.waitUntil(caches.open(PAGE_CACHE).then((cache) => cache.put(request, clone)));
           }
