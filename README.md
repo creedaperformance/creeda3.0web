@@ -1,335 +1,229 @@
-# CREEDA Research Intelligence System
+# Creeda — Web
 
-CREEDA is not a research viewer. This subsystem exists so CREEDA can make athlete, coach, and individual recommendations that are internally evidence-backed without ever exposing raw papers, citations, journals, or academic wording to end users.
+The Next.js web application for Creeda. Sports science on a phone, starting with India.
 
-The core rule is simple:
+> Vision: be the most trusted AI sports scientist and health-performance operating system for athletes, coaches, and everyday people. Replace "magical but ungrounded" wellness tracking with believable, actionable, localized decisions.
 
-- research stays hidden
-- user-facing output stays short and action-oriented
-- recommendations only come from approved evidence bundles and approved decision rules
+This repo is the v2 baseline. The mobile app lives separately at [creedaperformance/CREEDA-2.0-Android](https://github.com/creedaperformance/CREEDA-2.0-Android) (one Expo project that builds for both Android and iOS).
 
-## What This Adds
+---
 
-This implementation adds an internal, production-oriented research layer to the app:
+## What this product is, in one screen
 
-- Prisma schema and migration for research sources, canonical papers, provenance, findings, bundles, rules, audits, and checkpoints
-- metadata-first ingestion adapters for PubMed, Crossref, Europe PMC, OpenAlex, and optional Semantic Scholar enrichment
-- a license and access-policy gate that blocks unauthorized full-text parsing and snippet storage
-- deterministic taxonomy normalization for CREEDA metrics and outcomes
-- rule-based parsing of abstracts and permitted full text into normalized findings
-- paper scoring, bundle consistency, and bundle strength calculation
-- a deterministic rule engine that evaluates approved rules against user signals
-- audit logging and evidence-chain tracing for internal review
-- protected internal API routes for research operations
-- BullMQ queue scaffolding for sync, parse, score, bundle, and publish jobs
-- starter seed data and Jest coverage
+Every persona — Athlete, Coach, Individual — gets one home screen with the same four zones. Every other route is one tap away.
 
-## Architecture
+```
+ZONE 1  TODAY DECISION  — readiness ring + single-line directive + why-line
+ZONE 2  TODAY PLAN      — one prescribed session / drills / rest, with start CTA
+ZONE 3  THIS WEEK       — streak, compliance, phase, event countdown
+ZONE 4  NEXT            — one contextual unlock (coach feedback > scan > wearable > check-in)
+```
 
-### 1. Persistence
+Per-persona content fills the same shell:
 
-- Prisma schema: [prisma/schema.prisma](/Users/creeda/creeda-app/prisma/schema.prisma)
-- Migration: [prisma/migrations/20260422120000_research_intelligence_system/migration.sql](/Users/creeda/creeda-app/prisma/migrations/20260422120000_research_intelligence_system/migration.sql)
-- Prisma client singleton: [src/lib/research/prisma.ts](/Users/creeda/creeda-app/src/lib/research/prisma.ts)
+| Persona     | Z1 voice                                | Z4 priority example                            |
+|-------------|------------------------------------------|------------------------------------------------|
+| Athlete     | "Body says steady. Build."               | Coach left feedback → review last scan         |
+| Individual  | "Push, Maintain, or Recover today."      | Try a movement scan                             |
+| Coach       | "3 red flags — bench or modify before practice." | Video review queue (athlete clips waiting) |
 
-The research schema stores:
+The single-line directive engine produces 6 action states (`train_hard`, `train_light`, `mobility_only`, `recovery_focus`, `deload`, `full_rest`) with multiple stable copy variants per persona. See [src/components/performance-view/directives.ts](src/components/performance-view/directives.ts).
 
-- `research_sources`
-- `research_papers`
-- `research_authors`
-- `research_paper_authors`
-- `research_tags`
-- `research_paper_tags`
-- `research_findings`
-- `research_evidence_passages`
-- `research_evidence_bundles`
-- `research_bundle_papers`
-- `decision_rules`
-- `decision_audit_logs`
-- `research_paper_source_records`
-- `research_paper_field_provenance`
-- `research_sync_checkpoints`
+The full product blueprint, kill list, and phased plan live at [docs/CREEDA_BLUEPRINT.md](docs/CREEDA_BLUEPRINT.md).
 
-### 2. Taxonomy And Normalization
+---
 
-Taxonomy lives in [src/lib/research/taxonomy.ts](/Users/creeda/creeda-app/src/lib/research/taxonomy.ts).
+## Tech stack
 
-It provides:
+- **Framework:** Next.js 16.2 (App Router) + React 19, TypeScript
+- **Styling:** Tailwind CSS 4 with a CSS-variable design system. `data-persona`, `data-sport`, `data-region` attributes drive accent colors via the modulator system in [src/app/globals.css](src/app/globals.css).
+- **Data + auth:** Supabase (Postgres + Auth + RLS). SSR via `@supabase/ssr`.
+- **Vision:** `@mediapipe/tasks-vision` for the Universal Movement Screen and sport-specific overlays.
+- **Payments:** Stripe.
+- **Forms:** React Hook Form + Zod, with an adaptive form engine in [src/forms/](src/forms/).
+- **Background jobs:** BullMQ (Redis) for the research-intelligence pipeline.
+- **Testing:** Playwright (E2E) + Jest (unit). Stable test IDs `data-testid="zone-{decision,plan,week,next}"` keep dashboard specs robust.
 
-- metric normalization such as `HRV`, `heart rate variability`, and `vagal indices` -> `hrv`
-- training-load normalization such as `training load`, `session load`, `acute load` -> `acute_load`
-- outcome normalization such as `preparedness` -> `readiness`
-- sport taxonomy
-- age-group taxonomy
-- population taxonomy
-- study-type taxonomy
-- unit-safe parsing helpers for hours, percentages, and sample size
+---
 
-### 3. Ingestion
+## Quick start
 
-Source adapters live under [src/lib/research/sources](/Users/creeda/creeda-app/src/lib/research/sources).
+Requirements: Node 20.9+ (and < 25), a Supabase project, optionally Redis for the research pipeline.
 
-Implemented adapters:
+```bash
+git clone https://github.com/creedaperformance/Creeda-2.0-Web.git
+cd Creeda-2.0-Web
+npm install
+cp .env.example .env.local   # or create .env.local manually with the vars below
+npm run dev
+```
 
-- `PubMedSourceAdapter`
-- `CrossrefSourceAdapter`
-- `EuropePmcSourceAdapter`
-- `OpenAlexSourceAdapter`
-- `SemanticScholarSourceAdapter`
+The app runs at `http://localhost:3000`. Sign up flows live at `/signup`; persona homes are `/athlete/dashboard`, `/coach/dashboard`, `/individual/dashboard`.
 
-Every adapter is metadata-first. Full text is only fetched later if the access-policy layer explicitly allows it.
+### Environment variables
 
-### 4. Canonicalization
+Required for any non-trivial run:
 
-Canonicalization lives in [src/lib/research/canonicalization.ts](/Users/creeda/creeda-app/src/lib/research/canonicalization.ts).
-
-Rules:
-
-- prefer DOI first
-- fall back to PMID, PMCID, OpenAlex ID, or Semantic Scholar ID
-- merge metadata conservatively
-- preserve field provenance
-- never create a second canonical paper for the same identifier set
-
-### 5. Access Policy
-
-License and access control lives in [src/lib/research/access-policy.ts](/Users/creeda/creeda-app/src/lib/research/access-policy.ts).
-
-Supported decisions:
-
-- `metadata_only`
-- `open_access_fulltext_allowed`
-- `licensed_fulltext_allowed`
-- `blocked_fulltext`
-
-This policy decides:
-
-- whether full text may be fetched
-- whether passage snippets may be stored
-- why the decision was made
-
-### 6. Parsing And Findings
-
-Parsing lives in [src/lib/research/parsing.ts](/Users/creeda/creeda-app/src/lib/research/parsing.ts).
-
-The parser converts abstract or permitted full text into normalized internal findings such as:
-
-- `sleep_duration lt_6h -> fatigue_risk increases`
-- `hrv downward_trend -> readiness decreases`
-- `hydration_status dehydrated -> sprint_performance decreases`
-- `acute_load spike_above_baseline -> injury_risk increases`
-
-Unknown or malformed findings are rejected rather than silently accepted.
-
-### 7. Scoring, Bundles, And Rules
-
-- scoring: [src/lib/research/scoring.ts](/Users/creeda/creeda-app/src/lib/research/scoring.ts)
-- bundles: [src/lib/research/bundles.ts](/Users/creeda/creeda-app/src/lib/research/bundles.ts)
-- rules: [src/lib/research/rules.ts](/Users/creeda/creeda-app/src/lib/research/rules.ts)
-
-Scoring considers:
-
-- study type
-- sample size
-- recency
-- sport match
-- population match
-- replication count
-- retraction or correction status
-
-Bundles are the unit of trust for CREEDA. Single papers do not directly power recommendations.
-
-Rules are deterministic JSON-based conditions evaluated against user signals. The rule engine decides the recommendation. An LLM may rewrite tone later, but it must not change the logic.
-
-### 8. Service Layer
-
-The orchestration layer lives in [src/lib/research/service.ts](/Users/creeda/creeda-app/src/lib/research/service.ts).
-
-Implemented internal services:
-
-- `syncPubMed()`
-- `syncCrossref()`
-- `syncEuropePMC()`
-- `syncOpenAlex()`
-- `syncSemanticScholar()`
-- `canonicalizeNewRecords()`
-- `parsePendingResearch()`
-- `scorePendingPapers()`
-- `buildPendingBundles()`
-- `publishApprovedRules()`
-- `evaluateUserSignals()`
-- `writeDecisionAuditLog()`
-- `traceRecommendationToBundle()`
-- `traceBundleToPapers()`
-
-### 9. Internal Admin Routes
-
-Protected internal routes:
-
-- `GET /api/internal/research/papers`
-- `GET /api/internal/research/bundles`
-- `GET /api/internal/research/rules`
-- `GET /api/internal/research/trace`
-- `POST /api/internal/research/sync`
-- `POST /api/internal/research/parse`
-- `POST /api/internal/research/publish`
-
-All of these require `RESEARCH_INTERNAL_API_TOKEN`.
-
-## Environment Variables
-
-Required:
-
-- `DATABASE_URL`
-- `RESEARCH_INTERNAL_API_TOKEN`
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...        # admin-only operations like account deletion
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+DATABASE_URL=postgres://...           # for Prisma + the research subsystem
+```
 
 Optional:
 
-- `RESEARCH_REDIS_URL`
-- `RESEARCH_OPENALEX_API_KEY`
-- `RESEARCH_SEMANTIC_SCHOLAR_API_KEY`
-- `RESEARCH_ENABLE_OPENALEX=true|false`
-- `RESEARCH_ENABLE_SEMANTIC_SCHOLAR=true|false`
-- `RESEARCH_ENABLE_SEMANTIC_RETRIEVAL=true|false`
-- `RESEARCH_CONTACT_EMAIL`
-- `RESEARCH_PUBMED_QUERY`
+```
+# Stripe (only needed for paid tier)
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
 
-## Local Setup
+# Research intelligence pipeline (admin-only, hidden from end users)
+RESEARCH_INTERNAL_API_TOKEN=...
+RESEARCH_REDIS_URL=...
+RESEARCH_OPENALEX_API_KEY=...
+RESEARCH_SEMANTIC_SCHOLAR_API_KEY=...
+RESEARCH_ENABLE_OPENALEX=true
+RESEARCH_ENABLE_SEMANTIC_SCHOLAR=true
+RESEARCH_ENABLE_SEMANTIC_RETRIEVAL=true
+RESEARCH_CONTACT_EMAIL=...
+RESEARCH_PUBMED_QUERY=...
 
-Install dependencies:
-
-```bash
-npm install
+# SEO (production only)
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-...
+NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=...
+NEXT_PUBLIC_BING_SITE_VERIFICATION=...
+INDEXNOW_KEY=...
+INDEXNOW_API_TOKEN=...
 ```
 
-Validate and generate Prisma:
+---
+
+## Database
+
+Migrations are hand-rolled SQL in [migrations/](migrations/). Apply them in the Supabase SQL Editor or via `psql`. The latest migration ([migrations/20260425_video_analysis_comments.sql](migrations/20260425_video_analysis_comments.sql)) wires the coach ↔ athlete video-review feedback loop.
+
+There's also a Prisma schema for the research subsystem at [prisma/schema.prisma](prisma/schema.prisma):
 
 ```bash
 npm run prisma:validate
 npm run prisma:generate
-```
-
-Apply migrations:
-
-```bash
 npx prisma migrate deploy
 ```
 
-Seed the research subsystem:
+Seed scripts:
 
 ```bash
+npm run seed:exercise-library
 npm run seed:research-intelligence
+npm run media:build-exercises
 ```
 
-Run tests:
+---
+
+## Scripts
 
 ```bash
-npm test
+npm run dev               # Next dev server
+npm run build             # production build (webpack)
+npm run start             # serve the production build
+npm run lint              # ESLint
+npm run typecheck         # tsc --noEmit
+npm run test              # Jest
+npm run security:predeploy
 ```
 
-Typecheck:
+Playwright E2E uses `webServer: npm run build && npm run start` so it boots a real production build:
 
 ```bash
-npm run typecheck
+npx playwright test                          # full suite (requires .auth setup)
+npx playwright test --project=chromium-public # public + connection flows only
 ```
 
-## Ingestion Flow
+---
 
-1. Source adapter fetches metadata.
-2. Raw source payload is stored in `research_paper_source_records`.
-3. `canonicalizeNewRecords()` merges duplicate records into `research_papers`.
-4. Access policy is resolved.
-5. Abstracts are parsed immediately.
-6. Full text is fetched only if policy allows it.
-7. Findings are normalized into `research_findings`.
-8. Papers are scored.
-9. Bundles are built from multiple supporting papers.
-10. Only approved bundles can back approved rules.
-11. `evaluateUserSignals()` executes rules and writes audit logs.
+## Project structure
 
-## Access Policy Rules
+```
+src/
+├── app/                          # Next.js App Router
+│   ├── athlete/dashboard/        # Athlete Performance View (4 zones)
+│   ├── coach/dashboard/          # Coach Performance View (squad pulse + triage)
+│   ├── individual/dashboard/     # Individual Performance View (calm pacing)
+│   ├── athlete/scan/             # Video analysis flow (Universal + sport overlays)
+│   ├── coach/reports/[id]/       # Coach video-report viewer + comment composer
+│   ├── athlete/scan/report/[id]/ # Athlete report viewer + read-marked comments
+│   ├── api/                      # Web + mobile API routes
+│   └── (auth)/, /signup, /login  # Public + auth surfaces
+├── components/
+│   ├── performance-view/         # 4-zone shell + directive library
+│   ├── neon/                     # canonical design primitives (also used by mobile)
+│   ├── video-analysis/           # MediaPipe scan UI + coach-athlete comment thread
+│   ├── form/                     # adaptive form wizard
+│   └── ui/                       # base primitives
+├── forms/                        # adaptive onboarding flows + schemas + decision engines
+└── lib/                          # decision engines, vision rules, video analysis,
+                                  #   research intelligence, dashboard composers
+docs/
+├── CREEDA_BLUEPRINT.md           # the unified product blueprint
+└── audits/                       # historical audit reports
+migrations/                       # raw SQL migrations for Supabase
+prisma/                           # Prisma schema + research-intelligence migrations
+mobile/                           # Expo app — kept in sync with the standalone mobile repo
+tests/                            # Playwright + Jest specs
+```
 
-- metadata may be stored when source terms allow it
-- full text may only be fetched when open access or explicitly licensed
-- blocked full text never enters the parser
-- evidence passages are only stored when passage storage is allowed
-- access decisions keep a stored reason and audit payload
+The `mobile/` directory in this repo is a working copy of the Expo app. The canonical mobile repo is [CREEDA-2.0-Android](https://github.com/creedaperformance/CREEDA-2.0-Android). Either keep them in sync via subtree, or delete `mobile/` from this repo once you're confident in the standalone workflow.
 
-## Starter Bundles
+---
 
-The initial bundle templates are defined in [src/lib/research/config.ts](/Users/creeda/creeda-app/src/lib/research/config.ts):
+## Deploy
 
-- `fatigue_sleep_load_v1`
-- `readiness_hrv_soreness_mood_v1`
-- `hydration_status_performance_v1`
-- `illness_recovery_redflags_v1`
-- `injury_risk_load_spike_v1`
+### Vercel (recommended)
 
-## Starter Rules
+1. Connect this repo to a Vercel project
+2. Add the env vars above to the Vercel project settings (Production + Preview)
+3. The build command is the default: `npm run build`
+4. First deploy goes to your preview URL; production deploys on push to `main`
 
-The starter seeded rules are defined in [src/lib/research/seed.ts](/Users/creeda/creeda-app/src/lib/research/seed.ts) and cover:
+### Apply the latest migration
 
-- low sleep + high load + low HRV
-- low HRV + high soreness + low mood
-- low hydration
-- illness flag
-- acute load spike over chronic baseline
+Before the coach ↔ athlete feedback loop works in production:
 
-## Output Rules
+```bash
+psql "$DATABASE_URL" -f migrations/20260425_video_analysis_comments.sql
+```
 
-End users should only see short, supportive, action-ready phrasing such as:
+Or paste the file into the Supabase SQL Editor.
 
-- `Recovery is reduced today. Keep training light.`
-- `Fatigue is building. Prioritize recovery.`
-- `Hydration is below target. Rehydrate before your next session.`
+---
 
-They must not see:
+## Testing checklist for beta
 
-- paper titles
-- journals
-- citations
-- effect sizes
-- academic uncertainty language
+The beta is shippable when all three founders can complete this loop in under 5 minutes from a cold install:
 
-The athlete and individual dashboard copy was adjusted so the product no longer exposes research references directly in those user-facing paths.
+1. Open the app, sign up, pick a persona
+2. Finish onboarding (target: 90s)
+3. Complete the daily check-in (target: 10s)
+4. See readiness score + single-line directive on the home screen
+5. Tap *Today's session* → see the prescription
+6. (Athlete) tap *Movement Analysis* → record a 5–20s clip → see fault detection result
+7. (Coach) see the squad grid with at least one red/amber athlete
+8. Receive a push notification 12–24 hours later prompting the next check-in
 
-## Queue System
+If any step fails, the beta is not ready. See [docs/CREEDA_BLUEPRINT.md §10](docs/CREEDA_BLUEPRINT.md) for the full readiness rubric.
 
-BullMQ scaffolding lives in [src/lib/research/queues.ts](/Users/creeda/creeda-app/src/lib/research/queues.ts).
+---
 
-Queues:
+## Other repos
 
-- `research-sync`
-- `research-parse`
-- `research-score`
-- `research-bundle`
-- `research-publish`
+- Mobile (Expo, builds Android + iOS): https://github.com/creedaperformance/CREEDA-2.0-Android
+- Original v1 archive: https://github.com/creedaperformance/Creeda-live
 
-These require `RESEARCH_REDIS_URL`.
+---
 
-## Example JSON
+## Contact
 
-Example files live in [docs/research-intelligence/examples](/Users/creeda/creeda-app/docs/research-intelligence/examples):
-
-- [canonical-paper.example.json](/Users/creeda/creeda-app/docs/research-intelligence/examples/canonical-paper.example.json)
-- [finding.example.json](/Users/creeda/creeda-app/docs/research-intelligence/examples/finding.example.json)
-- [bundle.example.json](/Users/creeda/creeda-app/docs/research-intelligence/examples/bundle.example.json)
-- [rule.example.json](/Users/creeda/creeda-app/docs/research-intelligence/examples/rule.example.json)
-- [decision-audit-log.example.json](/Users/creeda/creeda-app/docs/research-intelligence/examples/decision-audit-log.example.json)
-
-## Test Coverage
-
-Jest coverage in [src/lib/research/__tests__](/Users/creeda/creeda-app/src/lib/research/__tests__) includes:
-
-- taxonomy normalization
-- access policy
-- canonicalization and deduplication
-- scoring
-- rule evaluation
-- parsing snapshots
-- source-ingestion adapters with mocked APIs
-- seeded rule regressions
-
-## Notes On Indian Research Coverage
-
-Indian sports science, physiotherapy, and medical journals are supported through the metadata adapters and the normalization layer. This system does not assume blanket full-text reuse rights for those journals. They are discoverable and enrichable, but full-text parsing still depends on explicit license and access-policy approval.
+This is a closed-source product repo. For investor / partnership / academy onboarding inquiries, reach the founding team at [creedaperformance.com](https://creedaperformance.com) (or the equivalent contact route documented in your internal handbook).
