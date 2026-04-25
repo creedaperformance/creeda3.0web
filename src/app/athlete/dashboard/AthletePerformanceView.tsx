@@ -360,7 +360,7 @@ function EmptyState() {
             Your sports scientist is ready
           </h1>
           <p className="mt-3 max-w-md text-sm text-white/55">
-            Take the 10-second check-in. Energy, body, mind. That's all the engine needs to make today's call.
+            Take the 10-second check-in. Energy, body, mind. That&apos;s all the engine needs to make today&apos;s call.
           </p>
           <Link
             href="/athlete/checkin"

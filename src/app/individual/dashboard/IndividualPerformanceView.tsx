@@ -256,7 +256,7 @@ function EmptyIndividualView({ name }: { name: string }) {
             Welcome back, {name}
           </h1>
           <p className="mt-3 max-w-md text-sm text-white/55">
-            Take the 60-second pulse — energy, body feel, life load. That's enough to give you today's call.
+            Take the 60-second pulse — energy, body feel, life load. That&apos;s enough to give you today&apos;s call.
           </p>
           <Link
             href="/individual/logging"
