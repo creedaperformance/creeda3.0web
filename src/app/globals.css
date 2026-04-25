@@ -447,6 +447,18 @@ body {
   min-height: 100dvh;
 }
 
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+img,
+video {
+  height: auto;
+}
+
 /* Mobile-first: prevent overscroll bounce */
 @supports (overscroll-behavior: none) {
   body { overscroll-behavior-y: none; }

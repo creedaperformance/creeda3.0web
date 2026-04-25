@@ -5,22 +5,25 @@ import { updateSession } from '@/lib/supabase/middleware'
 
 const MAX_API_REQUEST_BYTES = 10 * 1024 * 1024
 const PREVIEW_HOST_SUFFIXES = ['.vercel.app', '.vercel.sh', '.netlify.app']
+const CACHEABLE_PUBLIC_DOCUMENT_PATHS = new Set([
+  '/humans.txt',
+  '/indexnow.txt',
+  '/llms.txt',
+  '/robots.txt',
+  '/sitemap.xml',
+])
 
 function shouldDisableCache(pathname: string) {
+  if (CACHEABLE_PUBLIC_DOCUMENT_PATHS.has(pathname)) {
+    return false
+  }
+
   return (
     pathname.startsWith('/api/') ||
     pathname.startsWith('/athlete') ||
     pathname.startsWith('/coach') ||
     pathname.startsWith('/individual') ||
-    pathname === '/dashboard' ||
-    pathname === '/learn' ||
-    pathname === '/offline' ||
-    pathname === '/login' ||
-    pathname === '/signup' ||
-    pathname === '/verify-email' ||
-    pathname === '/forgot-password' ||
-    pathname === '/reset-password' ||
-    pathname === '/verification-success'
+    !pathname.includes('.')
   )
 }
 
@@ -100,7 +103,9 @@ export async function proxy(request: NextRequest) {
   response.headers.set('X-Request-Id', requestId)
 
   if (shouldDisableCache(pathname)) {
-    response.headers.set('Cache-Control', 'private, no-store, no-cache, max-age=0, must-revalidate')
+    response.headers.set('Cache-Control', 'no-store, no-cache, max-age=0, s-maxage=0, must-revalidate')
+    response.headers.set('CDN-Cache-Control', 'no-store')
+    response.headers.set('Surrogate-Control', 'no-store')
     response.headers.set('Pragma', 'no-cache')
   }
 

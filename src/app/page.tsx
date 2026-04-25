@@ -38,6 +38,8 @@ const homePageSeo = {
   ],
 } as const
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 export const metadata = createPageMetadata(homePageSeo)
 
 const ATHLETE_SPORTS = ['Cricket', 'Badminton', 'Football', 'Athletics', 'Kabaddi', 'Hockey']
@@ -241,7 +243,9 @@ export default function LandingPage() {
                       width={1200}
                       height={800}
                       priority
-                      className="mt-4 w-full h-auto object-contain"
+                      sizes="(max-width: 767px) calc(100vw - 4rem), (max-width: 1279px) 42rem, 44rem"
+                      className="mt-4 block h-auto max-w-full object-contain"
+                      style={{ width: '100%', maxWidth: '100%', height: 'auto' }}
                     />
                     <p className="mt-3 text-sm text-slate-300/80 leading-relaxed">
                       One platform, two clearly different journeys: athlete performance and healthier everyday living.

@@ -150,6 +150,12 @@ Total: ~3 minutes. You can script this via `git push` + a webhook later if it be
 - Make sure you deleted any old static `.next/` folder from `public_html` — if it's there, Apache will serve it directly before the rewrite kicks in
 - Try a hard refresh in the browser (Cmd+Shift+R) to bypass cached old responses
 
+### Homepage looks unstyled or too wide on mobile
+
+- Purge Hostinger CDN/cache after deploying, then restart the Node.js application. A stale cached `/` HTML response can reference old `_next/static` chunk filenames that no longer exist.
+- Confirm with `curl -I https://www.creeda.in/`: the homepage should not show an old `age` value with `x-hcdn-cache-status: HIT`.
+- If mobile Chrome still shows the old page after the purge, clear the site data for `creeda.in` or open the page in an incognito tab to bypass stale browser cache.
+
 ### "Module not found" or build errors during npm run build
 
 - Confirm Node version in hPanel is `20.x` (not 18). Next.js 16 needs Node 20+.
