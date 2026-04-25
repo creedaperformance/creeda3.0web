@@ -70,15 +70,13 @@ export async function rateLimit(
     key: string,
     limit: number,
     windowSeconds: number,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _options?: {
         failOpen?: boolean
     }
 ): Promise<{ success: boolean; error?: string }> {
-    const supabase = await createClient();
-
     let rpcError: SupabaseRpcError | null = null;
     try {
+        const supabase = await createClient();
         const { data: isAllowed, error } = await supabase.rpc('check_rate_limit', {
             p_key: key,
             p_limit: limit,

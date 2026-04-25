@@ -12,7 +12,7 @@ This guide gets the app running as an actual Node process behind Hostinger's rev
 - Hostinger Premium / Business plan (Node.js apps enabled)
 - Domain pointed at the plan (you have `creeda.in` and `www.creeda.in`)
 - Supabase project URL + anon key + service role key
-- The `check_rate_limit` SQL applied (see [migrations/02_patch_rate_limit_and_log_columns.sql](../migrations/02_patch_rate_limit_and_log_columns.sql))
+- The `check_rate_limit` SQL repair applied (see [migrations/20260425_v37_rate_limit_rpc_repair.sql](../migrations/20260425_v37_rate_limit_rpc_repair.sql))
 
 ## One-time setup in hPanel
 
@@ -160,8 +160,9 @@ Total: ~3 minutes. You can script this via `git push` + a webhook later if it be
 
 ### Signup says "Rate limiting is temporarily unavailable"
 
-- Apply [migrations/02_patch_rate_limit_and_log_columns.sql](../migrations/02_patch_rate_limit_and_log_columns.sql) (or the SQL provided previously) in the Supabase SQL Editor.
-- The code now falls back to an in-memory rate limiter if the DB function is missing, but apply the SQL for cross-instance correctness.
+- First confirm Hostinger is running the latest GitHub commit, then restart the Node.js application. Current code does not return this message; stale `.next` output or an old Node process can keep serving the old server action.
+- Apply [migrations/20260425_v37_rate_limit_rpc_repair.sql](../migrations/20260425_v37_rate_limit_rpc_repair.sql) in the Supabase SQL Editor. It recreates `check_rate_limit`, restores `GRANT EXECUTE` for `anon` and `authenticated`, and reloads the PostgREST schema cache.
+- The code falls back to an in-memory rate limiter if the DB function is unavailable, but applying the SQL keeps rate limiting consistent across Hostinger workers.
 
 ## Why this is reliable
 
