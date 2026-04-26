@@ -1,7 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { ClipboardList, Copy, MessageSquareQuote, Users, Video } from 'lucide-react'
+import {
+  ArrowRight,
+  ClipboardList,
+  Copy,
+  MessageSquareQuote,
+  Plus,
+  Users,
+  Video,
+} from 'lucide-react'
 
 import { PerformanceShell } from '@/components/performance-view/PerformanceShell'
 import { CalibrationCard } from '@/components/onboarding-v2/CalibrationCard'
@@ -16,6 +24,17 @@ import type { OnboardingV2Snapshot } from '@/lib/onboarding-v2/types'
 
 type CoachVideoReport = VideoAnalysisReportSummary & { athleteName: string; athleteAvatarUrl: string | null }
 
+type CoachSquadCard = {
+  id: string
+  name: string
+  sport: string
+  level: string
+  member_count: number
+  primary_focus: string | null
+  invite_code: string
+  invite_url: string
+}
+
 interface CoachPerformanceViewProps {
   videoReports: CoachVideoReport[]
   lockerCode: string | null
@@ -23,6 +42,7 @@ interface CoachPerformanceViewProps {
   operatingSnapshot: CoachOperatingSnapshot | null
   onboardingV2?: OnboardingV2Snapshot | null
   aiEnabled?: boolean
+  squads?: CoachSquadCard[]
 }
 
 function bucketAthlete(a: CoachOperatingAthlete): 'red' | 'amber' | 'green' | 'low_data' {
@@ -39,11 +59,12 @@ export function CoachPerformanceView({
   operatingSnapshot,
   onboardingV2,
   aiEnabled = false,
+  squads = [],
 }: CoachPerformanceViewProps) {
   const totalAthletes = (operatingSnapshot?.interventionQueue.length ?? 0) + (operatingSnapshot?.lowDataAthletes.length ?? 0)
 
   if (!operatingSnapshot || totalAthletes === 0) {
-    return <EmptySquadView lockerCode={lockerCode} onboardingV2={onboardingV2} aiEnabled={aiEnabled} />
+    return <EmptySquadView lockerCode={lockerCode} onboardingV2={onboardingV2} aiEnabled={aiEnabled} squads={squads} />
   }
 
   const queue = operatingSnapshot.interventionQueue
@@ -91,7 +112,14 @@ export function CoachPerformanceView({
         />
       }
       next={<ZoneCoachNext videoReports={videoReports.slice(0, 3)} lockerCode={lockerCode} />}
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
+      extra={
+        <>
+          <SquadsSection squads={squads} />
+          {onboardingV2?.hasV2Data ? (
+            <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} />
+          ) : null}
+        </>
+      }
     />
   )
 }
@@ -316,14 +344,83 @@ function ZoneCoachNext({
   )
 }
 
+function SquadsSection({ squads }: { squads: CoachSquadCard[] }) {
+  return (
+    <section className="rounded-[28px] border border-white/[0.06] bg-[#0F1015] p-5 sm:p-6 text-white">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/40">
+            Your squads
+          </p>
+          <h3 className="mt-1 text-lg font-black tracking-tight">
+            {squads.length === 0
+              ? 'No squads yet — create one to invite athletes'
+              : `${squads.length} squad${squads.length === 1 ? '' : 's'} · ${squads.reduce(
+                  (sum, s) => sum + s.member_count,
+                  0
+                )} athletes total`}
+          </h3>
+        </div>
+        <Link
+          href="/coach/squads/new"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#6ee7b7]/40 bg-[#6ee7b7]/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#a7f3d0] transition hover:bg-[#6ee7b7]/15"
+        >
+          <Plus className="h-3 w-3" /> New squad
+        </Link>
+      </div>
+
+      {squads.length === 0 ? (
+        <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/55">
+          Spin up a squad — name it (e.g. "U19 Cricket — Mumbai Academy"), pick a sport and a focus,
+          and we'll generate an invite link with QR code your athletes can join in two taps.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {squads.slice(0, 4).map((squad) => (
+            <Link
+              key={squad.id}
+              href={`/coach/squads/${squad.id}`}
+              className="flex items-start justify-between gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 transition hover:bg-white/[0.04]"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-white">{squad.name}</p>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
+                  {squad.sport} · {squad.level}
+                  {squad.primary_focus
+                    ? ` · ${squad.primary_focus.replace(/_/g, ' ')}`
+                    : ''}
+                </p>
+                <p className="mt-2 text-[11px] text-white/55">
+                  <span className="font-black text-white">{squad.member_count}</span>{' '}
+                  {squad.member_count === 1 ? 'athlete' : 'athletes'}
+                </p>
+              </div>
+              <ArrowRight className="mt-2 h-3.5 w-3.5 flex-shrink-0 text-white/40" />
+            </Link>
+          ))}
+        </div>
+      )}
+
+      <Link
+        href="/coach/squads"
+        className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#6ee7b7] hover:text-[#a7f3d0]"
+      >
+        Manage squads <ArrowRight className="h-3 w-3" />
+      </Link>
+    </section>
+  )
+}
+
 function EmptySquadView({
   lockerCode,
   onboardingV2,
   aiEnabled = false,
+  squads = [],
 }: {
   lockerCode: string | null
   onboardingV2?: OnboardingV2Snapshot | null
   aiEnabled?: boolean
+  squads?: CoachSquadCard[]
 }) {
   return (
     <PerformanceShell
@@ -370,7 +467,14 @@ function EmptySquadView({
           <p className="mt-2 text-sm text-white/45">Video review queue lights up as athletes upload movement scans.</p>
         </div>
       }
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
+      extra={
+        <>
+          <SquadsSection squads={squads} />
+          {onboardingV2?.hasV2Data ? (
+            <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} />
+          ) : null}
+        </>
+      }
     />
   )
 }

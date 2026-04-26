@@ -8,6 +8,7 @@ import { coachOnboardingFlow } from '@/forms/flows/coachFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
 import { getCoachOperatingSnapshot } from '@/lib/product/operating-system/server'
 import { getOnboardingV2Snapshot } from '@/lib/onboarding-v2/queries'
+import { listCoachSquads } from '@/lib/squads/queries'
 import { isAiEnabled } from '@/lib/env'
 
 export default async function CoachDashboard() {
@@ -37,17 +38,19 @@ export default async function CoachDashboard() {
     }
   }
 
-  const [videoReports, adaptiveProfile, operatingSnapshot, onboardingV2] = await Promise.all([
-    getCoachVideoReports(supabase, user.id, 12),
-    getAdaptiveProfileSummary({
-      supabase,
-      userId: user.id,
-      role: 'coach',
-      flowId: coachOnboardingFlow.id,
-    }),
-    getCoachOperatingSnapshot(supabase, user.id),
-    getOnboardingV2Snapshot(supabase, user.id),
-  ])
+  const [videoReports, adaptiveProfile, operatingSnapshot, onboardingV2, squads] =
+    await Promise.all([
+      getCoachVideoReports(supabase, user.id, 12),
+      getAdaptiveProfileSummary({
+        supabase,
+        userId: user.id,
+        role: 'coach',
+        flowId: coachOnboardingFlow.id,
+      }),
+      getCoachOperatingSnapshot(supabase, user.id),
+      getOnboardingV2Snapshot(supabase, user.id),
+      listCoachSquads(supabase, user.id),
+    ])
 
   return (
     <CreedaProvider>
@@ -58,6 +61,7 @@ export default async function CoachDashboard() {
         operatingSnapshot={operatingSnapshot}
         onboardingV2={onboardingV2}
         aiEnabled={isAiEnabled()}
+        squads={squads}
       />
     </CreedaProvider>
   )
