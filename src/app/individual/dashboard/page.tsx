@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getIndividualDashboardSnapshot } from '@/lib/dashboard_decisions'
 import { individualOnboardingFlow } from '@/forms/flows/individualFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
+import { getOnboardingV2Snapshot } from '@/lib/onboarding-v2/queries'
 import { IndividualPerformanceView } from './IndividualPerformanceView'
 import { CreedaProvider } from '@/lib/state_engine'
 
@@ -23,12 +24,15 @@ export default async function IndividualDashboard() {
   if (!profile.onboarding_completed) redirect('/fitstart')
 
   const snapshot = await getIndividualDashboardSnapshot(supabase, user.id)
-  const adaptiveProfile = await getAdaptiveProfileSummary({
-    supabase,
-    userId: user.id,
-    role: 'individual',
-    flowId: individualOnboardingFlow.id,
-  })
+  const [adaptiveProfile, onboardingV2] = await Promise.all([
+    getAdaptiveProfileSummary({
+      supabase,
+      userId: user.id,
+      role: 'individual',
+      flowId: individualOnboardingFlow.id,
+    }),
+    getOnboardingV2Snapshot(supabase, user.id),
+  ])
   const individualProfile = snapshot.individualProfile
 
   const initialData = {
@@ -44,7 +48,12 @@ export default async function IndividualDashboard() {
 
   return (
     <CreedaProvider initialData={initialData}>
-      <IndividualPerformanceView profile={profile} snapshot={snapshot} adaptiveProfile={adaptiveProfile} />
+      <IndividualPerformanceView
+        profile={profile}
+        snapshot={snapshot}
+        adaptiveProfile={adaptiveProfile}
+        onboardingV2={onboardingV2}
+      />
     </CreedaProvider>
   )
 }

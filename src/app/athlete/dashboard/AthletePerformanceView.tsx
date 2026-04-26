@@ -5,6 +5,7 @@ import { ClipboardCheck, ScanLine, TrendingUp, Activity, Watch } from 'lucide-re
 
 import { ReadinessOrb } from '@/components/neon/ReadinessOrb'
 import { PerformanceShell } from '@/components/performance-view/PerformanceShell'
+import { CalibrationCard } from '@/components/onboarding-v2/CalibrationCard'
 import { buildDirective, actionTone, type SportContext } from '@/components/performance-view/directives'
 import type {
   AthleteHealthSummary,
@@ -17,6 +18,7 @@ import type { DailyContextSummary } from '@/lib/context-signals/storage'
 import type { NutritionSafetySummary } from '@/lib/nutrition-safety'
 import type { AdaptiveProfileSummary } from '@/forms/types'
 import type { DailyOperatingSnapshot } from '@/lib/product/operating-system/types'
+import type { OnboardingV2Snapshot } from '@/lib/onboarding-v2/types'
 
 interface AthletePerformanceViewProps {
   result: OrchestratorOutputV5 | null
@@ -30,6 +32,7 @@ interface AthletePerformanceViewProps {
   operatingSnapshot: DailyOperatingSnapshot | null
   profile?: AthleteDashboardSnapshot['profile']
   unreadCoachComments?: number
+  onboardingV2?: OnboardingV2Snapshot | null
 }
 
 function inferSport(profile?: Record<string, unknown> | null): SportContext {
@@ -51,8 +54,9 @@ export function AthletePerformanceView({
   latestVideoReport,
   profile,
   unreadCoachComments = 0,
+  onboardingV2,
 }: AthletePerformanceViewProps) {
-  if (!operatingSnapshot) return <EmptyState />
+  if (!operatingSnapshot) return <EmptyState onboardingV2={onboardingV2} />
 
   const sport = inferSport(profile)
   const readiness = operatingSnapshot.readiness
@@ -120,6 +124,7 @@ export function AthletePerformanceView({
           unreadCoachComments={unreadCoachComments}
         />
       }
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
     />
   )
 }
@@ -349,7 +354,8 @@ function NextRow({
   )
 }
 
-function EmptyState() {
+function EmptyState({ onboardingV2 }: { onboardingV2?: OnboardingV2Snapshot | null }) {
+  const checkinHref = onboardingV2?.hasV2Data ? '/onboarding/daily-ritual' : '/athlete/checkin'
   return (
     <PerformanceShell
       role="athlete"
@@ -363,7 +369,7 @@ function EmptyState() {
             Take the 10-second check-in. Energy, body, mind. That&apos;s all the engine needs to make today&apos;s call.
           </p>
           <Link
-            href="/athlete/checkin"
+            href={checkinHref}
             className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[var(--saffron)] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-black shadow-[0_0_30px_var(--saffron-glow)]"
           >
             <ClipboardCheck className="h-4 w-4" /> Start check-in
@@ -373,6 +379,7 @@ function EmptyState() {
       plan={<EmptyHint title="Today's plan" body="Plan locks in after the first check-in." />}
       week={<EmptyHint title="This week" body="Trends start appearing after 3 days of data." />}
       next={<EmptyHint title="Next" body="Connect a wearable any time to make the score sharper." />}
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
     />
   )
 }

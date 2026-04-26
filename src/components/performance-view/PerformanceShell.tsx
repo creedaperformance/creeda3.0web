@@ -11,9 +11,14 @@ interface PerformanceShellProps {
   plan: ReactNode
   week: ReactNode
   next: ReactNode
+  /**
+   * Optional extra content rendered after the four standard zones, inside the
+   * same column. Used by the Onboarding v2 calibration card.
+   */
+  extra?: ReactNode
 }
 
-export function PerformanceShell({ role, sport, region, decision, plan, week, next }: PerformanceShellProps) {
+export function PerformanceShell({ role, sport, region, decision, plan, week, next, extra }: PerformanceShellProps) {
   return (
     <div
       className="relative min-h-screen bg-[var(--background)] text-white pb-24 md:pb-10"
@@ -45,6 +50,7 @@ export function PerformanceShell({ role, sport, region, decision, plan, week, ne
           <Zone testid="zone-next" tone="unlock">
             {next}
           </Zone>
+          {extra ? <div data-testid="zone-extra">{extra}</div> : null}
         </div>
       </div>
     </div>

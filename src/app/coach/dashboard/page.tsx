@@ -7,6 +7,7 @@ import { getCoachVideoReports } from '@/lib/video-analysis/service'
 import { coachOnboardingFlow } from '@/forms/flows/coachFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
 import { getCoachOperatingSnapshot } from '@/lib/product/operating-system/server'
+import { getOnboardingV2Snapshot } from '@/lib/onboarding-v2/queries'
 
 export default async function CoachDashboard() {
   const supabase = await createClient()
@@ -35,7 +36,7 @@ export default async function CoachDashboard() {
     }
   }
 
-  const [videoReports, adaptiveProfile, operatingSnapshot] = await Promise.all([
+  const [videoReports, adaptiveProfile, operatingSnapshot, onboardingV2] = await Promise.all([
     getCoachVideoReports(supabase, user.id, 12),
     getAdaptiveProfileSummary({
       supabase,
@@ -44,6 +45,7 @@ export default async function CoachDashboard() {
       flowId: coachOnboardingFlow.id,
     }),
     getCoachOperatingSnapshot(supabase, user.id),
+    getOnboardingV2Snapshot(supabase, user.id),
   ])
 
   return (
@@ -53,6 +55,7 @@ export default async function CoachDashboard() {
         lockerCode={profile?.locker_code ?? null}
         adaptiveProfile={adaptiveProfile}
         operatingSnapshot={operatingSnapshot}
+        onboardingV2={onboardingV2}
       />
     </CreedaProvider>
   )

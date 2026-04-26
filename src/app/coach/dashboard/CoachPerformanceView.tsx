@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ClipboardList, Copy, MessageSquareQuote, Users, Video } from 'lucide-react'
 
 import { PerformanceShell } from '@/components/performance-view/PerformanceShell'
+import { CalibrationCard } from '@/components/onboarding-v2/CalibrationCard'
 import { buildCoachDirective } from '@/components/performance-view/directives'
 import type {
   CoachOperatingSnapshot,
@@ -11,6 +12,7 @@ import type {
 } from '@/lib/product/operating-system/types'
 import type { VideoAnalysisReportSummary } from '@/lib/video-analysis/reporting'
 import type { AdaptiveProfileSummary } from '@/forms/types'
+import type { OnboardingV2Snapshot } from '@/lib/onboarding-v2/types'
 
 type CoachVideoReport = VideoAnalysisReportSummary & { athleteName: string; athleteAvatarUrl: string | null }
 
@@ -19,6 +21,7 @@ interface CoachPerformanceViewProps {
   lockerCode: string | null
   adaptiveProfile: AdaptiveProfileSummary | null
   operatingSnapshot: CoachOperatingSnapshot | null
+  onboardingV2?: OnboardingV2Snapshot | null
 }
 
 function bucketAthlete(a: CoachOperatingAthlete): 'red' | 'amber' | 'green' | 'low_data' {
@@ -33,11 +36,12 @@ export function CoachPerformanceView({
   videoReports,
   lockerCode,
   operatingSnapshot,
+  onboardingV2,
 }: CoachPerformanceViewProps) {
   const totalAthletes = (operatingSnapshot?.interventionQueue.length ?? 0) + (operatingSnapshot?.lowDataAthletes.length ?? 0)
 
   if (!operatingSnapshot || totalAthletes === 0) {
-    return <EmptySquadView lockerCode={lockerCode} />
+    return <EmptySquadView lockerCode={lockerCode} onboardingV2={onboardingV2} />
   }
 
   const queue = operatingSnapshot.interventionQueue
@@ -85,6 +89,7 @@ export function CoachPerformanceView({
         />
       }
       next={<ZoneCoachNext videoReports={videoReports.slice(0, 3)} lockerCode={lockerCode} />}
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
     />
   )
 }
@@ -309,7 +314,13 @@ function ZoneCoachNext({
   )
 }
 
-function EmptySquadView({ lockerCode }: { lockerCode: string | null }) {
+function EmptySquadView({
+  lockerCode,
+  onboardingV2,
+}: {
+  lockerCode: string | null
+  onboardingV2?: OnboardingV2Snapshot | null
+}) {
   return (
     <PerformanceShell
       role="coach"
@@ -355,6 +366,7 @@ function EmptySquadView({ lockerCode }: { lockerCode: string | null }) {
           <p className="mt-2 text-sm text-white/45">Video review queue lights up as athletes upload movement scans.</p>
         </div>
       }
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
     />
   )
 }

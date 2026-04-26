@@ -5,14 +5,17 @@ import { Activity, ClipboardCheck, ScanLine, Watch } from 'lucide-react'
 
 import { ReadinessOrb } from '@/components/neon/ReadinessOrb'
 import { PerformanceShell } from '@/components/performance-view/PerformanceShell'
+import { CalibrationCard } from '@/components/onboarding-v2/CalibrationCard'
 import { buildDirective, type SportContext } from '@/components/performance-view/directives'
 import type { IndividualDashboardSnapshot } from '@/lib/dashboard_decisions'
 import type { AdaptiveProfileSummary } from '@/forms/types'
+import type { OnboardingV2Snapshot } from '@/lib/onboarding-v2/types'
 
 interface IndividualPerformanceViewProps {
   profile: Record<string, unknown>
   snapshot: IndividualDashboardSnapshot
   adaptiveProfile: AdaptiveProfileSummary | null
+  onboardingV2?: OnboardingV2Snapshot | null
 }
 
 function inferSport(snapshot: IndividualDashboardSnapshot): SportContext {
@@ -36,13 +39,19 @@ function intensityToAction(intensity: 'low' | 'moderate' | 'high', score: number
 export function IndividualPerformanceView({
   snapshot,
   profile,
+  onboardingV2,
 }: IndividualPerformanceViewProps) {
   const decision = snapshot.decision
   const score = snapshot.readinessScore
   const sport = inferSport(snapshot)
 
   if (!decision) {
-    return <EmptyIndividualView name={String(profile.full_name || 'there')} />
+    return (
+      <EmptyIndividualView
+        name={String(profile.full_name || 'there')}
+        onboardingV2={onboardingV2}
+      />
+    )
   }
 
   const action = intensityToAction(decision.today.intensity, score)
@@ -83,6 +92,7 @@ export function IndividualPerformanceView({
         />
       }
       next={<ZoneIndividualNext snapshot={snapshot} />}
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
     />
   )
 }
@@ -245,7 +255,14 @@ function NextRow({
   )
 }
 
-function EmptyIndividualView({ name }: { name: string }) {
+function EmptyIndividualView({
+  name,
+  onboardingV2,
+}: {
+  name: string
+  onboardingV2?: OnboardingV2Snapshot | null
+}) {
+  const checkinHref = onboardingV2?.hasV2Data ? '/onboarding/daily-ritual' : '/individual/logging'
   return (
     <PerformanceShell
       role="individual"
@@ -259,7 +276,7 @@ function EmptyIndividualView({ name }: { name: string }) {
             Take the 60-second pulse — energy, body feel, life load. That&apos;s enough to give you today&apos;s call.
           </p>
           <Link
-            href="/individual/logging"
+            href={checkinHref}
             className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#3DDC97] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-black"
           >
             <ClipboardCheck className="h-4 w-4" /> Daily pulse
@@ -284,6 +301,7 @@ function EmptyIndividualView({ name }: { name: string }) {
           <p className="mt-2 text-sm text-white/45">Connect Apple Health or Health Connect any time to make the score sharper.</p>
         </div>
       }
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
     />
   )
 }

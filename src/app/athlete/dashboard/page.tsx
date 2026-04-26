@@ -5,6 +5,7 @@ import { getDailyOperatingSnapshot } from '@/lib/product/operating-system/server
 import { athleteOnboardingFlow } from '@/forms/flows/athleteFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
 import { countUnreadCommentsForAthlete } from '@/lib/video-analysis/comments'
+import { getOnboardingV2Snapshot } from '@/lib/onboarding-v2/queries'
 import { AthletePerformanceView } from './AthletePerformanceView'
 import { getRoleHomeRoute, getRoleOnboardingRoute, isAppRole } from '@/lib/auth_utils'
 
@@ -36,7 +37,7 @@ export default async function AthletePage() {
   }
 
   const snapshot = await getAthleteDashboardSnapshot(supabase, user.id)
-  const [adaptiveProfile, operatingSnapshot, unreadCoachComments] = await Promise.all([
+  const [adaptiveProfile, operatingSnapshot, unreadCoachComments, onboardingV2] = await Promise.all([
     getAdaptiveProfileSummary({
       supabase,
       userId: user.id,
@@ -45,6 +46,7 @@ export default async function AthletePage() {
     }),
     getDailyOperatingSnapshot(supabase, user.id, snapshot),
     countUnreadCommentsForAthlete(supabase, user.id),
+    getOnboardingV2Snapshot(supabase, user.id),
   ])
 
   return (
@@ -60,6 +62,7 @@ export default async function AthletePage() {
       operatingSnapshot={operatingSnapshot}
       profile={snapshot.profile}
       unreadCoachComments={unreadCoachComments}
+      onboardingV2={onboardingV2}
     />
   )
 }

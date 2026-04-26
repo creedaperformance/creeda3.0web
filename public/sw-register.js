@@ -1,9 +1,5 @@
 (() => {
-  const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-
-  if (!('serviceWorker' in navigator) || isLocalHost) {
-    return
-  }
+  if (!('serviceWorker' in navigator)) return
 
   window.addEventListener(
     'load',

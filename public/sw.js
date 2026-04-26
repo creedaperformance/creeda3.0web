@@ -93,7 +93,7 @@ self.addEventListener('push', (event) => {
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-72.png',
     vibrate: [100, 50, 100],
-    data: { url: data.url || '/athlete/checkin' },
+    data: { url: data.url || '/onboarding/daily-ritual' },
     actions: [
       { action: 'log', title: 'Log Now' },
       { action: 'dismiss', title: 'Later' },
