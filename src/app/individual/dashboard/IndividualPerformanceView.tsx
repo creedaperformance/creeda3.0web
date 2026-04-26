@@ -16,6 +16,7 @@ interface IndividualPerformanceViewProps {
   snapshot: IndividualDashboardSnapshot
   adaptiveProfile: AdaptiveProfileSummary | null
   onboardingV2?: OnboardingV2Snapshot | null
+  aiEnabled?: boolean
 }
 
 function inferSport(snapshot: IndividualDashboardSnapshot): SportContext {
@@ -40,6 +41,7 @@ export function IndividualPerformanceView({
   snapshot,
   profile,
   onboardingV2,
+  aiEnabled = false,
 }: IndividualPerformanceViewProps) {
   const decision = snapshot.decision
   const score = snapshot.readinessScore
@@ -50,6 +52,7 @@ export function IndividualPerformanceView({
       <EmptyIndividualView
         name={String(profile.full_name || 'there')}
         onboardingV2={onboardingV2}
+        aiEnabled={aiEnabled}
       />
     )
   }
@@ -92,7 +95,7 @@ export function IndividualPerformanceView({
         />
       }
       next={<ZoneIndividualNext snapshot={snapshot} />}
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
     />
   )
 }
@@ -258,9 +261,11 @@ function NextRow({
 function EmptyIndividualView({
   name,
   onboardingV2,
+  aiEnabled = false,
 }: {
   name: string
   onboardingV2?: OnboardingV2Snapshot | null
+  aiEnabled?: boolean
 }) {
   const checkinHref = onboardingV2?.hasV2Data ? '/onboarding/daily-ritual' : '/individual/logging'
   return (
@@ -301,7 +306,7 @@ function EmptyIndividualView({
           <p className="mt-2 text-sm text-white/45">Connect Apple Health or Health Connect any time to make the score sharper.</p>
         </div>
       }
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
     />
   )
 }

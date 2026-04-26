@@ -131,6 +131,32 @@ export function getCronSecret() {
   return candidate.length >= 16 ? candidate : null
 }
 
+const anthropicKeySchema = z.string().min(20, 'ANTHROPIC_API_KEY is too short.')
+
+export type AnthropicConfig = {
+  apiKey: string
+  /** Default model id used by the AI Sports Scientist chat. */
+  model: string
+  /** Soft cap on output tokens per response. */
+  maxTokens: number
+}
+
+export function getAnthropicConfig(): AnthropicConfig | null {
+  const apiKey = normalizeEnvValue(process.env.ANTHROPIC_API_KEY)
+  if (!apiKey || !anthropicKeySchema.safeParse(apiKey).success) return null
+  const model =
+    normalizeEnvValue(process.env.ANTHROPIC_MODEL) || 'claude-sonnet-4-5-20250929'
+  const maxTokensRaw = Number(normalizeEnvValue(process.env.ANTHROPIC_MAX_TOKENS) || '1024')
+  const maxTokens = Number.isFinite(maxTokensRaw)
+    ? Math.max(256, Math.min(8192, Math.round(maxTokensRaw)))
+    : 1024
+  return { apiKey, model, maxTokens }
+}
+
+export function isAiEnabled() {
+  return getAnthropicConfig() !== null
+}
+
 export function getSiteUrl() {
   const candidate = normalizeEnvValue(process.env.NEXT_PUBLIC_SITE_URL)
   if (!candidate) return DEFAULT_SITE_URL

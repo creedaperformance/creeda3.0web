@@ -22,6 +22,7 @@ interface CoachPerformanceViewProps {
   adaptiveProfile: AdaptiveProfileSummary | null
   operatingSnapshot: CoachOperatingSnapshot | null
   onboardingV2?: OnboardingV2Snapshot | null
+  aiEnabled?: boolean
 }
 
 function bucketAthlete(a: CoachOperatingAthlete): 'red' | 'amber' | 'green' | 'low_data' {
@@ -37,11 +38,12 @@ export function CoachPerformanceView({
   lockerCode,
   operatingSnapshot,
   onboardingV2,
+  aiEnabled = false,
 }: CoachPerformanceViewProps) {
   const totalAthletes = (operatingSnapshot?.interventionQueue.length ?? 0) + (operatingSnapshot?.lowDataAthletes.length ?? 0)
 
   if (!operatingSnapshot || totalAthletes === 0) {
-    return <EmptySquadView lockerCode={lockerCode} onboardingV2={onboardingV2} />
+    return <EmptySquadView lockerCode={lockerCode} onboardingV2={onboardingV2} aiEnabled={aiEnabled} />
   }
 
   const queue = operatingSnapshot.interventionQueue
@@ -89,7 +91,7 @@ export function CoachPerformanceView({
         />
       }
       next={<ZoneCoachNext videoReports={videoReports.slice(0, 3)} lockerCode={lockerCode} />}
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
     />
   )
 }
@@ -317,9 +319,11 @@ function ZoneCoachNext({
 function EmptySquadView({
   lockerCode,
   onboardingV2,
+  aiEnabled = false,
 }: {
   lockerCode: string | null
   onboardingV2?: OnboardingV2Snapshot | null
+  aiEnabled?: boolean
 }) {
   return (
     <PerformanceShell
@@ -366,7 +370,7 @@ function EmptySquadView({
           <p className="mt-2 text-sm text-white/45">Video review queue lights up as athletes upload movement scans.</p>
         </div>
       }
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
     />
   )
 }

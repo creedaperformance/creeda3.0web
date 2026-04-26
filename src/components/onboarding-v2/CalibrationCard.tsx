@@ -4,6 +4,7 @@ import Link from 'next/link'
 import {
   ArrowRight,
   Activity,
+  Brain,
   CheckCircle2,
   ClipboardCheck,
   Flame,
@@ -57,9 +58,16 @@ interface CalibrationCardProps {
   snapshot: OnboardingV2Snapshot
   showHeader?: boolean
   className?: string
+  /** When true, surface the AI Sports Scientist CTA. Driven by isAiEnabled() server-side. */
+  aiEnabled?: boolean
 }
 
-export function CalibrationCard({ snapshot, showHeader = true, className }: CalibrationCardProps) {
+export function CalibrationCard({
+  snapshot,
+  showHeader = true,
+  className,
+  aiEnabled = false,
+}: CalibrationCardProps) {
   if (!snapshot.hasV2Data) return null
 
   const persona = snapshot.persona ?? 'individual'
@@ -155,6 +163,8 @@ export function CalibrationCard({ snapshot, showHeader = true, className }: Cali
             href={phase2Href}
           />
 
+          {aiEnabled ? <AiCoachCta /> : null}
+
           {snapshot.reminderSubscription.vapidPublicKey ? (
             <ReminderToggle
               initiallyActive={snapshot.reminderSubscription.hasActive}
@@ -163,7 +173,34 @@ export function CalibrationCard({ snapshot, showHeader = true, className }: Cali
           ) : null}
         </>
       )}
+
+      {isCoach && aiEnabled ? <AiCoachCta /> : null}
     </section>
+  )
+}
+
+function AiCoachCta() {
+  return (
+    <Link
+      href="/ai"
+      className="mt-3 flex items-start gap-3 rounded-2xl border border-violet-300/30 bg-violet-300/[0.06] p-4 transition hover:bg-violet-300/[0.1]"
+    >
+      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-violet-300/15 text-violet-200">
+        <Brain className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-violet-200">
+          AI Sports Scientist
+        </p>
+        <p className="mt-1 text-sm font-bold text-white">
+          Ask anything — training, recovery, blood reports, your sport.
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-white/55">
+          Knows your sport, position, readiness, weak links, and any medical report you upload.
+        </p>
+      </div>
+      <ArrowRight className="mt-3 h-4 w-4 flex-shrink-0 text-white/45" />
+    </Link>
   )
 }
 

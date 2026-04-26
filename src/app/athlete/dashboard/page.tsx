@@ -6,6 +6,7 @@ import { athleteOnboardingFlow } from '@/forms/flows/athleteFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
 import { countUnreadCommentsForAthlete } from '@/lib/video-analysis/comments'
 import { getOnboardingV2Snapshot } from '@/lib/onboarding-v2/queries'
+import { isAiEnabled } from '@/lib/env'
 import { AthletePerformanceView } from './AthletePerformanceView'
 import { getRoleHomeRoute, getRoleOnboardingRoute, isAppRole } from '@/lib/auth_utils'
 
@@ -63,6 +64,7 @@ export default async function AthletePage() {
       profile={snapshot.profile}
       unreadCoachComments={unreadCoachComments}
       onboardingV2={onboardingV2}
+      aiEnabled={isAiEnabled()}
     />
   )
 }

@@ -33,6 +33,7 @@ interface AthletePerformanceViewProps {
   profile?: AthleteDashboardSnapshot['profile']
   unreadCoachComments?: number
   onboardingV2?: OnboardingV2Snapshot | null
+  aiEnabled?: boolean
 }
 
 function inferSport(profile?: Record<string, unknown> | null): SportContext {
@@ -55,8 +56,9 @@ export function AthletePerformanceView({
   profile,
   unreadCoachComments = 0,
   onboardingV2,
+  aiEnabled = false,
 }: AthletePerformanceViewProps) {
-  if (!operatingSnapshot) return <EmptyState onboardingV2={onboardingV2} />
+  if (!operatingSnapshot) return <EmptyState onboardingV2={onboardingV2} aiEnabled={aiEnabled} />
 
   const sport = inferSport(profile)
   const readiness = operatingSnapshot.readiness
@@ -124,7 +126,7 @@ export function AthletePerformanceView({
           unreadCoachComments={unreadCoachComments}
         />
       }
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
     />
   )
 }
@@ -354,7 +356,13 @@ function NextRow({
   )
 }
 
-function EmptyState({ onboardingV2 }: { onboardingV2?: OnboardingV2Snapshot | null }) {
+function EmptyState({
+  onboardingV2,
+  aiEnabled = false,
+}: {
+  onboardingV2?: OnboardingV2Snapshot | null
+  aiEnabled?: boolean
+}) {
   const checkinHref = onboardingV2?.hasV2Data ? '/onboarding/daily-ritual' : '/athlete/checkin'
   return (
     <PerformanceShell
@@ -379,7 +387,7 @@ function EmptyState({ onboardingV2 }: { onboardingV2?: OnboardingV2Snapshot | nu
       plan={<EmptyHint title="Today's plan" body="Plan locks in after the first check-in." />}
       week={<EmptyHint title="This week" body="Trends start appearing after 3 days of data." />}
       next={<EmptyHint title="Next" body="Connect a wearable any time to make the score sharper." />}
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} /> : null}
+      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
     />
   )
 }

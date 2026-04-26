@@ -8,6 +8,7 @@ import { coachOnboardingFlow } from '@/forms/flows/coachFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
 import { getCoachOperatingSnapshot } from '@/lib/product/operating-system/server'
 import { getOnboardingV2Snapshot } from '@/lib/onboarding-v2/queries'
+import { isAiEnabled } from '@/lib/env'
 
 export default async function CoachDashboard() {
   const supabase = await createClient()
@@ -56,6 +57,7 @@ export default async function CoachDashboard() {
         adaptiveProfile={adaptiveProfile}
         operatingSnapshot={operatingSnapshot}
         onboardingV2={onboardingV2}
+        aiEnabled={isAiEnabled()}
       />
     </CreedaProvider>
   )

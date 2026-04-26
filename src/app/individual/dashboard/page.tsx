@@ -4,6 +4,7 @@ import { getIndividualDashboardSnapshot } from '@/lib/dashboard_decisions'
 import { individualOnboardingFlow } from '@/forms/flows/individualFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
 import { getOnboardingV2Snapshot } from '@/lib/onboarding-v2/queries'
+import { isAiEnabled } from '@/lib/env'
 import { IndividualPerformanceView } from './IndividualPerformanceView'
 import { CreedaProvider } from '@/lib/state_engine'
 
@@ -53,6 +54,7 @@ export default async function IndividualDashboard() {
         snapshot={snapshot}
         adaptiveProfile={adaptiveProfile}
         onboardingV2={onboardingV2}
+        aiEnabled={isAiEnabled()}
       />
     </CreedaProvider>
   )
