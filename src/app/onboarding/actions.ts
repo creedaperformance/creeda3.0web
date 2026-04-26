@@ -3,12 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import {
   OnboardingV2EventSchema,
+  OnboardingV2DailyRitualSubmissionSchema,
   OnboardingV2Phase1SubmissionSchema,
   OnboardingV2Phase2SubmissionSchema,
   OnboardingV2SafetyGateSubmissionSchema,
 } from '@creeda/schemas'
 
 import {
+  persistOnboardingV2DailyRitual,
   persistOnboardingV2Phase1,
   persistOnboardingV2Phase2Day,
   persistOnboardingV2SafetyGate,
@@ -134,6 +136,41 @@ export async function submitOnboardingV2Phase2Day(rawPayload: unknown) {
   if (result.success) {
     revalidatePath('/onboarding')
     revalidatePath('/onboarding/phase-2')
+    revalidatePath('/dashboard')
+    revalidatePath(result.destination)
+  }
+
+  return result
+}
+
+export async function submitOnboardingV2DailyRitual(rawPayload: unknown) {
+  const parsed = OnboardingV2DailyRitualSubmissionSchema.safeParse(rawPayload)
+  if (!parsed.success) {
+    return {
+      success: false as const,
+      error: 'Please complete the daily ritual before continuing.',
+      details: parsed.error.flatten(),
+    }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false as const, error: "Please log in to save today's ritual." }
+  }
+
+  const result = await persistOnboardingV2DailyRitual({
+    supabase,
+    userId: user.id,
+    payload: parsed.data,
+  })
+
+  if (result.success) {
+    revalidatePath('/onboarding')
+    revalidatePath('/onboarding/daily-ritual')
     revalidatePath('/dashboard')
     revalidatePath(result.destination)
   }

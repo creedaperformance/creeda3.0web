@@ -503,10 +503,21 @@ export function Phase2OnboardingClient({
           <div className="mt-6 grid gap-4 sm:grid-cols-2">{renderDayFields(activeDay, values, setValue)}</div>
 
           {result ? (
-            <p className="mt-5 rounded-2xl border border-[#6ee7b7]/25 bg-[#6ee7b7]/10 p-4 text-sm font-semibold leading-6 text-[#d1fae5]">
-              Saved {DAYS.find((item) => item.id === result.day)?.title ?? 'diagnostic day'}.
-              Calibration is now {result.profileCalibrationPct}%.
-            </p>
+            <div className="mt-5 rounded-2xl border border-[#6ee7b7]/25 bg-[#6ee7b7]/10 p-4 text-sm font-semibold leading-6 text-[#d1fae5]">
+              <p>
+                Saved {DAYS.find((item) => item.id === result.day)?.title ?? 'diagnostic day'}.
+                Calibration is now {result.profileCalibrationPct}%.
+              </p>
+              {result.day === 'day7_environment' ? (
+                <Link
+                  href="/onboarding/daily-ritual"
+                  className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#6ee7b7] px-4 text-sm font-black text-slate-950 transition hover:brightness-110"
+                >
+                  Start daily ritual
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : null}
+            </div>
           ) : null}
 
           {error ? (

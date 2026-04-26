@@ -13,6 +13,7 @@ import {
 import {
   calcChronicLoadFromSnapshot,
   isAnyParqYes,
+  type OnboardingV2DailyRitualSubmission,
   type OnboardingV2Event,
   type OnboardingV2MovementBaselineSubmission,
   type OnboardingV2Phase1Submission,
@@ -40,6 +41,14 @@ export const ONBOARDING_V2_PHASE1_DESTINATIONS: Record<Persona, string> = {
 
 const ONBOARDING_V2_PHASE2_COMPLETE_DESTINATIONS: Record<
   OnboardingV2Phase2Submission['persona'],
+  string
+> = {
+  athlete: '/athlete/dashboard',
+  individual: '/individual/dashboard',
+}
+
+const ONBOARDING_V2_DAILY_RITUAL_DESTINATIONS: Record<
+  OnboardingV2DailyRitualSubmission['persona'],
   string
 > = {
   athlete: '/athlete/dashboard',
@@ -535,6 +544,33 @@ function completedPhase2DaysFrom(value: unknown) {
   return rawDays.filter((day): day is OnboardingV2Phase2Day =>
     typeof day === 'string' && day in PHASE2_DAY_LABELS
   )
+}
+
+function completedDailyRitualDatesFrom(value: unknown) {
+  if (!value || typeof value !== 'object') return []
+  const record = value as Record<string, unknown>
+  const rawDates = record.completed_dates
+  if (!Array.isArray(rawDates)) return []
+  return rawDates.filter((date): date is string => /^\d{4}-\d{2}-\d{2}$/.test(String(date)))
+}
+
+function latestMovementQualityFromRows(rows: unknown) {
+  if (!Array.isArray(rows)) return undefined
+  const first = rows.find((row) => row && typeof row === 'object') as
+    | Record<string, unknown>
+    | undefined
+  const score = Number(first?.movement_quality_score)
+  return Number.isFinite(score) ? score : undefined
+}
+
+function sleepInputFromDailyRitual(payload: OnboardingV2DailyRitualSubmission) {
+  if (payload.sleep_hours_self === undefined || payload.sleep_quality_self === undefined) {
+    return undefined
+  }
+  return {
+    hours: payload.sleep_hours_self,
+    quality: payload.sleep_quality_self,
+  }
 }
 
 export async function trackOnboardingV2EventForUser(args: {
@@ -1317,6 +1353,269 @@ export async function persistOnboardingV2Phase2Day(args: {
         ? ONBOARDING_V2_PHASE2_COMPLETE_DESTINATIONS[payload.persona]
         : `/onboarding/phase-2?day=${encodeURIComponent(payload.day)}`,
     latestDay: latestDayRecord,
+  }
+}
+
+export async function persistOnboardingV2DailyRitual(args: {
+  supabase: SupabaseLike
+  userId: string
+  payload: OnboardingV2DailyRitualSubmission
+}) {
+  const { supabase, userId, payload } = args
+  const nowIso = new Date().toISOString()
+  const date = payload.date ?? isoDate()
+  const branchFlags = {
+    sleep_followup: payload.energy <= 2,
+    pain_followup: payload.body_feel <= 2,
+    stress_followup: payload.mental_load >= 4,
+    recovery_requested: payload.wants_recovery_day,
+  }
+
+  const { error: checkInError } = await supabase.from('daily_check_ins').upsert(
+    {
+      user_id: userId,
+      date,
+      energy: payload.energy,
+      body_feel: payload.body_feel,
+      mental_load: payload.mental_load,
+      sleep_hours_self: payload.sleep_hours_self ?? null,
+      sleep_quality_self: payload.sleep_quality_self ?? null,
+      pain_locations: payload.pain_locations,
+      pain_scores: payload.pain_scores,
+      completion_seconds: payload.completion_seconds ?? null,
+      source: payload.source,
+      completed_at: nowIso,
+    },
+    { onConflict: 'user_id,date' }
+  )
+
+  if (checkInError) {
+    return {
+      success: false as const,
+      error: 'Unable to save the daily ritual check-in.',
+      details: checkInError.message as string,
+    }
+  }
+
+  const [
+    { data: profile },
+    { data: checkInRows },
+    { data: loadRows },
+    { data: movementRows },
+    { data: adaptiveProfile },
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('profile_calibration_pct')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabase
+      .from('daily_check_ins')
+      .select('date')
+      .eq('user_id', userId)
+      .gte('date', daysAgo(27)),
+    supabase
+      .from('training_load_history')
+      .select('date,total_duration_minutes,average_rpe')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(28),
+    supabase
+      .from('movement_baselines')
+      .select('movement_quality_score')
+      .eq('user_id', userId)
+      .eq('passed_quality_gate', true)
+      .order('performed_at', { ascending: false })
+      .limit(1),
+    supabase
+      .from('adaptive_form_profiles')
+      .select('optional_fields,inferred_fields')
+      .eq('user_id', userId)
+      .eq('role', payload.persona)
+      .eq('flow_id', 'onboarding_v2_daily_ritual')
+      .maybeSingle(),
+  ])
+
+  const checkInCount = Array.isArray(checkInRows) ? checkInRows.length : 1
+  const loadEntries = trainingLoadEntriesFromRows(loadRows)
+  const acwr = loadEntries.length > 0 ? computeACWR(loadEntries) : undefined
+  const movementQualityLatest = latestMovementQualityFromRows(movementRows)
+  const sleep = sleepInputFromDailyRitual(payload)
+  const dataPointsCount =
+    36 +
+    checkInCount * 3 +
+    payload.pain_locations.length +
+    (payload.apsq3?.length ?? 0) +
+    (sleep ? 2 : 0)
+
+  const confidence = computeConfidence({
+    daysSinceOnboarding: checkInCount,
+    dataPointsCollected: dataPointsCount,
+    hasWearable: false,
+    movementScansCount: movementQualityLatest !== undefined ? 1 : 0,
+    capacityTestsCompleted: movementQualityLatest !== undefined ? 1 : 0,
+    daysOfChronicLoad: Math.min(28, loadEntries.length),
+    daysOfCheckIns: checkInCount,
+  })
+  const readiness = computeReadiness({
+    subjective: {
+      energy: payload.wants_recovery_day ? Math.min(payload.energy, 2) : payload.energy,
+      body_feel: payload.wants_recovery_day ? Math.min(payload.body_feel, 2) : payload.body_feel,
+      mental_load: payload.mental_load,
+    },
+    sleep,
+    acwr,
+    movementQualityLatest,
+    confidence,
+  })
+
+  const { error: readinessError } = await supabase.from('readiness_scores').upsert(
+    {
+      user_id: userId,
+      date,
+      score: readiness.score,
+      confidence_tier: readiness.confidence.tier,
+      confidence_pct: readiness.confidence.pct,
+      data_points_count: dataPointsCount,
+      drivers: readiness.drivers,
+      missing_inputs: readiness.missing,
+      directive: readiness.directive,
+      computed_at: nowIso,
+    },
+    { onConflict: 'user_id,date' }
+  )
+
+  if (readinessError) {
+    return {
+      success: false as const,
+      error: 'Daily ritual saved, but readiness could not be recalculated.',
+      details: readinessError.message as string,
+    }
+  }
+
+  const profileRecord =
+    profile && typeof profile === 'object' ? (profile as Record<string, unknown>) : {}
+  const currentCalibration = numberFromProfile(profileRecord.profile_calibration_pct) ?? 0
+  const profileCalibrationPct = Math.min(
+    100,
+    Math.max(currentCalibration, Math.min(95, currentCalibration + 2), confidence.pct)
+  )
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      onboarding_phase: 3,
+      profile_calibration_pct: profileCalibrationPct,
+    })
+    .eq('id', userId)
+
+  if (profileError) {
+    return {
+      success: false as const,
+      error: 'Daily ritual saved, but profile calibration could not be updated.',
+      details: profileError.message as string,
+    }
+  }
+
+  const adaptiveRecord =
+    adaptiveProfile && typeof adaptiveProfile === 'object'
+      ? (adaptiveProfile as Record<string, unknown>)
+      : {}
+  const existingOptionalFields =
+    adaptiveRecord.optional_fields && typeof adaptiveRecord.optional_fields === 'object'
+      ? (adaptiveRecord.optional_fields as Record<string, unknown>)
+      : {}
+  const existingInferredFields =
+    adaptiveRecord.inferred_fields && typeof adaptiveRecord.inferred_fields === 'object'
+      ? (adaptiveRecord.inferred_fields as Record<string, unknown>)
+      : {}
+  const completedDates = Array.from(
+    new Set([...completedDailyRitualDatesFrom(existingOptionalFields), date])
+  ).slice(-28)
+
+  const { error: adaptiveProfileError } = await supabase.from('adaptive_form_profiles').upsert(
+    {
+      user_id: userId,
+      role: payload.persona,
+      flow_id: 'onboarding_v2_daily_ritual',
+      flow_version: '2026-04-26',
+      core_fields: {
+        phase: 3,
+        persona: payload.persona,
+      },
+      optional_fields: {
+        ...existingOptionalFields,
+        completed_dates: completedDates,
+        latest_checkin: {
+          date,
+          energy: payload.energy,
+          body_feel: payload.body_feel,
+          mental_load: payload.mental_load,
+          sleep_hours_self: payload.sleep_hours_self ?? null,
+          sleep_quality_self: payload.sleep_quality_self ?? null,
+          pain_locations: payload.pain_locations,
+          apsq3_present: Boolean(payload.apsq3),
+          branch_flags: branchFlags,
+          captured_at: nowIso,
+        },
+      },
+      inferred_fields: {
+        ...existingInferredFields,
+        readiness,
+        profile_calibration_pct: profileCalibrationPct,
+        confidence,
+        movement_quality_latest: movementQualityLatest ?? null,
+        acwr: acwr ?? null,
+      },
+      completion_score: Math.min(100, 80 + completedDates.length),
+      confidence_score: confidence.pct,
+      confidence_level: confidenceLevelForAdaptiveForms(confidence.tier),
+      confidence_recommendations: readiness.missing,
+      next_question_ids: ['tomorrow_daily_ritual', 'plan_feedback'],
+      onboarding_v2_phase: 3,
+      completion_seconds: payload.completion_seconds ?? null,
+      confidence_pct: confidence.pct,
+    },
+    { onConflict: 'user_id,role,flow_id' }
+  )
+
+  if (adaptiveProfileError) {
+    return {
+      success: false as const,
+      error: 'Daily ritual saved, but adaptive calibration could not be updated.',
+      details: adaptiveProfileError.message as string,
+    }
+  }
+
+  await trackOnboardingV2EventForUser({
+    supabase,
+    userId,
+    event: {
+      event_name: 'onb.screen.completed',
+      persona: payload.persona,
+      phase: 3,
+      screen: 'daily_ritual',
+      source: payload.source,
+      completion_seconds: payload.completion_seconds,
+      metadata: {
+        date,
+        branch_flags: branchFlags,
+        readiness_score: readiness.score,
+        profile_calibration_pct: profileCalibrationPct,
+        confidence_pct: confidence.pct,
+      },
+    },
+  })
+
+  return {
+    success: true as const,
+    date,
+    readiness,
+    confidence,
+    profileCalibrationPct,
+    completedDates,
+    branchFlags,
+    destination: ONBOARDING_V2_DAILY_RITUAL_DESTINATIONS[payload.persona],
   }
 }
 
