@@ -704,12 +704,14 @@ export function OnboardingV2Client({
                 </label>
               ) : null}
 
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
-                  Pregnancy or cycle context
-                </p>
-                <p className="mt-1 text-[11px] leading-relaxed text-white/40">
-                  Optional — shown to all so nobody has to disclose biological sex first.
+              <details className="mt-4 group rounded-2xl border border-white/10 bg-white/[0.03] p-4 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer items-center justify-between gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-white/55 transition hover:text-white/82">
+                  <span>Pregnancy or cycle context (optional)</span>
+                  <span className="text-white/40 transition group-open:rotate-180">▾</span>
+                </summary>
+                <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+                  Calibrates RED-S risk + readiness modelling. Open only if it applies to you. Stored
+                  encrypted, never displayed to coaches.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(['not_applicable', 'no', 'pregnant', 'trying_to_conceive', 'postpartum'] as const).map(
@@ -735,7 +737,7 @@ export function OnboardingV2Client({
                   />
                   Use cycle context to adjust future readiness confidence.
                 </label>
-              </div>
+              </details>
 
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">

@@ -6,6 +6,8 @@ import { Activity, ClipboardCheck, ScanLine, Watch } from 'lucide-react'
 import { ReadinessOrb } from '@/components/neon/ReadinessOrb'
 import { PerformanceShell } from '@/components/performance-view/PerformanceShell'
 import { CalibrationCard } from '@/components/onboarding-v2/CalibrationCard'
+import { NewspaperCard } from '@/components/newspaper/NewspaperCard'
+import type { WeeklyNewspaperRow } from '@/lib/newspaper/queries'
 import { buildDirective, type SportContext } from '@/components/performance-view/directives'
 import type { IndividualDashboardSnapshot } from '@/lib/dashboard_decisions'
 import type { AdaptiveProfileSummary } from '@/forms/types'
@@ -17,6 +19,7 @@ interface IndividualPerformanceViewProps {
   adaptiveProfile: AdaptiveProfileSummary | null
   onboardingV2?: OnboardingV2Snapshot | null
   aiEnabled?: boolean
+  latestNewspaper?: WeeklyNewspaperRow | null
 }
 
 function inferSport(snapshot: IndividualDashboardSnapshot): SportContext {
@@ -42,6 +45,7 @@ export function IndividualPerformanceView({
   profile,
   onboardingV2,
   aiEnabled = false,
+  latestNewspaper = null,
 }: IndividualPerformanceViewProps) {
   const decision = snapshot.decision
   const score = snapshot.readinessScore
@@ -53,6 +57,7 @@ export function IndividualPerformanceView({
         name={String(profile.full_name || 'there')}
         onboardingV2={onboardingV2}
         aiEnabled={aiEnabled}
+        latestNewspaper={latestNewspaper}
       />
     )
   }
@@ -95,7 +100,14 @@ export function IndividualPerformanceView({
         />
       }
       next={<ZoneIndividualNext snapshot={snapshot} />}
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
+      extra={
+        <>
+          {latestNewspaper ? <NewspaperCard paper={latestNewspaper} /> : null}
+          {onboardingV2?.hasV2Data ? (
+            <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} />
+          ) : null}
+        </>
+      }
     />
   )
 }
@@ -262,10 +274,12 @@ function EmptyIndividualView({
   name,
   onboardingV2,
   aiEnabled = false,
+  latestNewspaper = null,
 }: {
   name: string
   onboardingV2?: OnboardingV2Snapshot | null
   aiEnabled?: boolean
+  latestNewspaper?: WeeklyNewspaperRow | null
 }) {
   const checkinHref = onboardingV2?.hasV2Data ? '/onboarding/daily-ritual' : '/individual/logging'
   return (
@@ -306,7 +320,14 @@ function EmptyIndividualView({
           <p className="mt-2 text-sm text-white/45">Connect Apple Health or Health Connect any time to make the score sharper.</p>
         </div>
       }
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
+      extra={
+        <>
+          {latestNewspaper ? <NewspaperCard paper={latestNewspaper} /> : null}
+          {onboardingV2?.hasV2Data ? (
+            <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} />
+          ) : null}
+        </>
+      }
     />
   )
 }

@@ -1668,6 +1668,37 @@ export async function persistOnboardingV2DailyRitual(args: {
     },
   })
 
+  // Best-effort coach alerting — never blocks the user response.
+  try {
+    const { detectAthleteRedFlags, notifyCoachesOfAthleteRedFlag } = await import(
+      '@/lib/coach-alerts/notify'
+    )
+    const painScores = (payload.pain_scores ?? {}) as Record<string, number>
+    const highestPain = Object.values(painScores).reduce(
+      (max, value) => (typeof value === 'number' && value > max ? value : max),
+      0
+    )
+    const flags = detectAthleteRedFlags({
+      modifiedMode,
+      readinessScore: readiness.score,
+      acwrZone: acwr?.zone,
+      apsqFlagLevel: null,
+      dailyEnergy: payload.energy,
+      dailyBodyFeel: payload.body_feel,
+      painLocations: payload.pain_locations,
+      highestPainScore: highestPain > 0 ? highestPain : null,
+    })
+    if (flags.length > 0) {
+      void notifyCoachesOfAthleteRedFlag({
+        athleteUserId: userId,
+        flags,
+        trigger: 'daily_ritual',
+      })
+    }
+  } catch (alertError) {
+    console.warn('[coach-alerts] daily ritual notify failed', alertError)
+  }
+
   return {
     success: true as const,
     date,

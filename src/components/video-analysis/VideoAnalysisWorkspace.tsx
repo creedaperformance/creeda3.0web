@@ -784,6 +784,7 @@ function AnalyzeContent({ role }: Props) {
     }
 
     if (onboardingBaselineActive) {
+      let baselineSucceeded = false
       try {
         const baselinePayload = buildOnboardingMovementBaselineSubmission({
           state: snapshot,
@@ -809,9 +810,17 @@ function AnalyzeContent({ role }: Props) {
 
         if (!baselineResponse.ok) {
           console.warn('[onboarding-v2] movement baseline persistence failed', await baselineResponse.text())
+        } else {
+          baselineSucceeded = baselinePayload.passed_quality_gate === true
         }
       } catch (baselineError) {
         console.warn('[onboarding-v2] movement baseline persistence failed', baselineError)
+      }
+
+      if (baselineSucceeded) {
+        // Cinematic Aha-moment landing — uses the just-persisted baseline.
+        router.push('/onboarding/aha')
+        return
       }
     }
 

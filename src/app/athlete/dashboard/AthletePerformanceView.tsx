@@ -6,6 +6,8 @@ import { ClipboardCheck, ScanLine, TrendingUp, Activity, Watch } from 'lucide-re
 import { ReadinessOrb } from '@/components/neon/ReadinessOrb'
 import { PerformanceShell } from '@/components/performance-view/PerformanceShell'
 import { CalibrationCard } from '@/components/onboarding-v2/CalibrationCard'
+import { NewspaperCard } from '@/components/newspaper/NewspaperCard'
+import type { WeeklyNewspaperRow } from '@/lib/newspaper/queries'
 import { buildDirective, actionTone, type SportContext } from '@/components/performance-view/directives'
 import type {
   AthleteHealthSummary,
@@ -34,6 +36,7 @@ interface AthletePerformanceViewProps {
   unreadCoachComments?: number
   onboardingV2?: OnboardingV2Snapshot | null
   aiEnabled?: boolean
+  latestNewspaper?: WeeklyNewspaperRow | null
 }
 
 function inferSport(profile?: Record<string, unknown> | null): SportContext {
@@ -57,8 +60,16 @@ export function AthletePerformanceView({
   unreadCoachComments = 0,
   onboardingV2,
   aiEnabled = false,
+  latestNewspaper = null,
 }: AthletePerformanceViewProps) {
-  if (!operatingSnapshot) return <EmptyState onboardingV2={onboardingV2} aiEnabled={aiEnabled} />
+  if (!operatingSnapshot)
+    return (
+      <EmptyState
+        onboardingV2={onboardingV2}
+        aiEnabled={aiEnabled}
+        latestNewspaper={latestNewspaper}
+      />
+    )
 
   const sport = inferSport(profile)
   const readiness = operatingSnapshot.readiness
@@ -126,7 +137,14 @@ export function AthletePerformanceView({
           unreadCoachComments={unreadCoachComments}
         />
       }
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
+      extra={
+        <>
+          {latestNewspaper ? <NewspaperCard paper={latestNewspaper} /> : null}
+          {onboardingV2?.hasV2Data ? (
+            <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} />
+          ) : null}
+        </>
+      }
     />
   )
 }
@@ -359,9 +377,11 @@ function NextRow({
 function EmptyState({
   onboardingV2,
   aiEnabled = false,
+  latestNewspaper = null,
 }: {
   onboardingV2?: OnboardingV2Snapshot | null
   aiEnabled?: boolean
+  latestNewspaper?: WeeklyNewspaperRow | null
 }) {
   const checkinHref = onboardingV2?.hasV2Data ? '/onboarding/daily-ritual' : '/athlete/checkin'
   return (
@@ -387,7 +407,14 @@ function EmptyState({
       plan={<EmptyHint title="Today's plan" body="Plan locks in after the first check-in." />}
       week={<EmptyHint title="This week" body="Trends start appearing after 3 days of data." />}
       next={<EmptyHint title="Next" body="Connect a wearable any time to make the score sharper." />}
-      extra={onboardingV2?.hasV2Data ? <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} /> : null}
+      extra={
+        <>
+          {latestNewspaper ? <NewspaperCard paper={latestNewspaper} /> : null}
+          {onboardingV2?.hasV2Data ? (
+            <CalibrationCard snapshot={onboardingV2} aiEnabled={aiEnabled} />
+          ) : null}
+        </>
+      }
     />
   )
 }

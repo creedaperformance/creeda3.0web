@@ -6,6 +6,7 @@ import { athleteOnboardingFlow } from '@/forms/flows/athleteFlow'
 import { getAdaptiveProfileSummary } from '@/forms/storage'
 import { countUnreadCommentsForAthlete } from '@/lib/video-analysis/comments'
 import { getOnboardingV2Snapshot } from '@/lib/onboarding-v2/queries'
+import { getLatestNewspaper } from '@/lib/newspaper/queries'
 import { isAiEnabled } from '@/lib/env'
 import { AthletePerformanceView } from './AthletePerformanceView'
 import { getRoleHomeRoute, getRoleOnboardingRoute, isAppRole } from '@/lib/auth_utils'
@@ -38,17 +39,19 @@ export default async function AthletePage() {
   }
 
   const snapshot = await getAthleteDashboardSnapshot(supabase, user.id)
-  const [adaptiveProfile, operatingSnapshot, unreadCoachComments, onboardingV2] = await Promise.all([
-    getAdaptiveProfileSummary({
-      supabase,
-      userId: user.id,
-      role: 'athlete',
-      flowId: athleteOnboardingFlow.id,
-    }),
-    getDailyOperatingSnapshot(supabase, user.id, snapshot),
-    countUnreadCommentsForAthlete(supabase, user.id),
-    getOnboardingV2Snapshot(supabase, user.id),
-  ])
+  const [adaptiveProfile, operatingSnapshot, unreadCoachComments, onboardingV2, latestNewspaper] =
+    await Promise.all([
+      getAdaptiveProfileSummary({
+        supabase,
+        userId: user.id,
+        role: 'athlete',
+        flowId: athleteOnboardingFlow.id,
+      }),
+      getDailyOperatingSnapshot(supabase, user.id, snapshot),
+      countUnreadCommentsForAthlete(supabase, user.id),
+      getOnboardingV2Snapshot(supabase, user.id),
+      getLatestNewspaper(supabase, user.id),
+    ])
 
   return (
     <AthletePerformanceView
@@ -65,6 +68,7 @@ export default async function AthletePage() {
       unreadCoachComments={unreadCoachComments}
       onboardingV2={onboardingV2}
       aiEnabled={isAiEnabled()}
+      latestNewspaper={latestNewspaper}
     />
   )
 }

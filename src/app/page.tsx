@@ -169,132 +169,135 @@ export default function LandingPage() {
       </div>
 
       <main className="flex-1 relative z-10">
-        <section className="relative min-h-[calc(100svh-4rem)] flex items-center border-b border-white/[0.05]">
-          <div className="w-full px-5 sm:px-6 lg:px-8 pt-24 pb-14 sm:pb-20">
-            <div className="max-w-7xl mx-auto grid xl:grid-cols-[1.05fr_0.95fr] gap-12 xl:gap-16 items-center">
-              <div className="max-w-2xl animate-fade-up">
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm mb-7">
-                  <span className="flex h-2 w-2 rounded-full bg-[var(--saffron)] animate-pulse" />
-                  <span className="text-[10px] font-semibold text-white/60 tracking-[0.28em] uppercase">
-                    India&apos;s Digital Sports Scientist
-                  </span>
-                </div>
-
-                <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-primary mb-4">
-                  Know your body. Make the right call today.
-                </p>
-
-                <h1 className="text-5xl sm:text-7xl lg:text-[5.4rem] font-black tracking-tight leading-[0.92]">
-                  One brand for
-                  <span className="block text-primary text-glow mt-2">athlete performance</span>
-                  <span className="block text-white/90 mt-2">and healthier Indian lives.</span>
-                </h1>
-
-                <p className="text-base sm:text-lg text-white/55 leading-relaxed max-w-xl mt-7">
-                  CREEDA is not another tracker. It is a decision engine that helps athletes perform better and helps normal people move, recover, eat, and live healthier with clear daily guidance.
-                </p>
-
-                <div className="flex flex-col sm:flex-row gap-3 mt-8">
-                  <Button
-                    asChild
-                    size="lg"
-                    className="h-14 px-8 rounded-2xl bg-[var(--saffron)] text-black font-bold text-sm hover:brightness-110 transition-all shadow-[0_0_34px_var(--saffron-glow)]"
-                  >
-                    <Link href={individualLink} prefetch={false}>
-                      Start as Individual
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button
-                    asChild
-                    size="lg"
-                    variant="outline"
-                    className="h-14 px-8 rounded-2xl border-white/10 bg-white/[0.03] text-white font-semibold text-sm hover:bg-white/[0.06] transition-all"
-                  >
-                    <Link href={athleteLink} prefetch={false}>
-                      Start as Athlete
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                </div>
-
-                <div className="flex flex-wrap gap-3 mt-8 text-[11px] text-white/45 font-medium">
-                  <span className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-white/[0.08] bg-white/[0.03]">
-                    <Sparkles className="h-3.5 w-3.5 text-primary" />
-                    भारत के लिए built, not imported
-                  </span>
-                  <span className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-white/[0.08] bg-white/[0.03]">
-                    <Activity className="h-3.5 w-3.5 text-emerald-400" />
-                    Daily decision engine, not passive tracking
-                  </span>
-                </div>
+        <section className="relative flex items-center border-b border-white/[0.05] py-20 sm:py-28">
+          <div className="w-full px-5 sm:px-6 lg:px-8">
+            <div className="max-w-5xl mx-auto text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm mb-8">
+                <span className="flex h-2 w-2 rounded-full bg-[#6ee7b7] animate-pulse" />
+                <span className="text-[10px] font-semibold text-white/60 tracking-[0.28em] uppercase">
+                  AI Sports Scientist · Built in India
+                </span>
               </div>
 
-              <div className="space-y-5 animate-scale-in">
-                <div className="relative overflow-hidden rounded-[2.4rem] border border-white/[0.08] bg-[linear-gradient(160deg,rgba(15,23,42,0.95),rgba(2,6,23,0.92))] p-6 sm:p-8">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(245,124,0,0.18),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.12),transparent_42%)]" />
-                  <div className="relative">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/45">
-                      CREEDA Performance
-                    </p>
-                    <Image
-                      src="/creeda-performance-bgr.png"
-                      alt="Creeda Performance brand mark"
-                      width={1200}
-                      height={800}
-                      priority
-                      sizes="(max-width: 767px) calc(100vw - 4rem), (max-width: 1279px) 42rem, 44rem"
-                      className="mt-4 block h-auto max-w-full object-contain"
-                      style={{ width: '100%', maxWidth: '100%', height: 'auto' }}
-                    />
-                    <p className="mt-3 text-sm text-slate-300/80 leading-relaxed">
-                      One platform, two clearly different journeys: athlete performance and healthier everyday living.
-                    </p>
-                  </div>
-                </div>
+              <h1 className="text-5xl sm:text-7xl lg:text-[6rem] font-black tracking-tight leading-[0.95]">
+                The world&apos;s first
+                <span className="block bg-gradient-to-r from-[#6ee7b7] via-[#a7f3d0] to-[#fcd34d] bg-clip-text text-transparent mt-3">
+                  digital sports scientist.
+                </span>
+              </h1>
 
-                <div className="grid lg:grid-cols-3 gap-4 sm:gap-5">
-                  <JourneyPanel
-                    eyebrow="Athlete"
-                    title="Performance system"
-                    subtitle="For readiness, load, rehab, and sharper training decisions."
-                    accent="athlete"
-                    ctaLabel="Athlete journey"
-                    ctaHref={athleteLink}
-                    bullets={[
-                      'Deep sport-specific onboarding',
-                      'Session decisions for train, modify, recover',
-                      'Competition, fatigue, movement and health context',
-                    ]}
-                  />
-                  <JourneyPanel
-                    eyebrow="Individual"
-                    title="Healthy-living guide"
-                    subtitle="For sleep, stress, strength, mobility, fat loss, and sport entry."
-                    accent="individual"
-                    ctaLabel="Individual journey"
-                    ctaHref={individualLink}
-                    bullets={[
-                      'FitStart baseline for real Indian routines',
-                      'Daily guidance for movement, recovery, and habits',
-                      'Sport or lifestyle path matched to physiology',
-                    ]}
-                  />
-                  <JourneyPanel
-                    eyebrow="Coach"
-                    title="Command center"
-                    subtitle="For intervention queues, weekly reviews, rehab tracking, and squad-level decisions."
-                    accent="coach"
-                    ctaLabel="Coach journey"
-                    ctaHref={coachLink}
-                    bullets={[
-                      'Intervention queue and low-data queue',
-                      'Weekly squad review and group suggestions',
-                      'Rehab and return-to-play operating lane',
-                    ]}
-                  />
-                </div>
+              <p className="text-base sm:text-xl text-white/65 leading-relaxed max-w-3xl mx-auto mt-8">
+                Movement scans that reveal what no coach has spotted yet. Daily readiness scores
+                you can trust. An AI that answers anything about your sport, recovery, and any
+                medical report you upload — grounded in research, never in marketing fluff.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 mt-10 justify-center">
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-14 px-8 rounded-2xl bg-[#6ee7b7] text-slate-950 font-black text-sm tracking-[0.18em] uppercase hover:brightness-110 transition-all shadow-[0_0_50px_rgba(110,231,183,0.35)]"
+                >
+                  <Link href="/onboarding" prefetch={false}>
+                    Run your first scan
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="h-14 px-8 rounded-2xl border-white/10 bg-white/[0.03] text-white font-semibold text-sm tracking-[0.14em] uppercase hover:bg-white/[0.06] transition-all"
+                >
+                  <Link href="#how-it-works" prefetch={false}>
+                    How it works
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
               </div>
+
+              <div className="flex flex-wrap gap-3 mt-10 justify-center text-[11px] text-white/45 font-medium">
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-white/[0.08] bg-white/[0.03]">
+                  <Sparkles className="h-3.5 w-3.5 text-[#6ee7b7]" />
+                  Movement scan in 30 seconds
+                </span>
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-white/[0.08] bg-white/[0.03]">
+                  <Brain className="h-3.5 w-3.5 text-[#a7f3d0]" />
+                  AI sports scientist + medical-report explainer
+                </span>
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-white/[0.08] bg-white/[0.03]">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#fcd34d]" />
+                  Confidence-tiered scoring you can trust
+                </span>
+              </div>
+            </div>
+
+            {/* Cinematic feature trio */}
+            <div className="mt-20 grid gap-5 sm:grid-cols-3 max-w-6xl mx-auto">
+              <FeatureCard
+                eyebrow="Aha moment"
+                title="Find the asymmetry slowing you down"
+                body="A 30-second overhead-squat scan reveals the knee, ankle, or hip pattern most likely to injure you. We show the finding, prescribe the fix, retest in 4 weeks."
+                accent="#6ee7b7"
+                icon={<Activity className="h-5 w-5" />}
+              />
+              <FeatureCard
+                eyebrow="AI that knows you"
+                title="A sports scientist on tap"
+                body="Ask anything — sport-specific training, recovery, sleep, that blood-test result. The AI sees your sport, position, readiness, and weak links. Educational, never diagnostic."
+                accent="#a7f3d0"
+                icon={<Brain className="h-5 w-5" />}
+              />
+              <FeatureCard
+                eyebrow="Coach + athlete"
+                title="One screen for the whole squad"
+                body="Coaches manage 30 athletes in 5 minutes a morning — red-flag push alerts when anything's off, live readiness, invite-by-QR onboarding."
+                accent="#fcd34d"
+                icon={<HeartPulse className="h-5 w-5" />}
+              />
+            </div>
+
+            {/* Persona row — kept for the original three CTAs */}
+            <div className="mt-16 grid lg:grid-cols-3 gap-4 sm:gap-5 max-w-6xl mx-auto">
+              <JourneyPanel
+                eyebrow="Athlete"
+                title="Performance system"
+                subtitle="For readiness, load, rehab, and sharper training decisions."
+                accent="athlete"
+                ctaLabel="Athlete journey"
+                ctaHref={athleteLink}
+                bullets={[
+                  'Deep sport-specific onboarding',
+                  'Session decisions for train, modify, recover',
+                  'Competition, fatigue, movement and health context',
+                ]}
+              />
+              <JourneyPanel
+                eyebrow="Individual"
+                title="Healthy-living guide"
+                subtitle="For sleep, stress, strength, mobility, fat loss, and sport entry."
+                accent="individual"
+                ctaLabel="Individual journey"
+                ctaHref={individualLink}
+                bullets={[
+                  'FitStart baseline for real Indian routines',
+                  'Daily guidance for movement, recovery, and habits',
+                  'Sport or lifestyle path matched to physiology',
+                ]}
+              />
+              <JourneyPanel
+                eyebrow="Coach"
+                title="Command center"
+                subtitle="For intervention queues, weekly reviews, rehab tracking, and squad-level decisions."
+                accent="coach"
+                ctaLabel="Coach journey"
+                ctaHref={coachLink}
+                bullets={[
+                  'Intervention queue and low-data queue',
+                  'Weekly squad review and group suggestions',
+                  'Rehab and return-to-play operating lane',
+                ]}
+              />
             </div>
           </div>
         </section>
@@ -639,6 +642,42 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+    </div>
+  )
+}
+
+function FeatureCard({
+  eyebrow,
+  title,
+  body,
+  accent,
+  icon,
+}: {
+  eyebrow: string
+  title: string
+  body: string
+  accent: string
+  icon: React.ReactNode
+}) {
+  return (
+    <div
+      className="rounded-3xl border border-white/[0.06] bg-[linear-gradient(160deg,rgba(15,23,42,0.95),rgba(2,6,23,0.92))] p-6 transition hover:bg-white/[0.04]"
+      style={{ boxShadow: `inset 0 1px 0 ${accent}10` }}
+    >
+      <div
+        className="flex h-11 w-11 items-center justify-center rounded-2xl"
+        style={{ background: `${accent}1F`, color: accent }}
+      >
+        {icon}
+      </div>
+      <p
+        className="mt-5 text-[10px] font-bold uppercase tracking-[0.28em]"
+        style={{ color: accent }}
+      >
+        {eyebrow}
+      </p>
+      <h3 className="mt-2 text-lg font-black leading-tight tracking-tight text-white">{title}</h3>
+      <p className="mt-3 text-sm leading-relaxed text-white/55">{body}</p>
     </div>
   )
 }
