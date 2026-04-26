@@ -12,6 +12,11 @@ import {
   recordAssistantMessage,
   recordUserMessage,
 } from '@/lib/ai-coach/conversations'
+import {
+  getQuotaSnapshot,
+  quotaErrorMessage,
+  recordAiUsage,
+} from '@/lib/ai-coach/quotas'
 
 /**
  * Non-streaming version of the chat endpoint, used by the Android app where
@@ -51,6 +56,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
   }
 
+  const quota = await getQuotaSnapshot(supabase, user.id)
+  if (!quota.ok) {
+    await recordAiUsage(supabase, {
+      userId: user.id,
+      inputTokens: 0,
+      outputTokens: 0,
+      costCents: 0,
+      blocked: true,
+    })
+    return NextResponse.json(
+      {
+        error: 'rate_limited',
+        reason: quota.reason,
+        message: quotaErrorMessage(quota.reason),
+        quota,
+      },
+      { status: 429 }
+    )
+  }
+
   const { conversation_id, topic, user_message, medical_report_id } = parsed.data
 
   try {
@@ -79,7 +104,7 @@ export async function POST(request: Request) {
       userMessage: user_message,
     })
 
-    await recordAssistantMessage(supabase, {
+    const { costCents } = await recordAssistantMessage(supabase, {
       conversationId: conversation.id,
       userId: user.id,
       content: response.content,
@@ -87,6 +112,15 @@ export async function POST(request: Request) {
       outputTokens: response.outputTokens,
       model: response.model,
     })
+
+    await recordAiUsage(supabase, {
+      userId: user.id,
+      inputTokens: response.inputTokens,
+      outputTokens: response.outputTokens,
+      costCents,
+    })
+
+    const updatedQuota = await getQuotaSnapshot(supabase, user.id)
 
     return NextResponse.json({
       ok: true,
@@ -103,6 +137,8 @@ export async function POST(request: Request) {
         input: response.inputTokens,
         output: response.outputTokens,
       },
+      cost_cents: costCents,
+      quota: updatedQuota,
       model: response.model,
     })
   } catch (error) {

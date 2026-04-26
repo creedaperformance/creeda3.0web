@@ -4,6 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 import { isAiEnabled } from '@/lib/env'
 import { analyseMedicalReport } from '@/lib/ai-coach/medical-report'
 import { buildAiCoachContext, formatContextForPrompt } from '@/lib/ai-coach/context-builder'
+import {
+  estimateCostCents,
+  getQuotaSnapshot,
+  quotaErrorMessage,
+  recordAiUsage,
+} from '@/lib/ai-coach/quotas'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -74,6 +80,26 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
+  }
+
+  const quota = await getQuotaSnapshot(supabase, user.id)
+  if (!quota.ok) {
+    await recordAiUsage(supabase, {
+      userId: user.id,
+      inputTokens: 0,
+      outputTokens: 0,
+      costCents: 0,
+      blocked: true,
+    })
+    return NextResponse.json(
+      {
+        error: 'rate_limited',
+        reason: quota.reason,
+        message: quotaErrorMessage(quota.reason),
+        quota,
+      },
+      { status: 429 }
+    )
   }
 
   const formData = await request.formData().catch(() => null)
@@ -149,6 +175,12 @@ export async function POST(request: Request) {
       userContextBlock: contextBlock,
     })
 
+    const reportCostCents = estimateCostCents(
+      analysis.rawModel,
+      analysis.inputTokens,
+      analysis.outputTokens
+    )
+
     await supabase
       .from('medical_reports')
       .update({
@@ -162,6 +194,13 @@ export async function POST(request: Request) {
       })
       .eq('id', inserted.id)
       .eq('user_id', user.id)
+
+    await recordAiUsage(supabase, {
+      userId: user.id,
+      inputTokens: analysis.inputTokens,
+      outputTokens: analysis.outputTokens,
+      costCents: reportCostCents,
+    })
 
     return NextResponse.json({
       ok: true,

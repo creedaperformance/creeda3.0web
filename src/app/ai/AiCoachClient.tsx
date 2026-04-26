@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Brain,
+  Coins,
   FileText,
   Loader2,
   MessageSquare,
@@ -36,6 +37,19 @@ type StreamingMessage = {
   role: 'user' | 'assistant'
   content: string
   pending?: boolean
+}
+
+type QuotaSnapshot = {
+  ok: boolean
+  reason: string
+  dailyMessages: number
+  dailyMessageLimit: number
+  dailyMessagesRemaining: number
+  dailyCostCents: number
+  dailyCostCapCents: number
+  monthlyCostCents: number
+  monthlyCostCapCents: number
+  resetsAtIso: string
 }
 
 const TOPIC_CHIPS: Array<{ id: CreedaAiTopic; label: string }> = [
@@ -69,6 +83,7 @@ export function AiCoachClient({
   const [attachedReportId, setAttachedReportId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [quota, setQuota] = useState<QuotaSnapshot | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -99,6 +114,23 @@ export function AiCoachClient({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages])
 
+  // Initial usage snapshot.
+  useEffect(() => {
+    if (!aiEnabled) return
+    let cancelled = false
+    fetch('/api/ai/usage')
+      .then(async (res) => (res.ok ? ((await res.json()) as { quota: QuotaSnapshot }) : null))
+      .then((data) => {
+        if (!cancelled && data?.quota) setQuota(data.quota)
+      })
+      .catch(() => {
+        /* ignore */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [aiEnabled])
+
   const suggestedPrompts = SUGGESTED_PROMPTS[topic] ?? SUGGESTED_PROMPTS.general
 
   async function sendMessage(promptOverride?: string) {
@@ -128,6 +160,18 @@ export function AiCoachClient({
           medical_report_id: attachedReportId ?? undefined,
         }),
       })
+
+      if (res.status === 429) {
+        const payload = (await res.json().catch(() => ({}))) as {
+          message?: string
+          quota?: QuotaSnapshot
+        }
+        if (payload.quota) setQuota(payload.quota)
+        throw new Error(
+          payload.message ??
+            'You have reached today’s AI limit. Try again tomorrow or contact support.'
+        )
+      }
 
       if (!res.ok || !res.body) {
         const payload = await res.json().catch(() => ({}))
@@ -176,6 +220,10 @@ export function AiCoachClient({
               }
               return next
             })
+          } else if (eventType === 'done') {
+            if (data.quota && typeof data.quota === 'object') {
+              setQuota(data.quota as unknown as QuotaSnapshot)
+            }
           } else if (eventType === 'error') {
             throw new Error(typeof data.error === 'string' ? data.error : 'AI streaming error')
           }
@@ -371,7 +419,7 @@ export function AiCoachClient({
           </div>
         ) : (
           <>
-            <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3 sm:px-6">
+            <header className="flex flex-col gap-2 border-b border-white/[0.06] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div className="flex items-center gap-2 overflow-x-auto">
                 {TOPIC_CHIPS.map((chip) => (
                   <button
@@ -388,6 +436,7 @@ export function AiCoachClient({
                   </button>
                 ))}
               </div>
+              {quota ? <UsageChip quota={quota} /> : null}
             </header>
 
             <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
@@ -517,6 +566,27 @@ function MessageBubble({ message }: { message: StreamingMessage }) {
       >
         {message.content || (message.pending ? <Loader2 className="h-3 w-3 animate-spin" /> : null)}
       </div>
+    </div>
+  )
+}
+
+function UsageChip({ quota }: { quota: QuotaSnapshot }) {
+  const exhausted = quota.dailyMessagesRemaining <= 0
+  const tone = exhausted
+    ? 'border-rose-400/40 bg-rose-400/[0.08] text-rose-200'
+    : quota.dailyMessagesRemaining <= 5
+      ? 'border-amber-300/40 bg-amber-300/[0.08] text-amber-200'
+      : 'border-white/10 bg-white/[0.03] text-white/55'
+  const dailyCostLabel = (quota.dailyCostCents / 100).toFixed(2)
+  return (
+    <div
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${tone}`}
+      title={`Resets at ${new Date(quota.resetsAtIso).toLocaleString()}`}
+    >
+      <Coins className="h-3 w-3" />
+      <span>
+        {quota.dailyMessages}/{quota.dailyMessageLimit} today · ${dailyCostLabel}
+      </span>
     </div>
   )
 }

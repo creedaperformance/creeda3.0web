@@ -12,6 +12,12 @@ import {
   recordAssistantMessage,
   recordUserMessage,
 } from '@/lib/ai-coach/conversations'
+import {
+  estimateCostCents,
+  getQuotaSnapshot,
+  quotaErrorMessage,
+  recordAiUsage,
+} from '@/lib/ai-coach/quotas'
 
 export const runtime = 'nodejs'
 
@@ -44,6 +50,27 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
+  }
+
+  // Quota gate — block before paying for an Anthropic call.
+  const quota = await getQuotaSnapshot(supabase, user.id)
+  if (!quota.ok) {
+    await recordAiUsage(supabase, {
+      userId: user.id,
+      inputTokens: 0,
+      outputTokens: 0,
+      costCents: 0,
+      blocked: true,
+    })
+    return NextResponse.json(
+      {
+        error: 'rate_limited',
+        reason: quota.reason,
+        message: quotaErrorMessage(quota.reason),
+        quota,
+      },
+      { status: 429 }
+    )
   }
 
   const { conversation_id, topic, user_message, medical_report_id } = parsed.data
@@ -123,7 +150,7 @@ export async function POST(request: Request) {
           }
         }
 
-        await recordAssistantMessage(supabase, {
+        const { costCents } = await recordAssistantMessage(supabase, {
           conversationId: conversation.id,
           userId: user.id,
           content: fullText,
@@ -132,7 +159,24 @@ export async function POST(request: Request) {
           model,
         })
 
-        controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({ ok: true })}\n\n`))
+        await recordAiUsage(supabase, {
+          userId: user.id,
+          inputTokens,
+          outputTokens,
+          costCents,
+        })
+
+        const updatedQuota = await getQuotaSnapshot(supabase, user.id)
+        controller.enqueue(
+          encoder.encode(
+            `event: done\ndata: ${JSON.stringify({
+              ok: true,
+              cost_cents: costCents,
+              estimated_cost_cents: estimateCostCents(model, inputTokens, outputTokens),
+              quota: updatedQuota,
+            })}\n\n`
+          )
+        )
       } catch (error) {
         const message = (error as Error).message ?? 'Unknown error'
         controller.enqueue(

@@ -3,6 +3,7 @@ import 'server-only'
 import { z } from 'zod'
 
 import type { AiChatMessage } from './client'
+import { estimateCostCents } from './quotas'
 
 export const AI_TOPIC_VALUES = [
   'general',
@@ -123,13 +124,15 @@ export async function recordAssistantMessage(
     outputTokens: number
     model: string
   }
-) {
+): Promise<{ costCents: number }> {
   const nowIso = new Date().toISOString()
+  const costCents = estimateCostCents(args.model, args.inputTokens, args.outputTokens)
   const { error: insertError } = await supabase.from('ai_messages').insert({
     conversation_id: args.conversationId,
     user_id: args.userId,
     role: 'assistant',
     content: args.content,
+    cost_cents: costCents,
     tokens_input: args.inputTokens,
     tokens_output: args.outputTokens,
     model: args.model,
@@ -141,4 +144,6 @@ export async function recordAssistantMessage(
     .update({ last_message_at: nowIso })
     .eq('id', args.conversationId)
     .eq('user_id', args.userId)
+
+  return { costCents }
 }
