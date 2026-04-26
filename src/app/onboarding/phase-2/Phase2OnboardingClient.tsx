@@ -21,6 +21,13 @@ import type {
 } from '@creeda/schemas'
 
 import { submitOnboardingV2Phase2Day } from '../actions'
+import {
+  ProteinPortionPicker,
+  totalProteinGrams,
+  totalProteinPortions,
+  type ProteinSelections,
+} from '@/components/onboarding-v2/ProteinPortionPicker'
+import { Apsq10Questionnaire } from '@/components/onboarding-v2/Apsq10Questionnaire'
 
 const DAYS: Array<{
   id: OnboardingV2Phase2Day
@@ -226,6 +233,10 @@ export function Phase2OnboardingClient({
     strength_training_past_year: 'false',
     camera_baseline_completed: 'false',
   })
+  const [proteinPortions, setProteinPortions] = useState<ProteinSelections>({})
+  const [apsqResponses, setApsqResponses] = useState<(number | undefined)[]>(
+    Array.from({ length: 10 }, () => undefined)
+  )
 
   const day = useMemo(() => DAYS.find((item) => item.id === activeDay) ?? DAYS[0], [activeDay])
   const Icon = day.icon
@@ -312,13 +323,17 @@ export function Phase2OnboardingClient({
     }
 
     if (activeDay === 'day5_nutrition') {
+      const pickerGrams = totalProteinGrams(proteinPortions)
+      const pickerPortions = totalProteinPortions(proteinPortions)
+      const manualGrams = numberValue(values, 'estimated_protein_grams')
+      const manualPortions = numberValue(values, 'protein_portions_per_day')
       return {
         ...base,
         day: activeDay,
         nutrition: {
           diet_pattern: fieldValue(values, 'diet_pattern') as NutritionProfile['diet_pattern'],
-          protein_portions_per_day: numberValue(values, 'protein_portions_per_day'),
-          estimated_protein_grams: numberValue(values, 'estimated_protein_grams'),
+          protein_portions_per_day: pickerPortions > 0 ? pickerPortions : manualPortions,
+          estimated_protein_grams: pickerGrams > 0 ? pickerGrams : manualGrams,
           water_cups_per_day: numberValue(values, 'water_cups_per_day'),
           caffeine_mg_per_day: numberValue(values, 'caffeine_mg_per_day'),
           pre_workout_pattern: textValue(values, 'pre_workout_pattern') as
@@ -341,10 +356,7 @@ export function Phase2OnboardingClient({
     }
 
     if (activeDay === 'day6_psych_sleep') {
-      const apsqResponses = Array.from({ length: 10 }, (_, index) =>
-        numberValue(values, `apsq_${index + 1}`)
-      )
-      const hasApsq = apsqResponses.every((value) => value !== undefined)
+      const hasApsq = apsqResponses.every((value) => typeof value === 'number')
       return {
         ...base,
         day: activeDay,
@@ -500,7 +512,26 @@ export function Phase2OnboardingClient({
           <h2 className="mt-3 text-2xl font-black">{day.title}</h2>
           <p className="mt-2 text-sm leading-6 text-white/58">{day.detail}</p>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">{renderDayFields(activeDay, values, setValue)}</div>
+          <div className="mt-6">
+            {activeDay === 'day5_nutrition' ? (
+              <Day5NutritionForm
+                values={values}
+                setValue={setValue}
+                proteinPortions={proteinPortions}
+                setProteinPortions={setProteinPortions}
+                persona={persona}
+              />
+            ) : activeDay === 'day6_psych_sleep' ? (
+              <Day6PsychSleepForm
+                values={values}
+                setValue={setValue}
+                apsqResponses={apsqResponses}
+                setApsqResponses={setApsqResponses}
+              />
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">{renderDayFields(activeDay, values, setValue)}</div>
+            )}
+          </div>
 
           {result ? (
             <div className="mt-5 rounded-2xl border border-[#6ee7b7]/25 bg-[#6ee7b7]/10 p-4 text-sm font-semibold leading-6 text-[#d1fae5]">
@@ -705,5 +736,214 @@ function renderDayFields(
         <option value="mixed">Mixed</option>
       </Select>
     </>
+  )
+}
+
+function Day5NutritionForm({
+  values,
+  setValue,
+  proteinPortions,
+  setProteinPortions,
+  persona,
+}: {
+  values: Record<string, string>
+  setValue: (key: string, value: string) => void
+  proteinPortions: ProteinSelections
+  setProteinPortions: (next: ProteinSelections) => void
+  persona: Extract<Persona, 'athlete' | 'individual'>
+}) {
+  const bodyMass = numberValue(values, 'body_mass_kg')
+  const targetGPerKg = numberValue(values, 'target_protein_g_per_kg') ?? 1.6
+  const showRedS = persona === 'athlete'
+
+  return (
+    <div className="space-y-6">
+      <ProteinPortionPicker
+        value={proteinPortions}
+        onChange={setProteinPortions}
+        bodyMassKg={bodyMass}
+        targetGPerKg={targetGPerKg}
+      />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Select
+          label="Diet pattern"
+          value={fieldValue(values, 'diet_pattern')}
+          onChange={(value) => setValue('diet_pattern', value)}
+        >
+          <option value="omnivore">Omnivore</option>
+          <option value="vegetarian">Vegetarian</option>
+          <option value="eggetarian">Eggetarian</option>
+          <option value="pescatarian">Pescatarian</option>
+          <option value="vegan">Vegan</option>
+          <option value="jain">Jain</option>
+        </Select>
+        <Input
+          label="Body mass kg"
+          type="number"
+          value={fieldValue(values, 'body_mass_kg')}
+          onChange={(value) => setValue('body_mass_kg', value)}
+        />
+        <Input
+          label="Training hours / week"
+          type="number"
+          value={fieldValue(values, 'training_hours_per_week')}
+          onChange={(value) => setValue('training_hours_per_week', value)}
+        />
+        <Input
+          label="Water cups / day"
+          type="number"
+          value={fieldValue(values, 'water_cups_per_day')}
+          onChange={(value) => setValue('water_cups_per_day', value)}
+        />
+        <Input
+          label="Caffeine mg / day"
+          type="number"
+          value={fieldValue(values, 'caffeine_mg_per_day')}
+          onChange={(value) => setValue('caffeine_mg_per_day', value)}
+        />
+        <Select
+          label="Pre-workout pattern"
+          value={fieldValue(values, 'pre_workout_pattern')}
+          onChange={(value) => setValue('pre_workout_pattern', value)}
+        >
+          <option value="">Not set</option>
+          <option value="carb_heavy">Carb heavy</option>
+          <option value="mixed">Mixed</option>
+          <option value="minimal">Minimal</option>
+          <option value="fasted">Fasted</option>
+        </Select>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input
+          label="Allergies (comma-separated)"
+          value={fieldValue(values, 'allergies')}
+          onChange={(value) => setValue('allergies', value)}
+          placeholder="e.g. nuts, lactose"
+        />
+        <Input
+          label="Supplements (comma-separated)"
+          value={fieldValue(values, 'supplements')}
+          onChange={(value) => setValue('supplements', value)}
+          placeholder="e.g. whey, creatine, B12"
+        />
+        <Input
+          label="Known deficiencies (comma-separated)"
+          value={fieldValue(values, 'known_deficiencies')}
+          onChange={(value) => setValue('known_deficiencies', value)}
+          placeholder="e.g. iron, vitamin D"
+        />
+        <Input
+          label="Fatigue today (1-5)"
+          type="number"
+          value={fieldValue(values, 'fatigue_score_1_to_5')}
+          onChange={(value) => setValue('fatigue_score_1_to_5', value)}
+        />
+      </div>
+
+      {showRedS ? (
+        <div className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.04] p-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-amber-200">
+            RED-S micro-screen (optional)
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-amber-100/65">
+            Three quick markers used by sports clinicians to flag relative-energy-deficiency risk.
+            Your answers stay private and only refine our nutrition guidance — never displayed
+            anywhere else.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <Input
+              label="% body weight lost in 90d"
+              type="number"
+              value={fieldValue(values, 'recent_weight_loss_pct')}
+              onChange={(value) => setValue('recent_weight_loss_pct', value)}
+            />
+            <Input
+              label="Missed periods (last 90d)"
+              type="number"
+              value={fieldValue(values, 'missed_periods_last_90_days')}
+              onChange={(value) => setValue('missed_periods_last_90_days', value)}
+            />
+            <Input
+              label="Persistent fatigue (1-5)"
+              type="number"
+              value={fieldValue(values, 'fatigue_score_1_to_5')}
+              onChange={(value) => setValue('fatigue_score_1_to_5', value)}
+            />
+          </div>
+          <p className="mt-3 text-[10px] leading-relaxed text-amber-100/55">
+            Only fill the cycle field if it applies to you. We do not auto-display this anywhere
+            and never share it with coaches without explicit permission.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function Day6PsychSleepForm({
+  values,
+  setValue,
+  apsqResponses,
+  setApsqResponses,
+}: {
+  values: Record<string, string>
+  setValue: (key: string, value: string) => void
+  apsqResponses: (number | undefined)[]
+  setApsqResponses: (next: (number | undefined)[]) => void
+}) {
+  return (
+    <div className="space-y-6">
+      <Apsq10Questionnaire responses={apsqResponses} onChange={setApsqResponses} />
+
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
+          Sleep baseline
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-white/40">
+          One snapshot of your typical training-day sleep. We track drift against this in the daily
+          ritual.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Input
+            label="Avg sleep hours"
+            type="number"
+            value={fieldValue(values, 'avg_sleep_hours')}
+            onChange={(value) => setValue('avg_sleep_hours', value)}
+          />
+          <Input
+            label="Sleep quality (1-5)"
+            type="number"
+            value={fieldValue(values, 'sleep_quality_1_to_5')}
+            onChange={(value) => setValue('sleep_quality_1_to_5', value)}
+          />
+          <Input
+            label="Wake-ups / night"
+            type="number"
+            value={fieldValue(values, 'wakeups_per_night')}
+            onChange={(value) => setValue('wakeups_per_night', value)}
+          />
+          <Input
+            label="Bedtime consistency (1-5)"
+            type="number"
+            value={fieldValue(values, 'bedtime_consistency_1_to_5')}
+            onChange={(value) => setValue('bedtime_consistency_1_to_5', value)}
+          />
+          <Input
+            label="Screen time before bed (min)"
+            type="number"
+            value={fieldValue(values, 'screen_before_bed_minutes')}
+            onChange={(value) => setValue('screen_before_bed_minutes', value)}
+          />
+          <Input
+            label="Life stress (1-5)"
+            type="number"
+            value={fieldValue(values, 'life_stress_1_to_5')}
+            onChange={(value) => setValue('life_stress_1_to_5', value)}
+          />
+        </div>
+      </div>
+    </div>
   )
 }

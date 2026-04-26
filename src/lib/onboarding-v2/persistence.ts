@@ -184,6 +184,11 @@ function computePhase1Readiness(payload: OnboardingV2Phase1Submission) {
     },
     acwr,
     confidence,
+    // Phase 1 doesn't yet know the medical_screenings flag, but a
+    // currently-symptomatic injury is a sufficient trigger for modified mode.
+    modifiedMode: payload.orthopedic_history.some(
+      (entry) => entry.currently_symptomatic && entry.severity !== 'annoying'
+    ),
   })
 }
 
@@ -707,6 +712,22 @@ export async function persistOnboardingV2Phase1(args: {
   const sport = payload.sport.primary_sport.trim()
   const position = cleanOptionalText(payload.sport.position)
 
+  const sportPayload = payload.sport as typeof payload.sport & {
+    primary_sport_id?: string
+    position_id?: string
+    competitive_level?: string
+    years_in_sport?: number
+    secondary_sport_id?: string
+    movement_preferences?: string[]
+    activity_level?: string
+    years_active?: number
+  }
+  const goalPayload = payload.goal as typeof payload.goal & {
+    time_horizon?: string
+    target_event_sport?: string
+    target_event_priority?: 'A' | 'B' | 'C'
+  }
+
   const { error: profileError } = await supabase
     .from('profiles')
     .update({
@@ -721,6 +742,19 @@ export async function persistOnboardingV2Phase1(args: {
       dominant_leg: payload.identity.dominant_leg,
       primary_sport: sport,
       position,
+      // v2.1 additions — persisted into new profile columns (migration v41).
+      primary_sport_id: cleanOptionalText(sportPayload.primary_sport_id),
+      position_id: cleanOptionalText(sportPayload.position_id),
+      competitive_level: cleanOptionalText(sportPayload.competitive_level),
+      years_in_sport: sportPayload.years_in_sport ?? null,
+      secondary_sport_id: cleanOptionalText(sportPayload.secondary_sport_id),
+      movement_preferences:
+        Array.isArray(sportPayload.movement_preferences) && sportPayload.movement_preferences.length > 0
+          ? sportPayload.movement_preferences
+          : null,
+      activity_level: cleanOptionalText(sportPayload.activity_level),
+      years_active: sportPayload.years_active ?? null,
+      goal_time_horizon: cleanOptionalText(goalPayload.time_horizon),
       onboarding_phase: 2,
       profile_calibration_pct: profileCalibrationPct,
     })
@@ -835,8 +869,8 @@ export async function persistOnboardingV2Phase1(args: {
       user_id: userId,
       event_name: payload.goal.target_event_name,
       event_date: payload.goal.target_event_date,
-      priority: 'A',
-      sport,
+      priority: goalPayload.target_event_priority ?? 'B',
+      sport: cleanOptionalText(goalPayload.target_event_sport) ?? sport,
       taper_protocol_active: false,
     })
 
@@ -1403,6 +1437,8 @@ export async function persistOnboardingV2DailyRitual(args: {
     { data: loadRows },
     { data: movementRows },
     { data: adaptiveProfile },
+    { data: medicalRow },
+    { data: orthoRows },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -1434,6 +1470,16 @@ export async function persistOnboardingV2DailyRitual(args: {
       .eq('role', payload.persona)
       .eq('flow_id', 'onboarding_v2_daily_ritual')
       .maybeSingle(),
+    supabase
+      .from('medical_screenings')
+      .select('modified_mode_active, medical_clearance_provided')
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabase
+      .from('orthopedic_history')
+      .select('severity, currently_symptomatic')
+      .eq('user_id', userId)
+      .eq('currently_symptomatic', true),
   ])
 
   const checkInCount = Array.isArray(checkInRows) ? checkInRows.length : 1
@@ -1447,6 +1493,20 @@ export async function persistOnboardingV2DailyRitual(args: {
     payload.pain_locations.length +
     (payload.apsq3?.length ?? 0) +
     (sleep ? 2 : 0)
+  const medicalModified =
+    Boolean((medicalRow as { modified_mode_active?: boolean } | null)?.modified_mode_active) &&
+    !Boolean(
+      (medicalRow as { medical_clearance_provided?: boolean } | null)?.medical_clearance_provided
+    )
+  const symptomaticOrthoModified = Array.isArray(orthoRows)
+    ? orthoRows.some((row) => {
+        const record = row as { severity?: string; currently_symptomatic?: boolean } | null
+        return (
+          record?.currently_symptomatic && record?.severity && record.severity !== 'annoying'
+        )
+      })
+    : false
+  const modifiedMode = medicalModified || symptomaticOrthoModified
 
   const confidence = computeConfidence({
     daysSinceOnboarding: checkInCount,
@@ -1467,6 +1527,7 @@ export async function persistOnboardingV2DailyRitual(args: {
     acwr,
     movementQualityLatest,
     confidence,
+    modifiedMode,
   })
 
   const { error: readinessError } = await supabase.from('readiness_scores').upsert(
@@ -1714,15 +1775,27 @@ export async function persistOnboardingV2MovementBaseline(args: {
     }
   }
 
-  const { data: loadRows } = await supabase
-    .from('training_load_history')
-    .select('date,total_duration_minutes,average_rpe')
-    .eq('user_id', userId)
-    .order('date', { ascending: false })
-    .limit(28)
+  const [{ data: loadRows }, { data: medicalRow }] = await Promise.all([
+    supabase
+      .from('training_load_history')
+      .select('date,total_duration_minutes,average_rpe')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(28),
+    supabase
+      .from('medical_screenings')
+      .select('modified_mode_active, medical_clearance_provided')
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ])
 
   const loadEntries = trainingLoadEntriesFromRows(loadRows)
   const acwr = loadEntries.length > 0 ? computeACWR(loadEntries) : undefined
+  const modifiedMode =
+    Boolean((medicalRow as { modified_mode_active?: boolean } | null)?.modified_mode_active) &&
+    !Boolean(
+      (medicalRow as { medical_clearance_provided?: boolean } | null)?.medical_clearance_provided
+    )
   const readiness = computeReadiness({
     subjective: {
       energy: 3,
@@ -1732,6 +1805,7 @@ export async function persistOnboardingV2MovementBaseline(args: {
     acwr,
     movementQualityLatest: payload.movement_quality_score,
     confidence,
+    modifiedMode,
   })
 
   const { error: readinessError } = await supabase

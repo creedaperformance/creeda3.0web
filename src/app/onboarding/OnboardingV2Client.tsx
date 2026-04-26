@@ -7,12 +7,36 @@ import {
   CheckCircle2,
   Dumbbell,
   HeartPulse,
+  Info,
   ShieldCheck,
   TriangleAlert,
   UserRound,
   Users,
 } from 'lucide-react'
-import type { OnboardingV2Phase1Submission, ParqPlus, Persona } from '@creeda/schemas'
+import type {
+  ActivityLevel,
+  CompetitiveLevel,
+  EventPriority,
+  MovementPreference,
+  OnboardingV2Phase1Submission,
+  OnboardingV2PrimaryGoal,
+  ParqPlus,
+  Persona,
+  TimeHorizon,
+  TrainingLoadSnapshot,
+} from '@creeda/schemas'
+
+import { SportPicker, type SportSelection } from '@/components/onboarding-v2/SportPicker'
+import { BodyMap2D } from '@/components/onboarding-v2/BodyMap2D'
+import { IdentityForm } from '@/components/onboarding-v2/IdentityForm'
+import { GoalForm, type GoalFormState } from '@/components/onboarding-v2/GoalForm'
+import { TrainingLoadForm } from '@/components/onboarding-v2/TrainingLoadForm'
+import {
+  IndividualMovementForm,
+  type IndividualMovementState,
+} from '@/components/onboarding-v2/IndividualMovementForm'
+import { AgeGateForm, getAgeGateOutcome, type AgeGateState } from '@/components/onboarding-v2/AgeGateForm'
+import { competitiveLevelToV2, SPORT_BY_ID } from '@/lib/onboarding-v2/sports'
 
 import {
   submitOnboardingV2Phase1,
@@ -50,50 +74,52 @@ const PERSONA_OPTIONS: Array<{
   },
 ]
 
-const PARQ_ITEMS: Array<{
-  key: keyof Pick<
-    ParqPlus,
-    | 'q1_heart_condition'
-    | 'q2_chest_pain_activity'
-    | 'q3_chest_pain_rest'
-    | 'q4_dizziness_loc'
-    | 'q5_bone_joint_problem'
-    | 'q6_bp_heart_meds'
-    | 'q7_other_reason'
-  >
-  label: string
-}> = [
-  { key: 'q1_heart_condition', label: 'A doctor has said you have a heart condition.' },
-  { key: 'q2_chest_pain_activity', label: 'You feel chest pain during physical activity.' },
-  { key: 'q3_chest_pain_rest', label: 'You have had chest pain while resting.' },
-  { key: 'q4_dizziness_loc', label: 'You lose balance because of dizziness or have lost consciousness.' },
-  { key: 'q5_bone_joint_problem', label: 'You have a bone or joint issue that could worsen with activity.' },
-  { key: 'q6_bp_heart_meds', label: 'A doctor currently prescribes blood pressure or heart medication.' },
-  { key: 'q7_other_reason', label: 'You know another reason you should not do physical activity.' },
+type ParqKey =
+  | 'q1_heart_condition'
+  | 'q2_chest_pain_activity'
+  | 'q3_chest_pain_rest'
+  | 'q4_dizziness_loc'
+  | 'q5_bone_joint_problem'
+  | 'q6_bp_heart_meds'
+  | 'q7_other_reason'
+
+const PARQ_ITEMS: Array<{ key: ParqKey; label: string; why: string }> = [
+  {
+    key: 'q1_heart_condition',
+    label: 'A doctor has said you have a heart condition.',
+    why: 'Heart conditions need physician clearance before high-intensity work — we cap recommendations until you confirm clearance.',
+  },
+  {
+    key: 'q2_chest_pain_activity',
+    label: 'You feel chest pain during physical activity.',
+    why: 'Activity-induced chest pain is a red-flag symptom; we want you to rule out cardiac causes before pushing intensity.',
+  },
+  {
+    key: 'q3_chest_pain_rest',
+    label: 'You have had chest pain while resting.',
+    why: 'Resting chest pain warrants a clinical conversation before we ramp load.',
+  },
+  {
+    key: 'q4_dizziness_loc',
+    label: 'You lose balance from dizziness or have lost consciousness.',
+    why: 'Syncope or unexplained dizziness is unsafe to train through without a check-up.',
+  },
+  {
+    key: 'q5_bone_joint_problem',
+    label: 'You have a bone or joint issue that could worsen with activity.',
+    why: 'We will tighten asymmetry thresholds and avoid loading the affected pattern until you self-clear.',
+  },
+  {
+    key: 'q6_bp_heart_meds',
+    label: 'A doctor currently prescribes blood pressure or heart medication.',
+    why: 'Some BP/heart medications change HR + perceived exertion responses; we calibrate readiness accordingly.',
+  },
+  {
+    key: 'q7_other_reason',
+    label: 'You know another reason you should not do physical activity.',
+    why: 'If anything else gives you pause, flag it. We will keep prescriptions conservative and add a note for your record.',
+  },
 ]
-
-const BODY_REGION_OPTIONS = [
-  { value: 'lower_back', label: 'Lower back' },
-  { value: 'left_shoulder', label: 'Left shoulder' },
-  { value: 'right_shoulder', label: 'Right shoulder' },
-  { value: 'left_knee_acl', label: 'Left knee' },
-  { value: 'right_knee_acl', label: 'Right knee' },
-  { value: 'left_ankle', label: 'Left ankle' },
-  { value: 'right_ankle', label: 'Right ankle' },
-  { value: 'left_hamstring', label: 'Left hamstring' },
-  { value: 'right_hamstring', label: 'Right hamstring' },
-  { value: 'groin', label: 'Groin' },
-] as const
-
-const GOAL_OPTIONS = [
-  { value: 'general_fitness', label: 'General fitness' },
-  { value: 'sport_performance', label: 'Sport performance' },
-  { value: 'strength_gain', label: 'Strength gain' },
-  { value: 'fat_loss', label: 'Fat loss' },
-  { value: 'return_to_play', label: 'Return to play' },
-  { value: 'event_prep', label: 'Event prep' },
-  { value: 'movement_quality', label: 'Movement quality' },
-] as const
 
 const defaultParq: ParqPlus = {
   q1_heart_condition: false,
@@ -132,65 +158,77 @@ type Phase1Success = Extract<
 
 type Phase1FormState = {
   identity: OnboardingV2Phase1Submission['identity']
-  sport: OnboardingV2Phase1Submission['sport']
-  goal: OnboardingV2Phase1Submission['goal']
-  training_load: NonNullable<OnboardingV2Phase1Submission['training_load']>
-  orthopedic_entry: OnboardingV2Phase1Submission['orthopedic_history'][number]
-  has_orthopedic_history: boolean
+  ageGate: AgeGateState
+  sport: SportSelection
+  competitiveLevelOverride?: CompetitiveLevel
+  individual: IndividualMovementState
+  goal: GoalFormState
+  training_load: TrainingLoadSnapshot
+  orthopedic_history: OnboardingV2Phase1Submission['orthopedic_history']
   wearable: OnboardingV2Phase1Submission['wearable']
   squad: NonNullable<OnboardingV2Phase1Submission['squad']>
 }
 
-const defaultPhase1: Phase1FormState = {
-  identity: {
-    display_name: 'Creeda Athlete',
-    date_of_birth: '2005-01-01',
-    biological_sex: 'prefer_not_to_say',
-    gender_identity: '',
-    height_cm: 175,
-    weight_kg: 70,
-    dominant_hand: 'right',
-    dominant_leg: 'right',
-  },
-  sport: {
-    primary_sport: 'Cricket',
-    position: '',
-    level: 'recreational',
-  },
-  goal: {
-    primary_goal: 'sport_performance',
-    goal_detail: '',
-    target_event_name: '',
-    target_event_date: undefined,
-  },
-  training_load: {
-    weekly_sessions: 3,
-    avg_session_minutes: 60,
-    typical_rpe: 6,
-    pattern_4_weeks: 'same',
-  },
-  orthopedic_entry: {
-    body_region: 'lower_back',
-    severity: 'annoying',
-    occurred_at_estimate: '2025-01-01',
-    currently_symptomatic: false,
-    current_pain_score: 0,
-    has_seen_clinician: false,
-    clinician_type: 'none',
-    notes: '',
-  },
-  has_orthopedic_history: false,
-  wearable: {
-    preference: 'later',
-    provider: 'none',
-  },
-  squad: {
-    name: 'First Squad',
-    sport: 'Cricket',
-    level: 'Academy',
-    size_estimate: 12,
-    primary_focus: 'in_season_maintenance',
-  },
+function todayMinusYears(years: number) {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - years)
+  return d.toISOString().slice(0, 10)
+}
+
+function defaultPhase1State(): Phase1FormState {
+  return {
+    identity: {
+      display_name: '',
+      date_of_birth: todayMinusYears(25),
+      biological_sex: 'prefer_not_to_say',
+      gender_identity: '',
+      height_cm: 170,
+      weight_kg: 70,
+      dominant_hand: 'right',
+      dominant_leg: 'right',
+    },
+    ageGate: {
+      date_of_birth: todayMinusYears(25),
+      guardian_email: '',
+    },
+    sport: {
+      sportId: 'cricket',
+      sportLabel: 'Cricket',
+      positionId: undefined,
+      positionLabel: undefined,
+      customPosition: undefined,
+      competitiveLevel: 'club',
+      yearsInSport: 1,
+      secondarySportId: undefined,
+    },
+    competitiveLevelOverride: 'club',
+    individual: {
+      movement_preferences: [],
+      activity_level: 'light',
+      years_active: 1,
+    },
+    goal: {
+      primary_goal: 'sport_performance',
+      goal_detail: undefined,
+      time_horizon: 'twelve_weeks',
+      has_target_event: false,
+    },
+    training_load: {
+      weekly_sessions: 3,
+      avg_session_minutes: 60,
+      typical_rpe: 6,
+      pattern_4_weeks: 'same',
+    },
+    orthopedic_history: [],
+    wearable: { preference: 'later', provider: 'none' },
+    squad: {
+      name: '',
+      sport: '',
+      level: 'Academy',
+      size_estimate: 12,
+      primary_focus: 'in_season_maintenance',
+    },
+  }
 }
 
 function anyParqYes(parq: ParqPlus) {
@@ -204,6 +242,17 @@ function cleanOptional(value?: string) {
 
 function stepPhase(step: Step) {
   return step === 'persona' || step === 'safety' || step === 'phase0Complete' ? 0 : 1
+}
+
+function defaultGoalForPersona(persona: Persona): OnboardingV2PrimaryGoal {
+  switch (persona) {
+    case 'athlete':
+      return 'sport_performance'
+    case 'individual':
+      return 'feel_better'
+    case 'coach':
+      return 'coach_in_season'
+  }
 }
 
 function ToggleButton({
@@ -227,41 +276,6 @@ function ToggleButton({
     >
       {children}
     </button>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <label className="block">
-      <span className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
-        {label}
-      </span>
-      <div className="mt-2">{children}</div>
-    </label>
-  )
-}
-
-function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#6ee7b7]/70"
-    />
-  )
-}
-
-function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className="h-12 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 text-sm font-bold text-white outline-none transition focus:border-[#6ee7b7]/70"
-    />
   )
 }
 
@@ -310,13 +324,16 @@ export function OnboardingV2Client({
   initialPhase: number
 }) {
   const [persona, setPersona] = useState<Persona>(initialPersona)
-  const [step, setStep] = useState<Step>(initialPhase > 1 ? 'identity' : initialPhase > 0 ? 'safety' : 'persona')
+  const [step, setStep] = useState<Step>(
+    initialPhase > 1 ? 'identity' : initialPhase > 0 ? 'safety' : 'persona'
+  )
   const [parq, setParq] = useState<ParqPlus>(defaultParq)
+  const [whyOpen, setWhyOpen] = useState<Set<ParqKey>>(new Set())
   const [startedAt] = useState(() => Date.now())
   const [phase1StartedAt] = useState(() => Date.now())
   const [safetyResult, setSafetyResult] = useState<SafetyGateSuccess | null>(null)
   const [phase1Result, setPhase1Result] = useState<Phase1Success | null>(null)
-  const [phase1, setPhase1] = useState<Phase1FormState>(defaultPhase1)
+  const [phase1, setPhase1] = useState<Phase1FormState>(() => defaultPhase1State())
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -342,12 +359,56 @@ export function OnboardingV2Client({
     })
   }, [persona, step])
 
+  function selectPersona(next: Persona) {
+    setPersona(next)
+    // Sync the default goal to the persona's preferred goal — but only if the
+    // user hasn't already moved away from the prior default.
+    setPhase1((current) => ({
+      ...current,
+      goal: { ...current.goal, primary_goal: defaultGoalForPersona(next) },
+    }))
+  }
+
+  function setAgeGate(next: AgeGateState) {
+    setPhase1((current) => ({
+      ...current,
+      ageGate: next,
+      identity: { ...current.identity, date_of_birth: next.date_of_birth },
+    }))
+  }
+
   function updatePhase1<K extends keyof Phase1FormState>(key: K, value: Phase1FormState[K]) {
     setPhase1((current) => ({ ...current, [key]: value }))
   }
 
+  function toggleWhy(key: ParqKey) {
+    setWhyOpen((set) => {
+      const next = new Set(set)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
   function submitSafetyGate() {
     setError(null)
+    const ageOutcome = getAgeGateOutcome(phase1.ageGate)
+    if (ageOutcome.status === 'incomplete') {
+      setError('Add a date of birth so we can apply age-appropriate guardrails.')
+      return
+    }
+    if (ageOutcome.status === 'blocked') {
+      setError('Creeda is not built for users under 13. Please come back when you’re older.')
+      return
+    }
+    if (ageOutcome.status === 'guardian_required') {
+      const guardian = phase1.ageGate.guardian_email?.trim()
+      if (!guardian || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guardian)) {
+        setError('Please add a guardian email so we can request consent.')
+        return
+      }
+    }
+
     startTransition(async () => {
       const response = await submitOnboardingV2SafetyGate({
         persona,
@@ -367,45 +428,74 @@ export function OnboardingV2Client({
   }
 
   function phase1Payload(): OnboardingV2Phase1Submission {
-    const targetEventName = cleanOptional(phase1.goal.target_event_name)
+    const isIndividual = persona === 'individual'
+    const isCoach = persona === 'coach'
+
+    // Compose sport block:
+    // - Athlete uses SportPicker selection.
+    // - Individual ships movement_preferences and a synthetic primary_sport string.
+    // - Coach uses squad sport.
+    const sportLabel = isIndividual
+      ? phase1.individual.movement_preferences[0] ?? 'general'
+      : phase1.sport.sportLabel || phase1.sport.sportId
+
+    const sportPosition = isIndividual
+      ? undefined
+      : phase1.sport.positionLabel ?? phase1.sport.customPosition
+
+    const v2Level = isIndividual
+      ? 'recreational'
+      : competitiveLevelToV2(phase1.sport.competitiveLevel)
+
+    const goalPayload = {
+      primary_goal: phase1.goal.primary_goal,
+      goal_detail: cleanOptional(phase1.goal.goal_detail),
+      time_horizon: phase1.goal.time_horizon,
+      target_event_name: phase1.goal.has_target_event
+        ? cleanOptional(phase1.goal.target_event_name)
+        : undefined,
+      target_event_date: phase1.goal.has_target_event ? phase1.goal.target_event_date : undefined,
+      target_event_sport: phase1.goal.has_target_event
+        ? cleanOptional(phase1.goal.target_event_sport ?? sportLabel)
+        : undefined,
+      target_event_priority: phase1.goal.has_target_event
+        ? phase1.goal.target_event_priority
+        : undefined,
+    }
+
     const payload = {
-      phase: 1,
+      phase: 1 as const,
       persona,
-      source: 'web',
+      source: 'web' as const,
       identity: {
         ...phase1.identity,
-        display_name: phase1.identity.display_name.trim(),
+        display_name: phase1.identity.display_name.trim() || 'Creeda athlete',
         gender_identity: cleanOptional(phase1.identity.gender_identity),
       },
       sport: {
-        ...phase1.sport,
-        primary_sport: phase1.sport.primary_sport.trim(),
-        position: cleanOptional(phase1.sport.position),
+        primary_sport: typeof sportLabel === 'string' ? sportLabel : 'general',
+        position: sportPosition,
+        level: v2Level,
+        primary_sport_id: isIndividual ? undefined : phase1.sport.sportId,
+        position_id: isIndividual ? undefined : phase1.sport.positionId,
+        competitive_level: isIndividual ? undefined : phase1.sport.competitiveLevel,
+        years_in_sport: isIndividual ? undefined : phase1.sport.yearsInSport,
+        secondary_sport_id: isIndividual ? undefined : phase1.sport.secondarySportId,
+        movement_preferences: isIndividual ? phase1.individual.movement_preferences : undefined,
+        activity_level: isIndividual ? phase1.individual.activity_level : undefined,
+        years_active: isIndividual ? phase1.individual.years_active : undefined,
       },
-      goal: {
-        ...phase1.goal,
-        goal_detail: cleanOptional(phase1.goal.goal_detail),
-        target_event_name: targetEventName,
-        target_event_date: targetEventName ? phase1.goal.target_event_date : undefined,
-      },
-      training_load: persona === 'coach' ? undefined : phase1.training_load,
-      orthopedic_history:
-        persona === 'coach' || !phase1.has_orthopedic_history
-          ? []
-          : [
-              {
-                ...phase1.orthopedic_entry,
-                current_pain_score: phase1.orthopedic_entry.currently_symptomatic
-                  ? phase1.orthopedic_entry.current_pain_score
-                  : undefined,
-                clinician_type: phase1.orthopedic_entry.has_seen_clinician
-                  ? phase1.orthopedic_entry.clinician_type
-                  : 'none',
-                notes: cleanOptional(phase1.orthopedic_entry.notes),
-              },
-            ],
+      goal: goalPayload,
+      training_load: isCoach ? undefined : phase1.training_load,
+      orthopedic_history: isCoach ? [] : phase1.orthopedic_history,
       wearable: phase1.wearable,
-      squad: persona === 'coach' ? phase1.squad : undefined,
+      squad: isCoach
+        ? {
+            ...phase1.squad,
+            name: phase1.squad.name.trim() || 'My squad',
+            sport: phase1.squad.sport.trim() || 'General',
+          }
+        : undefined,
       completion_seconds: Math.round((Date.now() - phase1StartedAt) / 1000),
     }
 
@@ -414,6 +504,23 @@ export function OnboardingV2Client({
 
   function submitPhase1() {
     setError(null)
+    if (!phase1.identity.display_name.trim()) {
+      setError('Please add a name so we know who we’re working with.')
+      return
+    }
+    if (persona === 'individual' && phase1.individual.movement_preferences.length === 0) {
+      setError('Pick at least one type of movement you enjoy.')
+      return
+    }
+    if (persona === 'athlete' && !phase1.sport.sportId) {
+      setError('Pick a sport so we can calibrate position-specific norms.')
+      return
+    }
+    if (persona === 'coach' && !phase1.squad.name.trim()) {
+      setError('Add a name for your squad — even a working title is fine.')
+      return
+    }
+
     startTransition(async () => {
       const response = await submitOnboardingV2Phase1(phase1Payload())
 
@@ -427,7 +534,7 @@ export function OnboardingV2Client({
     })
   }
 
-  const nextAfterGoal = persona === 'coach' ? 'squad' : 'load'
+  const nextAfterGoal: Step = persona === 'coach' ? 'squad' : 'load'
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(110,231,183,0.14),transparent_30%),radial-gradient(circle_at_top_right,rgba(56,189,248,0.12),transparent_32%),linear-gradient(180deg,#020617,#08111f)] px-4 py-8 text-white sm:px-6">
@@ -468,6 +575,7 @@ export function OnboardingV2Client({
         </aside>
 
         <section className="rounded-[2rem] border border-white/10 bg-[#030712]/86 p-4 shadow-2xl shadow-black/30 sm:p-6">
+          {/* ── Persona ─────────────────────────────────────── */}
           {step === 'persona' ? (
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#38bdf8]">
@@ -478,12 +586,11 @@ export function OnboardingV2Client({
                 {PERSONA_OPTIONS.map((option) => {
                   const OptionIcon = option.icon
                   const active = persona === option.id
-
                   return (
                     <button
                       key={option.id}
                       type="button"
-                      onClick={() => setPersona(option.id)}
+                      onClick={() => selectPersona(option.id)}
                       className={`rounded-2xl border p-5 text-left transition ${
                         active
                           ? 'border-[#6ee7b7]/70 bg-[#6ee7b7]/12'
@@ -519,17 +626,18 @@ export function OnboardingV2Client({
             </div>
           ) : null}
 
+          {/* ── Safety gate (PARQ + DOB + pregnancy) ────────── */}
           {step === 'safety' ? (
             <div>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#6ee7b7]">
-                    Phase 0 Safety Gate
+                    Phase 0 · Safety gate
                   </p>
-                  <h2 className="mt-3 text-2xl font-black">Seven quick safety checks.</h2>
+                  <h2 className="mt-3 text-2xl font-black">A few medical questions first.</h2>
                   <p className="mt-2 text-sm leading-6 text-white/58">
-                    This does not diagnose anything. It decides whether Creeda should use a
-                    modified, safer starting mode.
+                    This is the same screening a sports clinic would run. It does not diagnose
+                    anything — it tells Creeda whether to start in a safer mode.
                   </p>
                 </div>
                 <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
@@ -539,25 +647,42 @@ export function OnboardingV2Client({
               </div>
 
               <div className="mt-6 grid gap-3">
-                {PARQ_ITEMS.map((item) => (
-                  <div key={item.key} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <p className="text-sm font-semibold leading-6 text-white/78">{item.label}</p>
-                    <div className="mt-3 flex gap-2">
-                      <ToggleButton
-                        active={!parq[item.key]}
-                        onClick={() => setParq((current) => ({ ...current, [item.key]: false }))}
-                      >
-                        No
-                      </ToggleButton>
-                      <ToggleButton
-                        active={Boolean(parq[item.key])}
-                        onClick={() => setParq((current) => ({ ...current, [item.key]: true }))}
-                      >
-                        Yes
-                      </ToggleButton>
+                {PARQ_ITEMS.map((item) => {
+                  const isYes = Boolean(parq[item.key])
+                  const showWhy = whyOpen.has(item.key)
+                  return (
+                    <div key={item.key} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                      <p className="text-sm font-semibold leading-6 text-white/82">{item.label}</p>
+                      <div className="mt-3 flex gap-2">
+                        <ToggleButton
+                          active={!isYes}
+                          onClick={() => setParq((current) => ({ ...current, [item.key]: false }))}
+                        >
+                          No
+                        </ToggleButton>
+                        <ToggleButton
+                          active={isYes}
+                          onClick={() => setParq((current) => ({ ...current, [item.key]: true }))}
+                        >
+                          Yes
+                        </ToggleButton>
+                        <button
+                          type="button"
+                          onClick={() => toggleWhy(item.key)}
+                          className="ml-auto inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white/45 hover:text-white/70"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                          {showWhy ? 'Hide' : 'Why we ask'}
+                        </button>
+                      </div>
+                      {showWhy ? (
+                        <p className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-[12px] leading-relaxed text-white/55">
+                          {item.why}
+                        </p>
+                      ) : null}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {parq.q7_other_reason ? (
@@ -582,6 +707,9 @@ export function OnboardingV2Client({
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
                   Pregnancy or cycle context
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/40">
+                  Optional — shown to all so nobody has to disclose biological sex first.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(['not_applicable', 'no', 'pregnant', 'trying_to_conceive', 'postpartum'] as const).map(
@@ -609,6 +737,18 @@ export function OnboardingV2Client({
                 </label>
               </div>
 
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
+                  Date of birth
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/40">
+                  Drives age-appropriate baselines, guardian consent under 18, and modified mode for 65+.
+                </p>
+                <div className="mt-2">
+                  <AgeGateForm value={phase1.ageGate} onChange={setAgeGate} />
+                </div>
+              </div>
+
               <div
                 className={`mt-5 rounded-2xl border p-4 ${
                   modifiedModePreview
@@ -624,8 +764,8 @@ export function OnboardingV2Client({
                   )}
                   <p className="text-sm leading-6">
                     {modifiedModePreview
-                      ? 'Creeda will start in modified mode and keep recommendations conservative until clearance and more data improve confidence.'
-                      : 'No safety flag selected. Confidence still starts low until measured context exists.'}
+                      ? 'Creeda will start in modified mode — every directive caps at "Maintain" until a doctor clears you.'
+                      : 'No safety flag. Confidence still starts low until measured context exists.'}
                   </p>
                 </div>
               </div>
@@ -641,6 +781,7 @@ export function OnboardingV2Client({
             </div>
           ) : null}
 
+          {/* ── Phase 0 complete ────────────────────────────── */}
           {step === 'phase0Complete' && safetyResult?.success ? (
             <div className="py-6">
               <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[#6ee7b7]/12 text-[#6ee7b7]">
@@ -662,6 +803,7 @@ export function OnboardingV2Client({
                   clinician-clearance language where needed.
                 </p>
               ) : null}
+
               <button
                 type="button"
                 onClick={() => setStep('identity')}
@@ -673,531 +815,344 @@ export function OnboardingV2Client({
             </div>
           ) : null}
 
+          {/* ── Identity ────────────────────────────────────── */}
           {step === 'identity' ? (
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#6ee7b7]">
-                Phase 1 Identity
+            <div className="py-2">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#38bdf8]">
+                Phase 1.1 · Identity
               </p>
-              <h2 className="mt-3 text-2xl font-black">Profile basics.</h2>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Field label="Display name">
-                  <TextInput
-                    value={phase1.identity.display_name}
-                    onChange={(event) =>
-                      updatePhase1('identity', { ...phase1.identity, display_name: event.target.value })
-                    }
-                  />
-                </Field>
-                <Field label="Date of birth">
-                  <TextInput
-                    type="date"
-                    value={phase1.identity.date_of_birth}
-                    onChange={(event) =>
-                      updatePhase1('identity', { ...phase1.identity, date_of_birth: event.target.value })
-                    }
-                  />
-                </Field>
-                <Field label="Biological sex">
-                  <Select
-                    value={phase1.identity.biological_sex}
-                    onChange={(event) =>
-                      updatePhase1('identity', {
-                        ...phase1.identity,
-                        biological_sex: event.target.value as Phase1FormState['identity']['biological_sex'],
-                      })
-                    }
-                  >
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="intersex">Intersex</option>
-                  </Select>
-                </Field>
-                <Field label="Gender identity">
-                  <TextInput
-                    value={phase1.identity.gender_identity ?? ''}
-                    onChange={(event) =>
-                      updatePhase1('identity', { ...phase1.identity, gender_identity: event.target.value })
-                    }
-                    placeholder="Optional"
-                  />
-                </Field>
-                <Field label="Height cm">
-                  <TextInput
-                    type="number"
-                    min={100}
-                    max={230}
-                    value={phase1.identity.height_cm}
-                    onChange={(event) =>
-                      updatePhase1('identity', { ...phase1.identity, height_cm: Number(event.target.value) })
-                    }
-                  />
-                </Field>
-                <Field label="Weight kg">
-                  <TextInput
-                    type="number"
-                    min={30}
-                    max={200}
-                    value={phase1.identity.weight_kg}
-                    onChange={(event) =>
-                      updatePhase1('identity', { ...phase1.identity, weight_kg: Number(event.target.value) })
-                    }
-                  />
-                </Field>
+              <h2 className="mt-3 text-2xl font-black">
+                {persona === 'athlete'
+                  ? 'Tell us who we’re working with.'
+                  : persona === 'individual'
+                    ? 'Let’s get to know you.'
+                    : 'Tell us about yourself, Coach.'}
+              </h2>
+              <div className="mt-6">
+                <IdentityForm
+                  value={phase1.identity}
+                  onChange={(next) => updatePhase1('identity', next)}
+                />
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <Field label="Dominant hand">
-                  <div className="flex flex-wrap gap-2">
-                    {(['left', 'right', 'ambidextrous'] as const).map((value) => (
-                      <ToggleButton
-                        key={value}
-                        active={phase1.identity.dominant_hand === value}
-                        onClick={() => updatePhase1('identity', { ...phase1.identity, dominant_hand: value })}
-                      >
-                        {value}
-                      </ToggleButton>
-                    ))}
-                  </div>
-                </Field>
-                <Field label="Dominant leg">
-                  <div className="flex flex-wrap gap-2">
-                    {(['left', 'right', 'ambidextrous'] as const).map((value) => (
-                      <ToggleButton
-                        key={value}
-                        active={phase1.identity.dominant_leg === value}
-                        onClick={() => updatePhase1('identity', { ...phase1.identity, dominant_leg: value })}
-                      >
-                        {value}
-                      </ToggleButton>
-                    ))}
-                  </div>
-                </Field>
-              </div>
-              <StepFooter onBack={() => setStep('phase0Complete')} onNext={() => setStep('sport')} nextLabel="Continue" />
+              {error ? <p className="mt-4 text-sm font-semibold text-amber-200">{error}</p> : null}
+              <StepFooter
+                onBack={() => setStep('phase0Complete')}
+                onNext={() => {
+                  if (!phase1.identity.display_name.trim()) {
+                    setError('Add a name so we know who we’re working with.')
+                    return
+                  }
+                  setError(null)
+                  setStep('sport')
+                }}
+                nextLabel="Continue"
+              />
             </div>
           ) : null}
 
+          {/* ── Sport / Movement ────────────────────────────── */}
           {step === 'sport' ? (
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#6ee7b7]">
-                Sport Context
+            <div className="py-2">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#38bdf8]">
+                Phase 1.2 · {persona === 'individual' ? 'Movement preference' : 'Sport context'}
               </p>
-              <h2 className="mt-3 text-2xl font-black">Specificity before scoring.</h2>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Field label={persona === 'coach' ? 'Squad sport' : 'Primary sport or activity'}>
-                  <TextInput
-                    value={phase1.sport.primary_sport}
-                    onChange={(event) =>
-                      updatePhase1('sport', { ...phase1.sport, primary_sport: event.target.value })
-                    }
+              <h2 className="mt-3 text-2xl font-black">
+                {persona === 'athlete'
+                  ? 'Sport, role, and history.'
+                  : persona === 'individual'
+                    ? 'What kind of movement do you actually enjoy?'
+                    : 'What do you coach?'}
+              </h2>
+              <div className="mt-6">
+                {persona === 'individual' ? (
+                  <IndividualMovementForm
+                    value={phase1.individual}
+                    onChange={(next) => updatePhase1('individual', next)}
                   />
-                </Field>
-                <Field label="Position or focus">
-                  <TextInput
-                    value={phase1.sport.position ?? ''}
-                    onChange={(event) =>
-                      updatePhase1('sport', { ...phase1.sport, position: event.target.value })
-                    }
-                    placeholder="Optional"
+                ) : (
+                  <SportPicker
+                    value={phase1.sport}
+                    onChange={(next) => updatePhase1('sport', next)}
                   />
-                </Field>
-                <Field label="Current level">
-                  <Select
-                    value={phase1.sport.level}
-                    onChange={(event) =>
-                      updatePhase1('sport', {
-                        ...phase1.sport,
-                        level: event.target.value as Phase1FormState['sport']['level'],
-                      })
-                    }
-                  >
-                    <option value="starter">Starter</option>
-                    <option value="recreational">Recreational</option>
-                    <option value="competitive">Competitive</option>
-                    <option value="academy">Academy</option>
-                    <option value="elite">Elite</option>
-                  </Select>
-                </Field>
+                )}
               </div>
-              <StepFooter onBack={() => setStep('identity')} onNext={() => setStep('goal')} nextLabel="Continue" />
+              {error ? <p className="mt-4 text-sm font-semibold text-amber-200">{error}</p> : null}
+              <StepFooter
+                onBack={() => setStep('identity')}
+                onNext={() => {
+                  if (persona === 'individual' && phase1.individual.movement_preferences.length === 0) {
+                    setError('Pick at least one type of movement you enjoy.')
+                    return
+                  }
+                  setError(null)
+                  setStep('goal')
+                }}
+                nextLabel="Continue"
+              />
             </div>
           ) : null}
 
+          {/* ── Goal ────────────────────────────────────────── */}
           {step === 'goal' ? (
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#6ee7b7]">
-                Goal Anchor
+            <div className="py-2">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#38bdf8]">
+                Phase 1.3 · Goal anchor
               </p>
-              <h2 className="mt-3 text-2xl font-black">What should Creeda bias toward?</h2>
-              <div className="mt-6 grid gap-4">
-                <Field label="Primary goal">
-                  <Select
-                    value={phase1.goal.primary_goal}
-                    onChange={(event) =>
-                      updatePhase1('goal', {
-                        ...phase1.goal,
-                        primary_goal: event.target.value as Phase1FormState['goal']['primary_goal'],
-                      })
-                    }
-                  >
-                    {GOAL_OPTIONS.map((goal) => (
-                      <option key={goal.value} value={goal.value}>
-                        {goal.label}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Goal detail">
-                  <TextInput
-                    value={phase1.goal.goal_detail ?? ''}
-                    onChange={(event) => updatePhase1('goal', { ...phase1.goal, goal_detail: event.target.value })}
-                    placeholder="Optional"
-                  />
-                </Field>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Target event">
-                    <TextInput
-                      value={phase1.goal.target_event_name ?? ''}
-                      onChange={(event) =>
-                        updatePhase1('goal', { ...phase1.goal, target_event_name: event.target.value })
-                      }
-                      placeholder="Optional"
-                    />
-                  </Field>
-                  <Field label="Event date">
-                    <TextInput
-                      type="date"
-                      value={phase1.goal.target_event_date ?? ''}
-                      onChange={(event) =>
-                        updatePhase1('goal', {
-                          ...phase1.goal,
-                          target_event_date: cleanOptional(event.target.value),
-                        })
-                      }
-                    />
-                  </Field>
-                </div>
+              <h2 className="mt-3 text-2xl font-black">What are we working toward?</h2>
+              <div className="mt-6">
+                <GoalForm
+                  persona={persona}
+                  value={phase1.goal}
+                  onChange={(next) => updatePhase1('goal', next)}
+                />
               </div>
-              <StepFooter onBack={() => setStep('sport')} onNext={() => setStep(nextAfterGoal)} nextLabel="Continue" />
+              {error ? <p className="mt-4 text-sm font-semibold text-amber-200">{error}</p> : null}
+              <StepFooter
+                onBack={() => setStep('sport')}
+                onNext={() => setStep(nextAfterGoal)}
+                nextLabel="Continue"
+              />
             </div>
           ) : null}
 
+          {/* ── Training load (athlete + individual) ────────── */}
           {step === 'load' ? (
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#6ee7b7]">
-                Load Snapshot
+            <div className="py-2">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#38bdf8]">
+                Phase 1.4 · Training load snapshot
               </p>
-              <h2 className="mt-3 text-2xl font-black">Four-week training reality.</h2>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Field label="Weekly sessions">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    max={14}
-                    value={phase1.training_load.weekly_sessions}
-                    onChange={(event) =>
-                      updatePhase1('training_load', {
-                        ...phase1.training_load,
-                        weekly_sessions: Number(event.target.value),
-                      })
-                    }
-                  />
-                </Field>
-                <Field label="Average session minutes">
-                  <Select
-                    value={phase1.training_load.avg_session_minutes}
-                    onChange={(event) =>
-                      updatePhase1('training_load', {
-                        ...phase1.training_load,
-                        avg_session_minutes: Number(event.target.value) as Phase1FormState['training_load']['avg_session_minutes'],
-                      })
-                    }
-                  >
-                    {[15, 30, 45, 60, 90, 120, 150].map((minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {minutes} min
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Typical RPE">
-                  <TextInput
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={phase1.training_load.typical_rpe}
-                    onChange={(event) =>
-                      updatePhase1('training_load', {
-                        ...phase1.training_load,
-                        typical_rpe: Number(event.target.value),
-                      })
-                    }
-                  />
-                </Field>
-                <Field label="Last four weeks">
-                  <Select
-                    value={phase1.training_load.pattern_4_weeks}
-                    onChange={(event) =>
-                      updatePhase1('training_load', {
-                        ...phase1.training_load,
-                        pattern_4_weeks: event.target.value as Phase1FormState['training_load']['pattern_4_weeks'],
-                      })
-                    }
-                  >
-                    <option value="same">Mostly the same</option>
-                    <option value="more_now">More now than before</option>
-                    <option value="less_now">Less now than before</option>
-                    <option value="returning_from_break">Returning from break</option>
-                  </Select>
-                </Field>
+              <h2 className="mt-3 text-2xl font-black">
+                {persona === 'individual'
+                  ? 'How active have you actually been?'
+                  : 'Help us calibrate your chronic load.'}
+              </h2>
+              <p className="mt-2 text-sm text-white/55">
+                We back-fill 4 weeks of self-reported load so your ACWR (acute-to-chronic workload
+                ratio) is computable from Day 1.
+              </p>
+              <div className="mt-6">
+                <TrainingLoadForm
+                  value={phase1.training_load}
+                  onChange={(next) => updatePhase1('training_load', next)}
+                />
               </div>
-              <StepFooter onBack={() => setStep('goal')} onNext={() => setStep('ortho')} nextLabel="Continue" />
+              <StepFooter
+                onBack={() => setStep('goal')}
+                onNext={() => setStep('ortho')}
+                nextLabel="Continue"
+              />
             </div>
           ) : null}
 
+          {/* ── Body map / orthopedic ────────────────────────── */}
           {step === 'ortho' ? (
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#6ee7b7]">
-                Orthopedic History
+            <div className="py-2">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#38bdf8]">
+                Phase 1.5 · 3-year orthopedic history
               </p>
-              <h2 className="mt-3 text-2xl font-black">Pain and injury context.</h2>
-              <div className="mt-6 flex flex-wrap gap-2">
-                <ToggleButton
-                  active={!phase1.has_orthopedic_history}
-                  onClick={() => updatePhase1('has_orthopedic_history', false)}
-                >
-                  Nothing to report
-                </ToggleButton>
-                <ToggleButton
-                  active={phase1.has_orthopedic_history}
-                  onClick={() => updatePhase1('has_orthopedic_history', true)}
-                >
-                  Add one area
-                </ToggleButton>
+              <h2 className="mt-3 text-2xl font-black">
+                Tap any region you have had trouble with.
+              </h2>
+              <p className="mt-2 text-sm text-white/55">
+                Anything that stopped training for a week or more in the last 3 years. Multiple
+                entries per region are fine (e.g. ACL surgery + meniscus on the same knee).
+              </p>
+              <div className="mt-6">
+                <BodyMap2D
+                  entries={phase1.orthopedic_history}
+                  onChange={(next) => updatePhase1('orthopedic_history', next)}
+                />
               </div>
-              {phase1.has_orthopedic_history ? (
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <Field label="Body region">
-                    <Select
-                      value={phase1.orthopedic_entry.body_region}
+              <StepFooter
+                onBack={() => setStep('load')}
+                onNext={() => setStep('wearable')}
+                nextLabel="Continue"
+              />
+            </div>
+          ) : null}
+
+          {/* ── Coach squad setup ───────────────────────────── */}
+          {step === 'squad' ? (
+            <div className="py-2">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#38bdf8]">
+                Phase 1.4 · Squad setup
+              </p>
+              <h2 className="mt-3 text-2xl font-black">Build your squad foundation.</h2>
+              <div className="mt-6 space-y-4">
+                <label className="block">
+                  <span className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
+                    Squad name
+                  </span>
+                  <input
+                    type="text"
+                    maxLength={80}
+                    value={phase1.squad.name}
+                    onChange={(event) =>
+                      updatePhase1('squad', { ...phase1.squad, name: event.target.value.slice(0, 80) })
+                    }
+                    placeholder="e.g. U19 Cricket — Mumbai Academy"
+                    className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#6ee7b7]/70"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
+                    Sport
+                  </span>
+                  <select
+                    value={phase1.squad.sport}
+                    onChange={(event) =>
+                      updatePhase1('squad', { ...phase1.squad, sport: event.target.value })
+                    }
+                    className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#07111f] px-4 text-sm font-bold text-white outline-none transition focus:border-[#6ee7b7]/70"
+                  >
+                    <option value="">Select sport</option>
+                    {Object.values(SPORT_BY_ID).map((sport) => (
+                      <option key={sport.id} value={sport.label}>
+                        {sport.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
+                      Level
+                    </span>
+                    <input
+                      type="text"
+                      maxLength={60}
+                      value={phase1.squad.level}
                       onChange={(event) =>
-                        updatePhase1('orthopedic_entry', {
-                          ...phase1.orthopedic_entry,
-                          body_region: event.target.value,
+                        updatePhase1('squad', {
+                          ...phase1.squad,
+                          level: event.target.value.slice(0, 60),
                         })
                       }
-                    >
-                      {BODY_REGION_OPTIONS.map((region) => (
-                        <option key={region.value} value={region.value}>
-                          {region.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field label="Severity">
-                    <Select
-                      value={phase1.orthopedic_entry.severity}
-                      onChange={(event) =>
-                        updatePhase1('orthopedic_entry', {
-                          ...phase1.orthopedic_entry,
-                          severity: event.target.value as Phase1FormState['orthopedic_entry']['severity'],
-                        })
-                      }
-                    >
-                      <option value="annoying">Annoying</option>
-                      <option value="limited_1_2_weeks">Limited 1-2 weeks</option>
-                      <option value="limited_1_2_months">Limited 1-2 months</option>
-                      <option value="surgery_required">Surgery required</option>
-                    </Select>
-                  </Field>
-                  <Field label="When it happened">
-                    <TextInput
-                      type="date"
-                      value={phase1.orthopedic_entry.occurred_at_estimate}
-                      onChange={(event) =>
-                        updatePhase1('orthopedic_entry', {
-                          ...phase1.orthopedic_entry,
-                          occurred_at_estimate: event.target.value,
-                        })
-                      }
+                      placeholder="Academy / U19 / 1st team"
+                      className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#6ee7b7]/70"
                     />
-                  </Field>
-                  <Field label="Current pain score">
-                    <TextInput
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
+                      Approx. squad size
+                    </span>
+                    <input
                       type="number"
                       min={0}
-                      max={10}
-                      value={phase1.orthopedic_entry.current_pain_score ?? 0}
+                      max={500}
+                      value={phase1.squad.size_estimate ?? 0}
                       onChange={(event) =>
-                        updatePhase1('orthopedic_entry', {
-                          ...phase1.orthopedic_entry,
-                          current_pain_score: Number(event.target.value),
-                          currently_symptomatic: Number(event.target.value) > 0,
+                        updatePhase1('squad', {
+                          ...phase1.squad,
+                          size_estimate: Math.max(0, Math.min(500, Number(event.target.value) || 0)),
                         })
                       }
+                      className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition focus:border-[#6ee7b7]/70"
                     />
-                  </Field>
-                  <Field label="Clinician seen">
-                    <div className="flex flex-wrap gap-2">
-                      <ToggleButton
-                        active={!phase1.orthopedic_entry.has_seen_clinician}
-                        onClick={() =>
-                          updatePhase1('orthopedic_entry', {
-                            ...phase1.orthopedic_entry,
-                            has_seen_clinician: false,
-                            clinician_type: 'none',
-                          })
-                        }
-                      >
-                        No
-                      </ToggleButton>
-                      <ToggleButton
-                        active={phase1.orthopedic_entry.has_seen_clinician}
-                        onClick={() =>
-                          updatePhase1('orthopedic_entry', {
-                            ...phase1.orthopedic_entry,
-                            has_seen_clinician: true,
-                            clinician_type: 'physio',
-                          })
-                        }
-                      >
-                        Yes
-                      </ToggleButton>
-                    </div>
-                  </Field>
-                  <Field label="Note">
-                    <TextInput
-                      value={phase1.orthopedic_entry.notes ?? ''}
-                      onChange={(event) =>
-                        updatePhase1('orthopedic_entry', {
-                          ...phase1.orthopedic_entry,
-                          notes: event.target.value,
-                        })
-                      }
-                      placeholder="Optional"
-                    />
-                  </Field>
+                  </label>
                 </div>
-              ) : null}
-              <StepFooter onBack={() => setStep('load')} onNext={() => setStep('wearable')} nextLabel="Continue" />
-            </div>
-          ) : null}
-
-          {step === 'squad' ? (
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#6ee7b7]">
-                Squad Setup
-              </p>
-              <h2 className="mt-3 text-2xl font-black">Create the first coach workspace.</h2>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Field label="Squad name">
-                  <TextInput
-                    value={phase1.squad.name}
-                    onChange={(event) => updatePhase1('squad', { ...phase1.squad, name: event.target.value })}
-                  />
-                </Field>
-                <Field label="Sport">
-                  <TextInput
-                    value={phase1.squad.sport}
-                    onChange={(event) => updatePhase1('squad', { ...phase1.squad, sport: event.target.value })}
-                  />
-                </Field>
-                <Field label="Level">
-                  <TextInput
-                    value={phase1.squad.level}
-                    onChange={(event) => updatePhase1('squad', { ...phase1.squad, level: event.target.value })}
-                  />
-                </Field>
-                <Field label="Athlete count">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    max={500}
-                    value={phase1.squad.size_estimate ?? 0}
-                    onChange={(event) =>
-                      updatePhase1('squad', { ...phase1.squad, size_estimate: Number(event.target.value) })
-                    }
-                  />
-                </Field>
-                <Field label="Primary focus">
-                  <Select
-                    value={phase1.squad.primary_focus}
-                    onChange={(event) =>
-                      updatePhase1('squad', {
-                        ...phase1.squad,
-                        primary_focus: event.target.value as Phase1FormState['squad']['primary_focus'],
-                      })
-                    }
-                  >
-                    <option value="rehab">Rehab</option>
-                    <option value="peak_velocity">Peak velocity</option>
-                    <option value="avoid_burnout">Avoid burnout</option>
-                    <option value="in_season_maintenance">In-season maintenance</option>
-                    <option value="preseason_build">Preseason build</option>
-                  </Select>
-                </Field>
-              </div>
-              <StepFooter onBack={() => setStep('goal')} onNext={() => setStep('wearable')} nextLabel="Continue" />
-            </div>
-          ) : null}
-
-          {step === 'wearable' ? (
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#6ee7b7]">
-                Wearable Preference
-              </p>
-              <h2 className="mt-3 text-2xl font-black">Objective data path.</h2>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Field label="Preference">
-                  <div className="flex flex-wrap gap-2">
-                    <ToggleButton
-                      active={phase1.wearable.preference === 'connect_now'}
-                      onClick={() =>
-                        updatePhase1('wearable', {
-                          ...phase1.wearable,
-                          preference: 'connect_now',
-                          provider: phase1.wearable.provider === 'none' ? 'android_health_connect' : phase1.wearable.provider,
-                        })
-                      }
-                    >
-                      Connect now
-                    </ToggleButton>
-                    <ToggleButton
-                      active={phase1.wearable.preference === 'later'}
-                      onClick={() => updatePhase1('wearable', { preference: 'later', provider: 'none' })}
-                    >
-                      Later
-                    </ToggleButton>
+                <div>
+                  <span className="text-[11px] font-black uppercase tracking-[0.22em] text-white/42">
+                    Primary focus
+                  </span>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    {(
+                      [
+                        { id: 'preseason_build' as const, label: 'Preseason build' },
+                        { id: 'in_season_maintenance' as const, label: 'In-season' },
+                        { id: 'peak_velocity' as const, label: 'Peak velocity' },
+                        { id: 'avoid_burnout' as const, label: 'Avoid burnout' },
+                        { id: 'rehab' as const, label: 'Rehab returns' },
+                      ]
+                    ).map((option) => {
+                      const active = phase1.squad.primary_focus === option.id
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() =>
+                            updatePhase1('squad', { ...phase1.squad, primary_focus: option.id })
+                          }
+                          className={`rounded-xl border px-3 py-2.5 text-left text-sm font-bold transition ${
+                            active
+                              ? 'border-[#6ee7b7]/70 bg-[#6ee7b7]/15 text-[#d1fae5]'
+                              : 'border-white/10 bg-white/[0.03] text-white/72 hover:bg-white/[0.06]'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      )
+                    })}
                   </div>
-                </Field>
-                <Field label="Provider">
-                  <Select
-                    value={phase1.wearable.provider}
-                    onChange={(event) =>
-                      updatePhase1('wearable', {
-                        preference: event.target.value === 'none' ? 'later' : phase1.wearable.preference,
-                        provider: event.target.value as Phase1FormState['wearable']['provider'],
-                      })
-                    }
-                  >
-                    <option value="none">None</option>
-                    <option value="apple_health">Apple Health</option>
-                    <option value="android_health_connect">Android Health Connect</option>
-                    <option value="fitbit">Fitbit</option>
-                    <option value="garmin">Garmin</option>
-                  </Select>
-                </Field>
+                </div>
               </div>
+              <StepFooter
+                onBack={() => setStep('goal')}
+                onNext={() => setStep('wearable')}
+                nextLabel="Continue"
+              />
+            </div>
+          ) : null}
+
+          {/* ── Wearable ────────────────────────────────────── */}
+          {step === 'wearable' ? (
+            <div className="py-2">
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#38bdf8]">
+                Phase 1.6 · Wearable
+              </p>
+              <h2 className="mt-3 text-2xl font-black">Connect a wearable, or skip.</h2>
+              <p className="mt-2 text-sm text-white/55">
+                Wearable HRV + sleep raises your confidence tier instantly. No wearable? Creeda
+                works phone-only — about 40% of our users do.
+              </p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {(['apple_health', 'android_health_connect', 'fitbit', 'garmin', 'none'] as const).map(
+                  (provider) => {
+                    const labels: Record<typeof provider, string> = {
+                      apple_health: 'Apple Health',
+                      android_health_connect: 'Android Health Connect',
+                      fitbit: 'Fitbit',
+                      garmin: 'Garmin',
+                      none: "I don't wear one",
+                    } as Record<string, string>
+                    const active = phase1.wearable.provider === provider
+                    return (
+                      <button
+                        key={provider}
+                        type="button"
+                        onClick={() =>
+                          updatePhase1('wearable', {
+                            preference: provider === 'none' ? 'later' : 'connect_now',
+                            provider,
+                          })
+                        }
+                        className={`rounded-2xl border px-4 py-3 text-left text-sm font-bold transition ${
+                          active
+                            ? 'border-[#6ee7b7]/70 bg-[#6ee7b7]/15 text-[#d1fae5]'
+                            : 'border-white/10 bg-white/[0.03] text-white/72 hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        {labels[provider]}
+                      </button>
+                    )
+                  }
+                )}
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+                OAuth flow ships in a follow-up — for now we capture your preference so the engine
+                weights confidence correctly.
+              </p>
               {error ? <p className="mt-4 text-sm font-semibold text-amber-200">{error}</p> : null}
               <StepFooter
                 onBack={() => setStep(persona === 'coach' ? 'squad' : 'ortho')}
                 onNext={submitPhase1}
-                nextLabel={isPending ? 'Saving...' : 'Finish Phase 1'}
+                nextLabel={isPending ? 'Saving…' : 'Finish Phase 1'}
                 disabled={isPending}
               />
             </div>
           ) : null}
 
+          {/* ── Phase 1 complete ────────────────────────────── */}
           {step === 'phase1Complete' && phase1Result?.success ? (
             <div className="py-6">
               <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[#6ee7b7]/12 text-[#6ee7b7]">
@@ -1225,7 +1180,7 @@ export function OnboardingV2Client({
                 href={
                   persona === 'coach'
                     ? phase1Result.destination
-                    : `/${persona}/scan/analyze?sport=other&baseline=onboarding_v2&source=web`
+                    : `/${persona}/scan/analyze?sport=${phase1.sport.sportId}&baseline=onboarding_v2&source=web`
                 }
                 className="mt-6 inline-flex h-13 items-center justify-center gap-2 rounded-2xl bg-[#6ee7b7] px-5 text-sm font-black text-slate-950 transition hover:brightness-110"
               >

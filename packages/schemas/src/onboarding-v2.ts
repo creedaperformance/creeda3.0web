@@ -33,30 +33,105 @@ export const OnboardingV2SafetyGateSubmissionSchema = z.object({
   completion_seconds: z.number().int().min(0).max(900),
 })
 
+export const CompetitiveLevelSchema = z.enum([
+  'casual',
+  'school',
+  'club',
+  'district',
+  'state',
+  'national',
+  'pro',
+])
+export type CompetitiveLevel = z.infer<typeof CompetitiveLevelSchema>
+
+export const MovementPreferenceSchema = z.enum([
+  'walking',
+  'running',
+  'yoga',
+  'strength',
+  'cycling',
+  'swimming',
+  'dance',
+  'sports',
+  'hiking',
+  'new_to_movement',
+])
+export type MovementPreference = z.infer<typeof MovementPreferenceSchema>
+
+export const ActivityLevelSchema = z.enum(['sedentary', 'light', 'moderate', 'active'])
+export type ActivityLevel = z.infer<typeof ActivityLevelSchema>
+
 export const OnboardingV2SportSpecificitySchema = z.object({
+  // Legacy compatibility — primary_sport is the free-text label that's persisted today.
   primary_sport: z.string().trim().min(2).max(60),
   position: z.string().trim().max(60).optional(),
   level: z
     .enum(['starter', 'recreational', 'competitive', 'academy', 'elite'])
     .default('recreational'),
+  // v2 additions: structured catalog ids + richer metadata.
+  primary_sport_id: z.string().trim().min(1).max(60).optional(),
+  position_id: z.string().trim().min(1).max(60).optional(),
+  competitive_level: CompetitiveLevelSchema.optional(),
+  years_in_sport: z.number().min(0).max(60).optional(),
+  secondary_sport_id: z.string().trim().min(1).max(60).optional(),
+  // Individual persona only — they pick movement preferences instead of a sport.
+  movement_preferences: z.array(MovementPreferenceSchema).max(10).optional(),
+  activity_level: ActivityLevelSchema.optional(),
+  years_active: z.number().min(0).max(60).optional(),
 })
 
+export const TimeHorizonSchema = z.enum([
+  'four_weeks',
+  'twelve_weeks',
+  'six_months',
+  'one_year',
+  'ongoing',
+])
+export type TimeHorizon = z.infer<typeof TimeHorizonSchema>
+
+export const EventPrioritySchema = z.enum(['A', 'B', 'C'])
+export type EventPriority = z.infer<typeof EventPrioritySchema>
+
+// Goal options now span all three personas. Athlete-leaning + individual-leaning
+// + return-to-play + general are all valid; the UI filters per persona.
+export const OnboardingV2PrimaryGoalSchema = z.enum([
+  // Athlete + general
+  'general_fitness',
+  'sport_performance',
+  'strength_gain',
+  'fat_loss',
+  'return_to_play',
+  'event_prep',
+  'movement_quality',
+  // Individual / FitStart additions per spec section 6.4
+  'lose_fat',
+  'build_strength',
+  'move_pain_free',
+  'improve_sleep',
+  'reduce_stress',
+  'run_faster',
+  'look_better',
+  'feel_better',
+  // Coach-leaning priority (also expressed via squad.primary_focus)
+  'coach_rehab',
+  'coach_peak',
+  'coach_burnout',
+  'coach_in_season',
+  'coach_preseason',
+])
+export type OnboardingV2PrimaryGoal = z.infer<typeof OnboardingV2PrimaryGoalSchema>
+
 export const OnboardingV2GoalAnchorSchema = z.object({
-  primary_goal: z.enum([
-    'general_fitness',
-    'sport_performance',
-    'strength_gain',
-    'fat_loss',
-    'return_to_play',
-    'event_prep',
-    'movement_quality',
-  ]),
+  primary_goal: OnboardingV2PrimaryGoalSchema,
   goal_detail: z.string().trim().max(180).optional(),
+  time_horizon: TimeHorizonSchema.optional(),
   target_event_name: z.string().trim().max(80).optional(),
   target_event_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  target_event_sport: z.string().trim().max(60).optional(),
+  target_event_priority: EventPrioritySchema.optional(),
 })
 
 export const WearableProviderSchema = z.enum([
@@ -333,7 +408,7 @@ export const OnboardingV2Phase1SubmissionSchema = z
     sport: OnboardingV2SportSpecificitySchema,
     goal: OnboardingV2GoalAnchorSchema,
     training_load: TrainingLoadSnapshotSchema.optional(),
-    orthopedic_history: z.array(OrthopedicHistoryEntrySchema).max(5).default([]),
+    orthopedic_history: z.array(OrthopedicHistoryEntrySchema).max(25).default([]),
     wearable: OnboardingV2WearablePreferenceSchema,
     squad: SquadSetupSchema.optional(),
     completion_seconds: z.number().int().min(0).max(900),

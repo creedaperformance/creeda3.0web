@@ -10,6 +10,12 @@ export interface ReadinessInputs {
   movementQualityLatest?: number
   envModifier?: number
   confidence: ReturnType<typeof computeConfidence>
+  /**
+   * If true, the safety screen flagged a yellow/red marker (PAR-Q+ "yes" or
+   * currently-symptomatic injury). The engine caps the directive at "Maintain"
+   * regardless of score, until the user confirms clinician clearance.
+   */
+  modifiedMode?: boolean
 }
 
 export interface ReadinessResult {
@@ -17,7 +23,18 @@ export interface ReadinessResult {
   drivers: { name: string; contribution: number; explanation: string }[]
   missing: string[]
   directive: string
+  modifiedMode: boolean
   confidence: { tier: string; pct: number }
+}
+
+/**
+ * Returns the highest directive band allowed under the user's modifiedMode flag.
+ * Modified mode caps the recommendation at "steady" — never push, never red.
+ */
+export function applyModifiedModeCap(score: number, modifiedMode: boolean) {
+  if (!modifiedMode) return score
+  // Cap at 75 — keeps the user in the "steady" / "maintain" directive band.
+  return Math.min(score, 75)
 }
 
 export function computeReadiness(input: ReadinessInputs): ReadinessResult {
@@ -118,9 +135,16 @@ export function computeReadiness(input: ReadinessInputs): ReadinessResult {
     recoveryPoints +
     movementPoints +
     environmentalPoints
-  const score = Math.round(raw * (input.confidence.pct / 100 * 0.6 + 0.4))
-  const directive =
-    score >= 80
+  const rawScore = Math.round(raw * (input.confidence.pct / 100 * 0.6 + 0.4))
+  const modifiedMode = Boolean(input.modifiedMode)
+  const score = applyModifiedModeCap(rawScore, modifiedMode)
+  const directive = modifiedMode
+    ? score >= 60
+      ? 'Modified mode active. Hold to maintenance — match a typical easy session, no PRs today.'
+      : score >= 40
+        ? 'Modified mode active. Aerobic only — keep RPE under 6 until cleared.'
+        : 'Modified mode active. Active recovery only — gentle mobility and walking.'
+    : score >= 80
       ? 'Systems primed. Push phase appropriate.'
       : score >= 60
         ? 'Body says steady. Match typical session intensity.'
@@ -133,6 +157,7 @@ export function computeReadiness(input: ReadinessInputs): ReadinessResult {
     drivers,
     missing,
     directive,
+    modifiedMode,
     confidence: { tier: input.confidence.tier, pct: input.confidence.pct },
   }
 }
