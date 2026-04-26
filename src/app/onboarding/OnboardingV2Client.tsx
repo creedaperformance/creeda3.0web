@@ -1213,6 +1213,7 @@ export function OnboardingV2Client({
                 <p className="mt-3 max-w-xl text-sm leading-6 text-white/60">
                   Provisional readiness is {phase1Result.readiness.score}/100 with{' '}
                   {phase1Result.confidence.tier} confidence. {phase1Result.readiness.directive}
+                  Run one movement baseline next to unlock the first body-specific finding.
                 </p>
               ) : (
                 <p className="mt-3 max-w-xl text-sm leading-6 text-white/60">
@@ -1221,12 +1222,24 @@ export function OnboardingV2Client({
                 </p>
               )}
               <Link
-                href={phase1Result.destination}
+                href={
+                  persona === 'coach'
+                    ? phase1Result.destination
+                    : `/${persona}/scan/analyze?sport=other&baseline=onboarding_v2&source=web`
+                }
                 className="mt-6 inline-flex h-13 items-center justify-center gap-2 rounded-2xl bg-[#6ee7b7] px-5 text-sm font-black text-slate-950 transition hover:brightness-110"
               >
-                Open dashboard
+                {persona === 'coach' ? 'Open dashboard' : 'Run movement baseline'}
                 <ArrowRight className="h-4 w-4" />
               </Link>
+              {persona !== 'coach' ? (
+                <Link
+                  href={phase1Result.destination}
+                  className="ml-0 mt-3 inline-flex h-13 items-center justify-center rounded-2xl border border-white/10 px-5 text-sm font-bold text-white/70 transition hover:bg-white/[0.06] sm:ml-3"
+                >
+                  Skip to dashboard
+                </Link>
+              ) : null}
             </div>
           ) : null}
         </section>

@@ -3,6 +3,7 @@ import {
   calcChronicLoadFromSnapshot,
   isAnyParqYes,
   type OnboardingV2Event,
+  type OnboardingV2MovementBaselineSubmission,
   type OnboardingV2Phase1Submission,
   type OnboardingV2SafetyGateSubmission,
   type Persona,
@@ -134,6 +135,22 @@ function computePhase1Readiness(payload: OnboardingV2Phase1Submission) {
     acwr,
     confidence,
   })
+}
+
+function trainingLoadEntriesFromRows(rows: unknown) {
+  if (!Array.isArray(rows)) return []
+
+  return rows
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null
+      const record = row as Record<string, unknown>
+      const date = typeof record.date === 'string' ? record.date : null
+      const minutes = Number(record.total_duration_minutes ?? 0)
+      const rpe = Number(record.average_rpe ?? 0)
+      if (!date || !Number.isFinite(minutes) || !Number.isFinite(rpe)) return null
+      return { date, load_au: minutes * rpe }
+    })
+    .filter((row): row is { date: string; load_au: number } => Boolean(row))
 }
 
 export async function trackOnboardingV2EventForUser(args: {
@@ -543,5 +560,239 @@ export async function persistOnboardingV2Phase1(args: {
     confidence,
     readiness,
     destination,
+  }
+}
+
+export async function persistOnboardingV2MovementBaseline(args: {
+  supabase: SupabaseLike
+  userId: string
+  payload: OnboardingV2MovementBaselineSubmission
+}) {
+  const { supabase, userId, payload } = args
+  const nowIso = new Date().toISOString()
+  const today = isoDate()
+
+  const confidence = computeConfidence({
+    daysSinceOnboarding: 0,
+    dataPointsCollected: 24 + payload.weak_links.length,
+    hasWearable: false,
+    movementScansCount: 1,
+    capacityTestsCompleted: 1,
+    daysOfChronicLoad: 4,
+    daysOfCheckIns: 0,
+  })
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('profile_calibration_pct')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const currentCalibration = Number(
+    (profile && typeof profile === 'object'
+      ? (profile as Record<string, unknown>).profile_calibration_pct
+      : 0) ?? 0
+  )
+  const profileCalibrationPct = Math.min(100, Math.max(currentCalibration + 12, confidence.pct))
+
+  const { error: movementError } = await supabase.from('movement_baselines').insert({
+    user_id: userId,
+    scan_type: payload.scan_type,
+    full_body_coverage_pct: payload.full_body_coverage_pct,
+    motion_evidence_score: payload.motion_evidence_score,
+    passed_quality_gate: payload.passed_quality_gate,
+    rejection_reason: payload.rejection_reason ?? null,
+    knee_valgus_deg_left: payload.geometry.knee_valgus_deg_left,
+    knee_valgus_deg_right: payload.geometry.knee_valgus_deg_right,
+    ankle_dorsiflexion_deg_left: payload.geometry.ankle_dorsiflexion_deg_left,
+    ankle_dorsiflexion_deg_right: payload.geometry.ankle_dorsiflexion_deg_right,
+    thoracic_extension_deg: payload.geometry.thoracic_extension_deg,
+    hip_shoulder_asymmetry_deg: payload.geometry.hip_shoulder_asymmetry_deg,
+    squat_depth_ratio: payload.geometry.squat_depth_ratio,
+    movement_quality_score: payload.movement_quality_score,
+    weak_links: payload.weak_links,
+    raw_landmarks_url: null,
+    device_meta: {
+      ...payload.device_meta,
+      report_id: payload.report_id,
+      sport_id: payload.sport_id,
+      source: payload.source,
+      privacy: 'no_raw_video_or_landmarks_stored',
+    },
+    performed_at: nowIso,
+  })
+
+  if (movementError) {
+    return {
+      success: false as const,
+      error: 'Unable to save the movement baseline.',
+      details: movementError.message as string,
+    }
+  }
+
+  const { error: capacityError } = await supabase.from('capacity_tests').insert({
+    user_id: userId,
+    test_type: 'overhead_squat_baseline',
+    test_method: 'in_app_camera',
+    raw_value: payload.movement_quality_score,
+    unit: 'score_0_100',
+    derived_metrics: {
+      report_id: payload.report_id,
+      sport_id: payload.sport_id,
+      geometry: payload.geometry,
+      weak_links: payload.weak_links,
+      full_body_coverage_pct: payload.full_body_coverage_pct,
+      motion_evidence_score: payload.motion_evidence_score,
+    },
+    quality_score: payload.movement_quality_score,
+    rejection_reason: payload.passed_quality_gate ? null : payload.rejection_reason,
+    mediapipe_landmarks: null,
+    performed_at: nowIso,
+  })
+
+  if (capacityError) {
+    return {
+      success: false as const,
+      error: 'Movement baseline saved, but capacity baseline could not be saved.',
+      details: capacityError.message as string,
+    }
+  }
+
+  const { data: loadRows } = await supabase
+    .from('training_load_history')
+    .select('date,total_duration_minutes,average_rpe')
+    .eq('user_id', userId)
+    .order('date', { ascending: false })
+    .limit(28)
+
+  const loadEntries = trainingLoadEntriesFromRows(loadRows)
+  const acwr = loadEntries.length > 0 ? computeACWR(loadEntries) : undefined
+  const readiness = computeReadiness({
+    subjective: {
+      energy: 3,
+      body_feel: payload.movement_quality_score >= 70 ? 3 : 2,
+      mental_load: 3,
+    },
+    acwr,
+    movementQualityLatest: payload.movement_quality_score,
+    confidence,
+  })
+
+  const { error: readinessError } = await supabase
+    .from('readiness_scores')
+    .upsert(
+      {
+        user_id: userId,
+        date: today,
+        score: readiness.score,
+        confidence_tier: readiness.confidence.tier,
+        confidence_pct: readiness.confidence.pct,
+        data_points_count: 25 + payload.weak_links.length,
+        drivers: readiness.drivers,
+        missing_inputs: readiness.missing,
+        directive: readiness.directive,
+        computed_at: nowIso,
+      },
+      { onConflict: 'user_id,date' }
+    )
+
+  if (readinessError) {
+    return {
+      success: false as const,
+      error: 'Movement baseline saved, but readiness could not be recalculated.',
+      details: readinessError.message as string,
+    }
+  }
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      onboarding_phase: 2,
+      profile_calibration_pct: profileCalibrationPct,
+    })
+    .eq('id', userId)
+
+  if (profileError) {
+    return {
+      success: false as const,
+      error: 'Movement baseline saved, but profile calibration could not be updated.',
+      details: profileError.message as string,
+    }
+  }
+
+  const { data: adaptiveProfile } = await supabase
+    .from('adaptive_form_profiles')
+    .select('optional_fields,inferred_fields')
+    .eq('user_id', userId)
+    .eq('role', payload.persona)
+    .eq('flow_id', 'onboarding_v2_phase1')
+    .maybeSingle()
+
+  const adaptiveRecord =
+    adaptiveProfile && typeof adaptiveProfile === 'object'
+      ? (adaptiveProfile as Record<string, unknown>)
+      : {}
+
+  await supabase
+    .from('adaptive_form_profiles')
+    .update({
+      optional_fields: {
+        ...(adaptiveRecord.optional_fields && typeof adaptiveRecord.optional_fields === 'object'
+          ? adaptiveRecord.optional_fields
+          : {}),
+        movement_baseline: {
+          report_id: payload.report_id,
+          movement_quality_score: payload.movement_quality_score,
+          weak_links_count: payload.weak_links.length,
+          captured_at: nowIso,
+        },
+      },
+      inferred_fields: {
+        ...(adaptiveRecord.inferred_fields && typeof adaptiveRecord.inferred_fields === 'object'
+          ? adaptiveRecord.inferred_fields
+          : {}),
+        latest_movement_baseline: {
+          score: payload.movement_quality_score,
+          geometry: payload.geometry,
+          weak_links: payload.weak_links,
+        },
+        readiness,
+        profile_calibration_pct: profileCalibrationPct,
+      },
+      confidence_score: confidence.pct,
+      confidence_level: confidenceLevelForAdaptiveForms(confidence.tier),
+      confidence_pct: confidence.pct,
+      next_question_ids: ['daily_checkin', 'capacity_baseline'],
+    })
+    .eq('user_id', userId)
+    .eq('role', payload.persona)
+    .eq('flow_id', 'onboarding_v2_phase1')
+
+  await trackOnboardingV2EventForUser({
+    supabase,
+    userId,
+    event: {
+      event_name: 'onb.screen.completed',
+      persona: payload.persona,
+      phase: 1,
+      screen: 'movement_baseline',
+      source: payload.source,
+      completion_seconds: payload.completion_seconds,
+      metadata: {
+        report_id: payload.report_id,
+        movement_quality_score: payload.movement_quality_score,
+        weak_links_count: payload.weak_links.length,
+        confidence_pct: confidence.pct,
+      },
+    },
+  })
+
+  return {
+    success: true as const,
+    profileCalibrationPct,
+    confidence,
+    readiness,
+    movementQualityScore: payload.movement_quality_score,
+    weakLinks: payload.weak_links,
   }
 }

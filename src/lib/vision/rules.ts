@@ -70,6 +70,13 @@ export interface AnalysisState {
   rightAnkleYMax: number
   shoulderTiltMin: number
   shoulderTiltMax: number
+  kneeValgusDegLeftMax: number
+  kneeValgusDegRightMax: number
+  ankleDorsiflexionDegLeftMin: number
+  ankleDorsiflexionDegRightMin: number
+  thoracicExtensionDegMin: number
+  hipShoulderAsymmetryDegMax: number
+  squatDepthRatioMax: number
 }
 
 export interface VideoCaptureAssessment {
@@ -131,6 +138,14 @@ function updateMinMax(state: AnalysisState, minKey: keyof AnalysisState, maxKey:
   state[maxKey] = Math.max(Number(state[maxKey]), value) as never
 }
 
+function updateMax(state: AnalysisState, key: keyof AnalysisState, value: number) {
+  state[key] = Math.max(Number(state[key]), value) as never
+}
+
+function updateMin(state: AnalysisState, key: keyof AnalysisState, value: number) {
+  state[key] = Math.min(Number(state[key]), value) as never
+}
+
 export function updateCaptureMetrics(landmarks: NormalizedLandmark[], state: AnalysisState) {
   const coreVisibleCount = CORE_BODY_POINTS.filter((index) => pointVisible(landmarks[index])).length
   if (coreVisibleCount < 4) return
@@ -154,6 +169,8 @@ export function updateCaptureMetrics(landmarks: NormalizedLandmark[], state: Ana
   const leftKneeAngle = safeAngle(landmarks, LA.LEFT_HIP, LA.LEFT_KNEE, LA.LEFT_ANKLE)
   const rightKneeAngle = safeAngle(landmarks, LA.RIGHT_HIP, LA.RIGHT_KNEE, LA.RIGHT_ANKLE)
   const deepestKneeAngle = Math.min(leftKneeAngle ?? 180, rightKneeAngle ?? 180)
+  const leftAnkleAngle = safeAngle(landmarks, LA.LEFT_KNEE, LA.LEFT_ANKLE, LA.LEFT_FOOT_INDEX)
+  const rightAnkleAngle = safeAngle(landmarks, LA.RIGHT_KNEE, LA.RIGHT_ANKLE, LA.RIGHT_FOOT_INDEX)
   const minShoulderY = Math.min(landmarks[LA.LEFT_SHOULDER].y, landmarks[LA.RIGHT_SHOULDER].y)
   const wristAboveShoulder =
     landmarks[LA.LEFT_WRIST].y < minShoulderY - 0.01 ||
@@ -180,6 +197,53 @@ export function updateCaptureMetrics(landmarks: NormalizedLandmark[], state: Ana
   updateMinMax(state, 'leftAnkleYMin', 'leftAnkleYMax', landmarks[LA.LEFT_ANKLE].y)
   updateMinMax(state, 'rightAnkleXMin', 'rightAnkleXMax', landmarks[LA.RIGHT_ANKLE].x)
   updateMinMax(state, 'rightAnkleYMin', 'rightAnkleYMax', landmarks[LA.RIGHT_ANKLE].y)
+
+  const scale = Math.max(hipWidth, ankleWidth, 0.05)
+  const leftKneeDeflection = Math.abs(
+    landmarks[LA.LEFT_KNEE].x - (landmarks[LA.LEFT_HIP].x + landmarks[LA.LEFT_ANKLE].x) / 2
+  )
+  const rightKneeDeflection = Math.abs(
+    landmarks[LA.RIGHT_KNEE].x - (landmarks[LA.RIGHT_HIP].x + landmarks[LA.RIGHT_ANKLE].x) / 2
+  )
+  const leftKneeValgusDeg = clampNumber((leftKneeDeflection / scale) * 18, 0, 35)
+  const rightKneeValgusDeg = clampNumber((rightKneeDeflection / scale) * 18, 0, 35)
+  const leftShinLeanDeg = Math.abs(
+    Math.atan2(
+      landmarks[LA.LEFT_KNEE].x - landmarks[LA.LEFT_ANKLE].x,
+      Math.max(0.001, landmarks[LA.LEFT_ANKLE].y - landmarks[LA.LEFT_KNEE].y)
+    ) *
+      (180 / Math.PI)
+  )
+  const rightShinLeanDeg = Math.abs(
+    Math.atan2(
+      landmarks[LA.RIGHT_KNEE].x - landmarks[LA.RIGHT_ANKLE].x,
+      Math.max(0.001, landmarks[LA.RIGHT_ANKLE].y - landmarks[LA.RIGHT_KNEE].y)
+    ) *
+      (180 / Math.PI)
+  )
+  const leftAnkleDorsiflexionDeg = clampNumber(
+    Math.max(leftShinLeanDeg, leftAnkleAngle ? 180 - leftAnkleAngle : 0),
+    0,
+    60
+  )
+  const rightAnkleDorsiflexionDeg = clampNumber(
+    Math.max(rightShinLeanDeg, rightAnkleAngle ? 180 - rightAnkleAngle : 0),
+    0,
+    60
+  )
+  const trunkLeanDeg = Math.abs(Math.atan2(shoulderCenterX - hipCenterX, shoulderCenterY - hipCenterY)) * (180 / Math.PI)
+  const thoracicExtensionDeg = clampNumber(90 - trunkLeanDeg, 0, 70)
+  const hipTilt = Math.abs(landmarks[LA.LEFT_HIP].y - landmarks[LA.RIGHT_HIP].y)
+  const hipShoulderAsymmetryDeg = clampNumber(Math.abs(shoulderTilt - hipTilt) * 120, 0, 35)
+  const squatDepthRatio = clampNumber((180 - deepestKneeAngle) / 65, 0, 1.15)
+
+  updateMax(state, 'kneeValgusDegLeftMax', leftKneeValgusDeg)
+  updateMax(state, 'kneeValgusDegRightMax', rightKneeValgusDeg)
+  updateMin(state, 'ankleDorsiflexionDegLeftMin', leftAnkleDorsiflexionDeg)
+  updateMin(state, 'ankleDorsiflexionDegRightMin', rightAnkleDorsiflexionDeg)
+  updateMin(state, 'thoracicExtensionDegMin', thoracicExtensionDeg)
+  updateMax(state, 'hipShoulderAsymmetryDegMax', hipShoulderAsymmetryDeg)
+  updateMax(state, 'squatDepthRatioMax', squatDepthRatio)
 
   if (strideFrame) state.strideFrames += 1
   if (wideBase) state.wideBaseFrames += 1
@@ -1033,5 +1097,12 @@ export function createAnalysisState(sport: string): AnalysisState {
     rightAnkleYMax: Number.NEGATIVE_INFINITY,
     shoulderTiltMin: Number.POSITIVE_INFINITY,
     shoulderTiltMax: Number.NEGATIVE_INFINITY,
+    kneeValgusDegLeftMax: 0,
+    kneeValgusDegRightMax: 0,
+    ankleDorsiflexionDegLeftMin: Number.POSITIVE_INFINITY,
+    ankleDorsiflexionDegRightMin: Number.POSITIVE_INFINITY,
+    thoracicExtensionDegMin: Number.POSITIVE_INFINITY,
+    hipShoulderAsymmetryDegMax: 0,
+    squatDepthRatioMax: 0,
   }
 }

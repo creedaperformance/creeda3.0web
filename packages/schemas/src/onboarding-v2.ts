@@ -69,6 +69,40 @@ export const OnboardingV2WearablePreferenceSchema = z.object({
   provider: WearableProviderSchema.default('none'),
 })
 
+export const OverheadSquatGeometrySchema = z.object({
+  knee_valgus_deg_left: z.number().min(0).max(60),
+  knee_valgus_deg_right: z.number().min(0).max(60),
+  ankle_dorsiflexion_deg_left: z.number().min(0).max(90),
+  ankle_dorsiflexion_deg_right: z.number().min(0).max(90),
+  thoracic_extension_deg: z.number().min(0).max(90),
+  hip_shoulder_asymmetry_deg: z.number().min(0).max(60),
+  squat_depth_ratio: z.number().min(0).max(1.5),
+})
+
+export const MovementWeakLinkSchema = z.object({
+  region: z.string().trim().min(1).max(80),
+  finding: z.string().trim().min(1).max(180),
+  severity: z.enum(['mild', 'moderate', 'severe']),
+  drill_id: z.string().trim().min(1).max(80),
+})
+
+export const OnboardingV2MovementBaselineSubmissionSchema = z.object({
+  persona: z.enum(['athlete', 'individual']),
+  source: PersonaSourceSchema,
+  report_id: z.string().trim().min(1).max(120),
+  sport_id: z.string().trim().min(1).max(80),
+  scan_type: z.literal('overhead_squat_baseline').default('overhead_squat_baseline'),
+  geometry: OverheadSquatGeometrySchema,
+  movement_quality_score: z.number().int().min(0).max(100),
+  weak_links: z.array(MovementWeakLinkSchema).max(12).default([]),
+  full_body_coverage_pct: z.number().min(0).max(100),
+  motion_evidence_score: z.number().min(0).max(100),
+  passed_quality_gate: z.boolean(),
+  rejection_reason: z.string().trim().max(240).optional(),
+  device_meta: z.record(z.string(), z.unknown()).default({}),
+  completion_seconds: z.number().int().min(0).max(900).optional(),
+})
+
 export const OnboardingV2Phase1SubmissionSchema = z
   .object({
     phase: z.literal(1).default(1),
@@ -107,4 +141,7 @@ export type OnboardingV2SafetyGateSubmission = z.infer<
 >
 export type OnboardingV2Phase1Submission = z.infer<
   typeof OnboardingV2Phase1SubmissionSchema
+>
+export type OnboardingV2MovementBaselineSubmission = z.infer<
+  typeof OnboardingV2MovementBaselineSubmissionSchema
 >
