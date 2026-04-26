@@ -20,6 +20,7 @@ import {
 } from '@/lib/vision/rules'
 import { buildVideoAnalysisArtifacts } from '@/lib/video-analysis/reporting'
 import { canonicalizeSportId, resolveVideoAnalysisProfile, type VideoAnalysisRole } from '@/lib/video-analysis/catalog'
+import { buildOnboardingMovementBaselineSubmission } from '@/lib/onboarding-v2/movement-baseline'
 import {
   formatClipDuration,
   formatClipResolution,
@@ -94,6 +95,8 @@ function AnalyzeContent({ role }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const selectedSport = canonicalizeSportId(searchParams?.get('sport') || '') || 'other'
+  const onboardingBaselineActive = searchParams?.get('baseline') === 'onboarding_v2'
+  const onboardingBaselineSource = searchParams?.get('source') === 'mobile' ? 'mobile' : 'web'
   const profile = useMemo(() => resolveVideoAnalysisProfile(selectedSport), [selectedSport])
   const cameraCoach = useMemo<CameraCoachExerciseContext | null>(() => {
     if (searchParams?.get('coach') !== '1') return null
@@ -780,6 +783,38 @@ function AnalyzeContent({ role }: Props) {
       return
     }
 
+    if (onboardingBaselineActive) {
+      try {
+        const baselinePayload = buildOnboardingMovementBaselineSubmission({
+          state: snapshot,
+          captureAssessment,
+          reportId: String(insertResult.data.id),
+          sportId: structured.sportId,
+          persona: role,
+          source: onboardingBaselineSource,
+          completionSeconds: clipMetadata?.durationSec ? Math.round(clipMetadata.durationSec) : undefined,
+          deviceMeta: {
+            engine_mode: engineMode,
+            clip_source: clipSource,
+            validation: structured.summary.validation ?? null,
+            user_agent: navigator.userAgent,
+          },
+        })
+
+        const baselineResponse = await fetch('/api/onboarding/v2/movement-baseline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(baselinePayload),
+        })
+
+        if (!baselineResponse.ok) {
+          console.warn('[onboarding-v2] movement baseline persistence failed', await baselineResponse.text())
+        }
+      } catch (baselineError) {
+        console.warn('[onboarding-v2] movement baseline persistence failed', baselineError)
+      }
+    }
+
     router.push(`${scanHref}/report/${insertResult.data.id}`)
   }
 
@@ -792,7 +827,11 @@ function AnalyzeContent({ role }: Props) {
           </Link>
           <div>
             <h1 className="text-lg font-bold tracking-tight">
-              {cameraCoach ? 'Camera Coach' : `${profile.sportLabel} Analysis`}
+              {cameraCoach
+                ? 'Camera Coach'
+                : onboardingBaselineActive
+                  ? 'Movement baseline'
+                  : `${profile.sportLabel} Analysis`}
             </h1>
             <p className="text-[10px] text-white/45 font-medium">
               {cameraCoach

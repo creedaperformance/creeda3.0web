@@ -19,7 +19,11 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@creeda/engine": ["./packages/engine/src/index.ts"],
+      "@creeda/engine/*": ["./packages/engine/src/*"],
+      "@creeda/schemas": ["./packages/schemas/src/index.ts"],
+      "@creeda/schemas/*": ["./packages/schemas/src/*"]
     }
   },
   "include": [
