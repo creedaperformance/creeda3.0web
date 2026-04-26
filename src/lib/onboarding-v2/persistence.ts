@@ -1,7 +1,9 @@
-import { computeConfidence } from '@creeda/engine'
+import { computeACWR, computeConfidence, computeReadiness } from '@creeda/engine'
 import {
+  calcChronicLoadFromSnapshot,
   isAnyParqYes,
   type OnboardingV2Event,
+  type OnboardingV2Phase1Submission,
   type OnboardingV2SafetyGateSubmission,
   type Persona,
 } from '@creeda/schemas'
@@ -16,6 +18,12 @@ export const ONBOARDING_V2_DESTINATIONS: Record<Persona, string> = {
   coach: '/coach/onboarding',
 }
 
+export const ONBOARDING_V2_PHASE1_DESTINATIONS: Record<Persona, string> = {
+  athlete: '/athlete/dashboard',
+  individual: '/individual/dashboard',
+  coach: '/coach/dashboard',
+}
+
 function completionBucket(seconds?: number) {
   if (seconds === undefined) return 'unknown'
   if (seconds <= 30) return '0_30'
@@ -23,6 +31,109 @@ function completionBucket(seconds?: number) {
   if (seconds <= 90) return '61_90'
   if (seconds <= 110) return '91_110'
   return 'over_110'
+}
+
+function isoDate(value = new Date()) {
+  return value.toISOString().slice(0, 10)
+}
+
+function daysAgo(days: number) {
+  const next = new Date()
+  next.setDate(next.getDate() - days)
+  return isoDate(next)
+}
+
+function cleanOptionalText(value?: string) {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+function confidenceLevelForAdaptiveForms(tier: string) {
+  return tier === 'locked' ? 'high' : tier
+}
+
+function buildTrainingLoadRows(
+  userId: string,
+  payload: OnboardingV2Phase1Submission
+) {
+  if (!payload.training_load) return []
+
+  const snapshot = payload.training_load
+  const baseLoad =
+    snapshot.weekly_sessions * snapshot.avg_session_minutes * snapshot.typical_rpe
+  const patternFactors: Record<typeof snapshot.pattern_4_weeks, number[]> = {
+    same: [1, 1, 1, 1],
+    more_now: [1, 0.85, 0.72, 0.65],
+    less_now: [1, 1.12, 1.24, 1.32],
+    returning_from_break: [1, 0.4, 0.15, 0],
+  }
+  const weekOffsets = [0, 8, 15, 22]
+
+  return patternFactors[snapshot.pattern_4_weeks].map((factor, index) => {
+    const weeklyLoad = Math.round(baseLoad * factor)
+    const totalMinutes =
+      snapshot.typical_rpe > 0 ? Math.round(weeklyLoad / snapshot.typical_rpe) : 0
+
+    return {
+      user_id: userId,
+      source: 'onboarding_self_report',
+      date: daysAgo(weekOffsets[index] ?? 0),
+      sessions_count: index === 0 ? snapshot.weekly_sessions : Math.round(snapshot.weekly_sessions * factor),
+      total_duration_minutes: totalMinutes,
+      average_rpe: snapshot.typical_rpe,
+      notes: `onboarding_v2:pattern=${snapshot.pattern_4_weeks}`,
+    }
+  })
+}
+
+function computePhase1Confidence(payload: OnboardingV2Phase1Submission) {
+  const hasWearable =
+    payload.wearable.preference === 'connect_now' && payload.wearable.provider !== 'none'
+  const dataPointsCollected =
+    14 +
+    (payload.training_load ? 4 : 0) +
+    payload.orthopedic_history.length +
+    (payload.squad ? 4 : 0)
+
+  return computeConfidence({
+    daysSinceOnboarding: 0,
+    dataPointsCollected,
+    hasWearable,
+    movementScansCount: 0,
+    capacityTestsCompleted: 0,
+    daysOfChronicLoad: payload.training_load ? 4 : 0,
+    daysOfCheckIns: 0,
+  })
+}
+
+function profileCalibrationForPhase1(payload: OnboardingV2Phase1Submission) {
+  const confidence = computePhase1Confidence(payload)
+  const base = payload.persona === 'coach' ? 28 : payload.persona === 'athlete' ? 24 : 22
+
+  return Math.min(45, Math.max(base, confidence.pct))
+}
+
+function computePhase1Readiness(payload: OnboardingV2Phase1Submission) {
+  if (payload.persona === 'coach' || !payload.training_load) return null
+
+  const confidence = computePhase1Confidence(payload)
+  const trainingRows = buildTrainingLoadRows('preview', payload)
+  const acwr = computeACWR(
+    trainingRows.map((entry) => ({
+      date: entry.date,
+      load_au: entry.total_duration_minutes * Number(entry.average_rpe ?? 0),
+    }))
+  )
+
+  return computeReadiness({
+    subjective: {
+      energy: 3,
+      body_feel: payload.orthopedic_history.some((entry) => entry.currently_symptomatic) ? 2 : 3,
+      mental_load: 3,
+    },
+    acwr,
+    confidence,
+  })
 }
 
 export async function trackOnboardingV2EventForUser(args: {
@@ -141,5 +252,296 @@ export async function persistOnboardingV2SafetyGate(args: {
     profileCalibrationPct,
     confidence,
     destination: ONBOARDING_V2_DESTINATIONS[payload.persona],
+  }
+}
+
+export async function persistOnboardingV2Phase1(args: {
+  supabase: SupabaseLike
+  userId: string
+  payload: OnboardingV2Phase1Submission
+}) {
+  const { supabase, userId, payload } = args
+  const nowIso = new Date().toISOString()
+  const today = isoDate()
+  const confidence = computePhase1Confidence(payload)
+  const profileCalibrationPct = profileCalibrationForPhase1(payload)
+  const readiness = computePhase1Readiness(payload)
+  const destination = ONBOARDING_V2_PHASE1_DESTINATIONS[payload.persona]
+  const sport = payload.sport.primary_sport.trim()
+  const position = cleanOptionalText(payload.sport.position)
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      persona: payload.persona,
+      full_name: payload.identity.display_name.trim(),
+      date_of_birth: payload.identity.date_of_birth,
+      biological_sex: payload.identity.biological_sex,
+      gender_identity: cleanOptionalText(payload.identity.gender_identity),
+      height: payload.identity.height_cm,
+      weight: payload.identity.weight_kg,
+      dominant_hand: payload.identity.dominant_hand,
+      dominant_leg: payload.identity.dominant_leg,
+      primary_sport: sport,
+      position,
+      onboarding_phase: 2,
+      profile_calibration_pct: profileCalibrationPct,
+    })
+    .eq('id', userId)
+
+  if (profileError) {
+    return {
+      success: false as const,
+      error: 'Unable to save profile identity for onboarding Phase 1.',
+      details: profileError.message as string,
+    }
+  }
+
+  const trainingRows = buildTrainingLoadRows(userId, payload)
+  if (trainingRows.length > 0) {
+    const { error: deleteLoadError } = await supabase
+      .from('training_load_history')
+      .delete()
+      .eq('user_id', userId)
+      .eq('source', 'onboarding_self_report')
+      .ilike('notes', 'onboarding_v2:%')
+
+    if (deleteLoadError) {
+      return {
+        success: false as const,
+        error: 'Unable to refresh onboarding training load history.',
+        details: deleteLoadError.message as string,
+      }
+    }
+
+    const { error: loadError } = await supabase
+      .from('training_load_history')
+      .insert(trainingRows)
+
+    if (loadError) {
+      return {
+        success: false as const,
+        error: 'Unable to save the training load snapshot.',
+        details: loadError.message as string,
+      }
+    }
+  }
+
+  const { error: deleteOrthoError } = await supabase
+    .from('orthopedic_history')
+    .delete()
+    .eq('user_id', userId)
+    .ilike('notes', 'onboarding_v2:%')
+
+  if (deleteOrthoError) {
+    return {
+      success: false as const,
+      error: 'Unable to refresh onboarding orthopedic history.',
+      details: deleteOrthoError.message as string,
+    }
+  }
+
+  if (payload.orthopedic_history.length > 0) {
+    const { error: orthoError } = await supabase.from('orthopedic_history').insert(
+      payload.orthopedic_history.map((entry) => ({
+        user_id: userId,
+        body_region: entry.body_region,
+        severity: entry.severity,
+        occurred_at_estimate: entry.occurred_at_estimate,
+        currently_symptomatic: entry.currently_symptomatic,
+        current_pain_score: entry.currently_symptomatic ? (entry.current_pain_score ?? 0) : null,
+        has_seen_clinician: entry.has_seen_clinician,
+        clinician_type: entry.clinician_type ?? 'none',
+        notes: `onboarding_v2:${entry.notes?.trim() ?? ''}`,
+      }))
+    )
+
+    if (orthoError) {
+      return {
+        success: false as const,
+        error: 'Unable to save orthopedic history.',
+        details: orthoError.message as string,
+      }
+    }
+  }
+
+  const { error: healthConnectionError } = await supabase
+    .from('health_connections')
+    .upsert(
+      {
+        user_id: userId,
+        connection_preference: payload.wearable.preference,
+        permission_state: {
+          onboarding_v2_provider: payload.wearable.provider,
+          pending_oauth:
+            payload.wearable.preference === 'connect_now' && payload.wearable.provider !== 'none',
+          captured_at: nowIso,
+        },
+        updated_at: nowIso,
+      },
+      { onConflict: 'user_id' }
+    )
+
+  if (healthConnectionError) {
+    console.warn('[onboarding-v2] wearable preference save failed', healthConnectionError)
+  }
+
+  if (payload.goal.target_event_name && payload.goal.target_event_date) {
+    await supabase
+      .from('competition_events')
+      .delete()
+      .eq('user_id', userId)
+      .eq('event_name', payload.goal.target_event_name)
+      .eq('event_date', payload.goal.target_event_date)
+
+    const { error: eventError } = await supabase.from('competition_events').insert({
+      user_id: userId,
+      event_name: payload.goal.target_event_name,
+      event_date: payload.goal.target_event_date,
+      priority: 'A',
+      sport,
+      taper_protocol_active: false,
+    })
+
+    if (eventError) {
+      console.warn('[onboarding-v2] competition event save failed', eventError)
+    }
+  }
+
+  if (payload.persona === 'coach' && payload.squad) {
+    const { data: existingSquad } = await supabase
+      .from('squads')
+      .select('id')
+      .eq('coach_id', userId)
+      .eq('name', payload.squad.name)
+      .maybeSingle()
+
+    const squadPayload = {
+      coach_id: userId,
+      name: payload.squad.name,
+      sport: payload.squad.sport,
+      level: payload.squad.level,
+      size_estimate: payload.squad.size_estimate ?? null,
+      primary_focus: payload.squad.primary_focus ?? null,
+    }
+
+    const { error: squadError } = existingSquad?.id
+      ? await supabase.from('squads').update(squadPayload).eq('id', existingSquad.id)
+      : await supabase.from('squads').insert(squadPayload)
+
+    if (squadError) {
+      return {
+        success: false as const,
+        error: 'Unable to save coach squad setup.',
+        details: squadError.message as string,
+      }
+    }
+  }
+
+  if (readiness) {
+    const { error: readinessError } = await supabase
+      .from('readiness_scores')
+      .upsert(
+        {
+          user_id: userId,
+          date: today,
+          score: readiness.score,
+          confidence_tier: readiness.confidence.tier,
+          confidence_pct: readiness.confidence.pct,
+          data_points_count: 18 + payload.orthopedic_history.length,
+          drivers: readiness.drivers,
+          missing_inputs: readiness.missing,
+          directive: readiness.directive,
+          computed_at: nowIso,
+        },
+        { onConflict: 'user_id,date' }
+      )
+
+    if (readinessError) {
+      return {
+        success: false as const,
+        error: 'Unable to save the provisional readiness score.',
+        details: readinessError.message as string,
+      }
+    }
+  }
+
+  const { error: adaptiveProfileError } = await supabase
+    .from('adaptive_form_profiles')
+    .upsert(
+      {
+        user_id: userId,
+        role: payload.persona,
+        flow_id: 'onboarding_v2_phase1',
+        flow_version: '2026-04-26',
+        core_fields: {
+          identity: payload.identity,
+          sport: payload.sport,
+          goal: payload.goal,
+          wearable: payload.wearable,
+        },
+        optional_fields: {
+          training_load: payload.training_load ?? null,
+          orthopedic_history_count: payload.orthopedic_history.length,
+          squad: payload.squad ?? null,
+        },
+        inferred_fields: {
+          readiness,
+          profile_calibration_pct: profileCalibrationPct,
+          chronic_load_au: payload.training_load
+            ? calcChronicLoadFromSnapshot(payload.training_load)
+            : null,
+        },
+        completion_score: payload.persona === 'coach' ? 85 : 80,
+        confidence_score: confidence.pct,
+        confidence_level: confidenceLevelForAdaptiveForms(confidence.tier),
+        confidence_recommendations: readiness?.missing ?? [
+          'Daily check-ins',
+          'Movement scan',
+          'Capacity baseline',
+        ],
+        next_question_ids:
+          payload.persona === 'coach'
+            ? ['athlete_invites', 'squad_load_rules']
+            : ['daily_checkin', 'movement_scan', 'capacity_baseline'],
+        onboarding_v2_phase: 1,
+        completion_seconds: payload.completion_seconds,
+        confidence_pct: confidence.pct,
+      },
+      { onConflict: 'user_id,role,flow_id' }
+    )
+
+  if (adaptiveProfileError) {
+    return {
+      success: false as const,
+      error: 'Phase 1 saved, but adaptive profile calibration could not be updated.',
+      details: adaptiveProfileError.message as string,
+    }
+  }
+
+  await trackOnboardingV2EventForUser({
+    supabase,
+    userId,
+    event: {
+      event_name: 'onb.screen.completed',
+      persona: payload.persona,
+      phase: 1,
+      screen: 'phase1_profile',
+      source: payload.source,
+      completion_seconds: payload.completion_seconds,
+      metadata: {
+        profile_calibration_pct: profileCalibrationPct,
+        readiness_score: readiness?.score ?? null,
+        wearable_preference: payload.wearable.preference,
+      },
+    },
+  })
+
+  return {
+    success: true as const,
+    profileCalibrationPct,
+    confidence,
+    readiness,
+    destination,
   }
 }
