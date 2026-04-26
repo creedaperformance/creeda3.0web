@@ -16,6 +16,7 @@ export const CapacityTestTypeSchema = z.enum([
   'bench_1rm',
   'ohp_1rm',
   'pullup_amrap',
+  'pushup_amrap',
   'rsa_6x30m',
   'farmers_carry',
   'plank_hold',

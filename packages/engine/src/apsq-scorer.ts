@@ -4,12 +4,12 @@ export function scoreApsq10(responses: number[]) {
   }
 
   const totalScore = responses.reduce((sum, value) => {
-    if (!Number.isInteger(value) || value < 1 || value > 5) {
-      throw new Error('APSQ-10 responses must be integers from 1 to 5.')
+    if (!Number.isInteger(value) || value < 0 || value > 4) {
+      throw new Error('APSQ-10 responses must be integers from 0 to 4.')
     }
     return sum + value
   }, 0)
-  const flagLevel = totalScore >= 35 ? 'red' : totalScore >= 25 ? 'amber' : 'green'
+  const flagLevel = totalScore >= 20 ? 'red' : totalScore >= 15 ? 'amber' : 'green'
 
   return { totalScore, flagLevel }
 }

@@ -1,9 +1,12 @@
 import { z } from 'zod'
+import { EnvironmentalContextSchema } from './environmental'
 import { SquadSetupSchema } from './coach'
 import { IdentitySchema } from './identity'
 import { ParqPlusSchema } from './medical-screening'
+import { NutritionProfileSchema } from './nutrition'
 import { OrthopedicHistoryEntrySchema } from './orthopedic'
 import { PersonaSchema, PersonaSourceSchema } from './persona'
+import { Apsq10Schema } from './psychological'
 import { TrainingLoadSnapshotSchema } from './training-load'
 
 export const OnboardingV2EventNameSchema = z.enum([
@@ -103,6 +106,204 @@ export const OnboardingV2MovementBaselineSubmissionSchema = z.object({
   completion_seconds: z.number().int().min(0).max(900).optional(),
 })
 
+export const OnboardingV2Phase2DaySchema = z.enum([
+  'day1_aerobic',
+  'day2_strength_power',
+  'day3_movement_quality',
+  'day4_anaerobic_recovery',
+  'day5_nutrition',
+  'day6_psych_sleep',
+  'day7_environment',
+])
+
+const Phase2BaseSchema = z.object({
+  phase: z.literal(2).default(2),
+  persona: z.enum(['athlete', 'individual']),
+  source: PersonaSourceSchema,
+  completion_seconds: z.number().int().min(0).max(900).optional(),
+})
+
+const OptionalSecondsSchema = z.number().int().min(1).max(21600).optional()
+const OptionalPositiveNumberSchema = z.number().min(0).max(10000).optional()
+const OptionalOneToFiveSchema = z.number().int().min(1).max(5).optional()
+
+export const OnboardingV2Phase2Day1AerobicSchema = Phase2BaseSchema.extend({
+  day: z.literal('day1_aerobic'),
+  resting_hr_bpm: z.number().int().min(30).max(130).optional(),
+  cooper_distance_meters: z.number().int().min(400).max(5000).optional(),
+  run_1km_seconds: OptionalSecondsSchema,
+  run_5km_seconds: OptionalSecondsSchema,
+  run_10km_seconds: OptionalSecondsSchema,
+  walk_1km_seconds: OptionalSecondsSchema,
+  stairs_flights_completed: z.number().int().min(0).max(150).optional(),
+  perceived_exertion_1_to_10: z.number().int().min(1).max(10).optional(),
+})
+
+export const OnboardingV2Phase2Day2StrengthPowerSchema = Phase2BaseSchema.extend({
+  day: z.literal('day2_strength_power'),
+  squat_1rm_kg: OptionalPositiveNumberSchema,
+  deadlift_1rm_kg: OptionalPositiveNumberSchema,
+  bench_1rm_kg: OptionalPositiveNumberSchema,
+  ohp_1rm_kg: OptionalPositiveNumberSchema,
+  vertical_jump_cm: z.number().min(0).max(150).optional(),
+  broad_jump_cm: z.number().min(0).max(400).optional(),
+  pushups_60s: z.number().int().min(0).max(200).optional(),
+  plank_hold_seconds: z.number().int().min(0).max(1800).optional(),
+  strength_training_past_year: z.boolean().optional(),
+})
+
+const FmsScoreSchema = z.number().int().min(0).max(3)
+
+export const OnboardingV2Phase2Day3MovementQualitySchema = Phase2BaseSchema.extend({
+  day: z.literal('day3_movement_quality'),
+  fms: z
+    .object({
+      aslr_left: FmsScoreSchema.optional(),
+      aslr_right: FmsScoreSchema.optional(),
+      shoulder_left: FmsScoreSchema.optional(),
+      shoulder_right: FmsScoreSchema.optional(),
+      trunk_pushup: FmsScoreSchema.optional(),
+      single_leg_squat_left: FmsScoreSchema.optional(),
+      single_leg_squat_right: FmsScoreSchema.optional(),
+      inline_lunge_left: FmsScoreSchema.optional(),
+      inline_lunge_right: FmsScoreSchema.optional(),
+    })
+    .default({}),
+  self_reported_pain_0_to_10: z.number().int().min(0).max(10).optional(),
+  camera_baseline_completed: z.boolean().default(false),
+  notes: z.string().trim().max(240).optional(),
+})
+
+export const OnboardingV2Phase2Day4AnaerobicRecoverySchema = Phase2BaseSchema.extend({
+  day: z.literal('day4_anaerobic_recovery'),
+  sprint_100m_seconds: z.number().min(8).max(90).optional(),
+  rsa_6x30m_best_seconds: z.number().min(3).max(30).optional(),
+  rsa_6x30m_average_seconds: z.number().min(3).max(45).optional(),
+  recovery_hr_drop_bpm_60s: z.number().int().min(0).max(120).optional(),
+  hrv_ppg_ms: z.number().min(0).max(300).optional(),
+  recovery_rating_1_to_5: OptionalOneToFiveSchema,
+})
+
+export const OnboardingV2Phase2Day5NutritionSchema = Phase2BaseSchema.extend({
+  day: z.literal('day5_nutrition'),
+  nutrition: NutritionProfileSchema,
+  body_mass_kg: z.number().min(30).max(250).optional(),
+  training_hours_per_week: z.number().min(0).max(45),
+  target_protein_g_per_kg: z.number().min(0.8).max(2.6).default(1.6),
+  recent_weight_loss_pct: z.number().min(0).max(30).optional(),
+  missed_periods_last_90_days: z.number().int().min(0).max(6).optional(),
+  fatigue_score_1_to_5: OptionalOneToFiveSchema,
+})
+
+export const OnboardingV2Phase2Day6PsychSleepSchema = Phase2BaseSchema.extend({
+  day: z.literal('day6_psych_sleep'),
+  apsq10: Apsq10Schema.optional(),
+  sleep_baseline: z
+    .object({
+      avg_sleep_hours: z.number().min(0).max(14),
+      sleep_quality_1_to_5: OptionalOneToFiveSchema,
+      wakeups_per_night: z.number().int().min(0).max(20).optional(),
+      bedtime_consistency_1_to_5: OptionalOneToFiveSchema,
+      screen_before_bed_minutes: z.number().int().min(0).max(600).optional(),
+    })
+    .optional(),
+  life_stress_1_to_5: OptionalOneToFiveSchema,
+})
+
+export const OnboardingV2Phase2Day7EnvironmentSchema = Phase2BaseSchema.extend({
+  day: z.literal('day7_environment'),
+  environment: EnvironmentalContextSchema,
+  heat_index_c: z.number().min(-20).max(60).optional(),
+  aqi: z.number().int().min(0).max(500).optional(),
+  training_surface: z
+    .enum(['grass', 'turf', 'track', 'road', 'gym_floor', 'mixed'])
+    .optional(),
+  heat_acclimated: z.boolean().optional(),
+})
+
+export const OnboardingV2Phase2SubmissionSchema = z
+  .discriminatedUnion('day', [
+    OnboardingV2Phase2Day1AerobicSchema,
+    OnboardingV2Phase2Day2StrengthPowerSchema,
+    OnboardingV2Phase2Day3MovementQualitySchema,
+    OnboardingV2Phase2Day4AnaerobicRecoverySchema,
+    OnboardingV2Phase2Day5NutritionSchema,
+    OnboardingV2Phase2Day6PsychSleepSchema,
+    OnboardingV2Phase2Day7EnvironmentSchema,
+  ])
+  .superRefine((payload, context) => {
+    if (payload.day === 'day1_aerobic') {
+      const hasMetric = Boolean(
+        payload.resting_hr_bpm ||
+          payload.cooper_distance_meters ||
+          payload.run_1km_seconds ||
+          payload.run_5km_seconds ||
+          payload.run_10km_seconds ||
+          payload.walk_1km_seconds ||
+          payload.stairs_flights_completed
+      )
+      if (!hasMetric) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Add at least one aerobic or resting heart-rate measure.',
+        })
+      }
+    }
+
+    if (payload.day === 'day2_strength_power') {
+      const hasMetric = Boolean(
+        payload.squat_1rm_kg ||
+          payload.deadlift_1rm_kg ||
+          payload.bench_1rm_kg ||
+          payload.ohp_1rm_kg ||
+          payload.vertical_jump_cm ||
+          payload.broad_jump_cm ||
+          payload.pushups_60s ||
+          payload.plank_hold_seconds
+      )
+      if (!hasMetric) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Add at least one strength or power measure.',
+        })
+      }
+    }
+
+    if (payload.day === 'day3_movement_quality') {
+      const hasFms = Object.values(payload.fms).some((value) => value !== undefined)
+      if (!hasFms && payload.self_reported_pain_0_to_10 === undefined && !payload.camera_baseline_completed) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Add an FMS score, pain score, or completed camera baseline.',
+        })
+      }
+    }
+
+    if (payload.day === 'day4_anaerobic_recovery') {
+      const hasMetric = Boolean(
+        payload.sprint_100m_seconds ||
+          payload.rsa_6x30m_best_seconds ||
+          payload.rsa_6x30m_average_seconds ||
+          payload.recovery_hr_drop_bpm_60s ||
+          payload.hrv_ppg_ms ||
+          payload.recovery_rating_1_to_5
+      )
+      if (!hasMetric) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Add at least one anaerobic or recovery measure.',
+        })
+      }
+    }
+
+    if (payload.day === 'day6_psych_sleep' && !payload.apsq10 && !payload.sleep_baseline) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Add APSQ-10 responses or a sleep baseline.',
+      })
+    }
+  })
+
 export const OnboardingV2Phase1SubmissionSchema = z
   .object({
     phase: z.literal(1).default(1),
@@ -145,3 +346,5 @@ export type OnboardingV2Phase1Submission = z.infer<
 export type OnboardingV2MovementBaselineSubmission = z.infer<
   typeof OnboardingV2MovementBaselineSubmissionSchema
 >
+export type OnboardingV2Phase2Day = z.infer<typeof OnboardingV2Phase2DaySchema>
+export type OnboardingV2Phase2Submission = z.infer<typeof OnboardingV2Phase2SubmissionSchema>

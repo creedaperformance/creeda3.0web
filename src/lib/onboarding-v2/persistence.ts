@@ -1,10 +1,23 @@
-import { computeACWR, computeConfidence, computeReadiness } from '@creeda/engine'
+import {
+  computeACWR,
+  computeConfidence,
+  computeEnvironmentalModifier,
+  computeProteinAdequacyRatio,
+  computeReadiness,
+  computeRedSRisk,
+  cooperVO2max,
+  restingHrVO2max,
+  scoreApsq10,
+  vdotEstimate,
+} from '@creeda/engine'
 import {
   calcChronicLoadFromSnapshot,
   isAnyParqYes,
   type OnboardingV2Event,
   type OnboardingV2MovementBaselineSubmission,
   type OnboardingV2Phase1Submission,
+  type OnboardingV2Phase2Day,
+  type OnboardingV2Phase2Submission,
   type OnboardingV2SafetyGateSubmission,
   type Persona,
 } from '@creeda/schemas'
@@ -23,6 +36,34 @@ export const ONBOARDING_V2_PHASE1_DESTINATIONS: Record<Persona, string> = {
   athlete: '/athlete/dashboard',
   individual: '/individual/dashboard',
   coach: '/coach/dashboard',
+}
+
+const ONBOARDING_V2_PHASE2_COMPLETE_DESTINATIONS: Record<
+  OnboardingV2Phase2Submission['persona'],
+  string
+> = {
+  athlete: '/athlete/dashboard',
+  individual: '/individual/dashboard',
+}
+
+const PHASE2_DAY_LABELS: Record<OnboardingV2Phase2Day, string> = {
+  day1_aerobic: 'Aerobic baseline',
+  day2_strength_power: 'Strength and power',
+  day3_movement_quality: 'Movement quality',
+  day4_anaerobic_recovery: 'Anaerobic and recovery',
+  day5_nutrition: 'Nutrition and RED-S screen',
+  day6_psych_sleep: 'APSQ and sleep',
+  day7_environment: 'Environment context',
+}
+
+const PHASE2_DAY_CALIBRATION: Record<OnboardingV2Phase2Day, number> = {
+  day1_aerobic: 50,
+  day2_strength_power: 55,
+  day3_movement_quality: 60,
+  day4_anaerobic_recovery: 64,
+  day5_nutrition: 68,
+  day6_psych_sleep: 72,
+  day7_environment: 78,
 }
 
 function completionBucket(seconds?: number) {
@@ -151,6 +192,349 @@ function trainingLoadEntriesFromRows(rows: unknown) {
       return { date, load_au: minutes * rpe }
     })
     .filter((row): row is { date: string; load_au: number } => Boolean(row))
+}
+
+type CapacityTestRow = {
+  user_id: string
+  test_type: string
+  test_method: string
+  raw_value: number | null
+  unit: string | null
+  derived_metrics: Record<string, unknown>
+  quality_score: number | null
+  rejection_reason: string | null
+  mediapipe_landmarks: null
+  performed_at: string
+}
+
+function capacityTestRow(args: {
+  userId: string
+  testType: string
+  rawValue?: number
+  unit?: string
+  performedAt: string
+  testMethod?: string
+  derivedMetrics?: Record<string, unknown>
+  qualityScore?: number
+}) {
+  return {
+    user_id: args.userId,
+    test_type: args.testType,
+    test_method: args.testMethod ?? 'self_reported',
+    raw_value: args.rawValue ?? null,
+    unit: args.unit ?? null,
+    derived_metrics: args.derivedMetrics ?? {},
+    quality_score: args.qualityScore ?? 80,
+    rejection_reason: null,
+    mediapipe_landmarks: null,
+    performed_at: args.performedAt,
+  } satisfies CapacityTestRow
+}
+
+function numberFromProfile(value: unknown) {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : undefined
+}
+
+function ageFromDateOfBirth(value: unknown) {
+  if (typeof value !== 'string') return undefined
+  const birth = new Date(`${value}T00:00:00.000Z`)
+  if (Number.isNaN(birth.getTime())) return undefined
+  const now = new Date()
+  let age = now.getUTCFullYear() - birth.getUTCFullYear()
+  const monthDelta = now.getUTCMonth() - birth.getUTCMonth()
+  if (monthDelta < 0 || (monthDelta === 0 && now.getUTCDate() < birth.getUTCDate())) {
+    age -= 1
+  }
+  return age > 0 && age < 120 ? age : undefined
+}
+
+function hydrationAdequacyRatio(waterCupsPerDay: number | undefined, bodyMassKg: number | undefined) {
+  if (!waterCupsPerDay || !bodyMassKg) return null
+  const estimatedMl = waterCupsPerDay * 250
+  const targetMl = bodyMassKg * 35
+  if (targetMl <= 0) return null
+  return Number(Math.min(2, estimatedMl / targetMl).toFixed(2))
+}
+
+function sleepFlagLevel(args: {
+  avgSleepHours: number
+  sleepQuality1To5?: number
+  lifeStress1To5?: number
+}) {
+  if (args.avgSleepHours < 5.5 || (args.sleepQuality1To5 ?? 5) <= 2 || (args.lifeStress1To5 ?? 1) >= 5) {
+    return 'red' as const
+  }
+  if (args.avgSleepHours < 7 || (args.sleepQuality1To5 ?? 5) <= 3 || (args.lifeStress1To5 ?? 1) >= 4) {
+    return 'amber' as const
+  }
+  return 'green' as const
+}
+
+function collectPhase2CapacityRows(args: {
+  userId: string
+  payload: OnboardingV2Phase2Submission
+  performedAt: string
+  profileAge?: number
+}) {
+  const { userId, payload, performedAt, profileAge } = args
+  const rows: CapacityTestRow[] = []
+
+  if (payload.day === 'day1_aerobic') {
+    if (payload.resting_hr_bpm !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'resting_hr',
+          rawValue: payload.resting_hr_bpm,
+          unit: 'bpm',
+          performedAt,
+          derivedMetrics: {
+            estimated_vo2max:
+              profileAge !== undefined
+                ? restingHrVO2max(payload.resting_hr_bpm, profileAge)
+                : null,
+          },
+        })
+      )
+    }
+    if (payload.cooper_distance_meters !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'cooper_run_12min',
+          rawValue: payload.cooper_distance_meters,
+          unit: 'meters',
+          performedAt,
+          derivedMetrics: {
+            estimated_vo2max: cooperVO2max(payload.cooper_distance_meters),
+            perceived_exertion_1_to_10: payload.perceived_exertion_1_to_10 ?? null,
+          },
+        })
+      )
+    }
+    ;[
+      ['run_1km', payload.run_1km_seconds, 1000],
+      ['run_5km', payload.run_5km_seconds, 5000],
+      ['run_10km', payload.run_10km_seconds, 10000],
+    ].forEach(([testType, seconds, meters]) => {
+      if (typeof seconds !== 'number' || typeof meters !== 'number') return
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: String(testType),
+          rawValue: seconds,
+          unit: 'seconds',
+          performedAt,
+          derivedMetrics: {
+            estimated_vdot: vdotEstimate(meters, seconds),
+            perceived_exertion_1_to_10: payload.perceived_exertion_1_to_10 ?? null,
+          },
+        })
+      )
+    })
+    if (payload.walk_1km_seconds !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'run_1km',
+          rawValue: payload.walk_1km_seconds,
+          unit: 'seconds',
+          performedAt,
+          derivedMetrics: {
+            protocol: 'walk_1km',
+            perceived_exertion_1_to_10: payload.perceived_exertion_1_to_10 ?? null,
+          },
+        })
+      )
+    }
+    if (payload.stairs_flights_completed !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'step_test_3min',
+          rawValue: payload.stairs_flights_completed,
+          unit: 'flights',
+          performedAt,
+          derivedMetrics: {
+            protocol: 'stair_flights_self_report',
+            perceived_exertion_1_to_10: payload.perceived_exertion_1_to_10 ?? null,
+          },
+        })
+      )
+    }
+  }
+
+  if (payload.day === 'day2_strength_power') {
+    ;[
+      ['squat_1rm', payload.squat_1rm_kg],
+      ['deadlift_1rm', payload.deadlift_1rm_kg],
+      ['bench_1rm', payload.bench_1rm_kg],
+      ['ohp_1rm', payload.ohp_1rm_kg],
+    ].forEach(([testType, kg]) => {
+      if (typeof kg !== 'number') return
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: String(testType),
+          rawValue: kg,
+          unit: 'kg',
+          performedAt,
+          derivedMetrics: {
+            strength_training_past_year: payload.strength_training_past_year ?? null,
+          },
+        })
+      )
+    })
+    if (payload.vertical_jump_cm !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'vertical_jump',
+          rawValue: payload.vertical_jump_cm,
+          unit: 'cm',
+          performedAt,
+        })
+      )
+    }
+    if (payload.broad_jump_cm !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'broad_jump',
+          rawValue: payload.broad_jump_cm,
+          unit: 'cm',
+          performedAt,
+        })
+      )
+    }
+    if (payload.pushups_60s !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'pushup_amrap',
+          rawValue: payload.pushups_60s,
+          unit: 'reps',
+          performedAt,
+          derivedMetrics: { protocol_seconds: 60 },
+        })
+      )
+    }
+    if (payload.plank_hold_seconds !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'plank_hold',
+          rawValue: payload.plank_hold_seconds,
+          unit: 'seconds',
+          performedAt,
+        })
+      )
+    }
+  }
+
+  if (payload.day === 'day3_movement_quality') {
+    const fmsRows: Array<[string, number | undefined]> = [
+      ['fms_aslr_left', payload.fms.aslr_left],
+      ['fms_aslr_right', payload.fms.aslr_right],
+      ['fms_shoulder_left', payload.fms.shoulder_left],
+      ['fms_shoulder_right', payload.fms.shoulder_right],
+      ['fms_trunk_pushup', payload.fms.trunk_pushup],
+      ['fms_single_leg_squat_left', payload.fms.single_leg_squat_left],
+      ['fms_single_leg_squat_right', payload.fms.single_leg_squat_right],
+      ['fms_inline_lunge_left', payload.fms.inline_lunge_left],
+      ['fms_inline_lunge_right', payload.fms.inline_lunge_right],
+    ]
+    fmsRows.forEach(([testType, score]) => {
+      if (score === undefined) return
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType,
+          rawValue: score,
+          unit: 'score_0_3',
+          performedAt,
+          derivedMetrics: {
+            self_reported_pain_0_to_10: payload.self_reported_pain_0_to_10 ?? null,
+            camera_baseline_completed: payload.camera_baseline_completed,
+            notes: cleanOptionalText(payload.notes),
+          },
+        })
+      )
+    })
+  }
+
+  if (payload.day === 'day4_anaerobic_recovery') {
+    if (payload.sprint_100m_seconds !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'sprint_100m',
+          rawValue: payload.sprint_100m_seconds,
+          unit: 'seconds',
+          performedAt,
+        })
+      )
+    }
+    if (payload.rsa_6x30m_average_seconds !== undefined || payload.rsa_6x30m_best_seconds !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'rsa_6x30m',
+          rawValue: payload.rsa_6x30m_average_seconds ?? payload.rsa_6x30m_best_seconds,
+          unit: 'seconds',
+          performedAt,
+          derivedMetrics: {
+            best_seconds: payload.rsa_6x30m_best_seconds ?? null,
+            average_seconds: payload.rsa_6x30m_average_seconds ?? null,
+          },
+        })
+      )
+    }
+    if (payload.hrv_ppg_ms !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'hrv_ppg',
+          rawValue: payload.hrv_ppg_ms,
+          unit: 'ms',
+          performedAt,
+          testMethod: 'in_app_ppg',
+          derivedMetrics: {
+            capture_state: 'manual_or_device_reported',
+            native_camera_ppg: false,
+          },
+        })
+      )
+    }
+    if (payload.recovery_hr_drop_bpm_60s !== undefined) {
+      rows.push(
+        capacityTestRow({
+          userId,
+          testType: 'step_test_3min',
+          rawValue: payload.recovery_hr_drop_bpm_60s,
+          unit: 'bpm_drop',
+          performedAt,
+          derivedMetrics: {
+            protocol: '60s_recovery_heart_rate_drop',
+            recovery_rating_1_to_5: payload.recovery_rating_1_to_5 ?? null,
+          },
+        })
+      )
+    }
+  }
+
+  return rows
+}
+
+function completedPhase2DaysFrom(value: unknown) {
+  if (!value || typeof value !== 'object') return []
+  const record = value as Record<string, unknown>
+  const rawDays = record.completed_days
+  if (!Array.isArray(rawDays)) return []
+  return rawDays.filter((day): day is OnboardingV2Phase2Day =>
+    typeof day === 'string' && day in PHASE2_DAY_LABELS
+  )
 }
 
 export async function trackOnboardingV2EventForUser(args: {
@@ -560,6 +944,379 @@ export async function persistOnboardingV2Phase1(args: {
     confidence,
     readiness,
     destination,
+  }
+}
+
+export async function persistOnboardingV2Phase2Day(args: {
+  supabase: SupabaseLike
+  userId: string
+  payload: OnboardingV2Phase2Submission
+}) {
+  const { supabase, userId, payload } = args
+  const nowIso = new Date().toISOString()
+  const today = isoDate()
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('profile_calibration_pct, weight, date_of_birth')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const profileRecord =
+    profile && typeof profile === 'object' ? (profile as Record<string, unknown>) : {}
+  const currentCalibration = numberFromProfile(profileRecord.profile_calibration_pct) ?? 0
+  const bodyMassKg =
+    payload.day === 'day5_nutrition'
+      ? payload.body_mass_kg ?? numberFromProfile(profileRecord.weight)
+      : numberFromProfile(profileRecord.weight)
+  const profileAge = ageFromDateOfBirth(profileRecord.date_of_birth)
+
+  const { data: adaptiveProfile } = await supabase
+    .from('adaptive_form_profiles')
+    .select('core_fields,optional_fields,inferred_fields')
+    .eq('user_id', userId)
+    .eq('role', payload.persona)
+    .eq('flow_id', 'onboarding_v2_phase2')
+    .maybeSingle()
+
+  const adaptiveRecord =
+    adaptiveProfile && typeof adaptiveProfile === 'object'
+      ? (adaptiveProfile as Record<string, unknown>)
+      : {}
+  const existingOptionalFields =
+    adaptiveRecord.optional_fields && typeof adaptiveRecord.optional_fields === 'object'
+      ? (adaptiveRecord.optional_fields as Record<string, unknown>)
+      : {}
+  const existingInferredFields =
+    adaptiveRecord.inferred_fields && typeof adaptiveRecord.inferred_fields === 'object'
+      ? (adaptiveRecord.inferred_fields as Record<string, unknown>)
+      : {}
+  const completedDays = Array.from(
+    new Set([...completedPhase2DaysFrom(existingOptionalFields), payload.day])
+  )
+
+  const capacityRows = collectPhase2CapacityRows({
+    userId,
+    payload,
+    performedAt: nowIso,
+    profileAge,
+  })
+
+  if (capacityRows.length > 0) {
+    const { error: capacityError } = await supabase.from('capacity_tests').insert(capacityRows)
+
+    if (capacityError) {
+      return {
+        success: false as const,
+        error: 'Unable to save the Phase 2 capacity measurements.',
+        details: capacityError.message as string,
+      }
+    }
+  }
+
+  let nutritionResult: Record<string, unknown> | null = null
+  if (payload.day === 'day5_nutrition') {
+    const proteinAdequacyRatio =
+      bodyMassKg && payload.nutrition.estimated_protein_grams !== undefined
+        ? computeProteinAdequacyRatio({
+            bodyMassKg,
+            estimatedProteinGrams: payload.nutrition.estimated_protein_grams,
+            targetGramsPerKg: payload.target_protein_g_per_kg,
+          })
+        : null
+    const redSRisk = computeRedSRisk({
+      trainingHoursPerWeek: payload.training_hours_per_week,
+      proteinAdequacyRatio: proteinAdequacyRatio ?? undefined,
+      recentWeightLossPct: payload.recent_weight_loss_pct,
+      missedPeriodsLast90Days: payload.missed_periods_last_90_days,
+      fatigueScore1To5: payload.fatigue_score_1_to_5,
+      knownDeficienciesCount: payload.nutrition.known_deficiencies.length,
+    })
+    const hydrationRatio = hydrationAdequacyRatio(payload.nutrition.water_cups_per_day, bodyMassKg)
+
+    const { error: nutritionError } = await supabase.from('nutrition_profile').upsert(
+      {
+        user_id: userId,
+        diet_pattern: payload.nutrition.diet_pattern,
+        protein_portions_per_day: payload.nutrition.protein_portions_per_day ?? null,
+        estimated_protein_grams: payload.nutrition.estimated_protein_grams ?? null,
+        water_cups_per_day: payload.nutrition.water_cups_per_day ?? null,
+        caffeine_mg_per_day: payload.nutrition.caffeine_mg_per_day ?? null,
+        pre_workout_pattern: payload.nutrition.pre_workout_pattern ?? null,
+        allergies: payload.nutrition.allergies,
+        supplements: payload.nutrition.supplements,
+        known_deficiencies: payload.nutrition.known_deficiencies,
+        red_s_risk_score: redSRisk.riskScore,
+        protein_adequacy_ratio: proteinAdequacyRatio,
+        hydration_adequacy_ratio: hydrationRatio,
+        updated_at: nowIso,
+      },
+      { onConflict: 'user_id' }
+    )
+
+    if (nutritionError) {
+      return {
+        success: false as const,
+        error: 'Unable to save the Phase 2 nutrition profile.',
+        details: nutritionError.message as string,
+      }
+    }
+
+    nutritionResult = {
+      red_s_risk_score: redSRisk.riskScore,
+      red_s_flag: redSRisk.flag,
+      protein_adequacy_ratio: proteinAdequacyRatio,
+      hydration_adequacy_ratio: hydrationRatio,
+    }
+  }
+
+  let psychologicalResult: Record<string, unknown> | null = null
+  if (payload.day === 'day6_psych_sleep') {
+    const psychologicalRows: Array<Record<string, unknown>> = []
+
+    if (payload.apsq10) {
+      const apsq = scoreApsq10(payload.apsq10.responses)
+      psychologicalRows.push({
+        user_id: userId,
+        assessment_type: 'apsq_10',
+        responses: { responses: payload.apsq10.responses, scale: '0_to_4' },
+        total_score: apsq.totalScore,
+        subscale_scores: {},
+        flag_level: apsq.flagLevel,
+        recommendation_shown:
+          apsq.flagLevel === 'red'
+            ? 'High stress load flagged. Keep training conservative and consider support if this persists.'
+            : apsq.flagLevel === 'amber'
+              ? 'Moderate stress load flagged. Recovery and sleep consistency should influence training.'
+              : 'Stress load is not currently limiting onboarding confidence.',
+        assessed_at: nowIso,
+      })
+      psychologicalResult = {
+        apsq_total_score: apsq.totalScore,
+        apsq_flag: apsq.flagLevel,
+      }
+    }
+
+    if (payload.sleep_baseline) {
+      const sleepFlag = sleepFlagLevel({
+        avgSleepHours: payload.sleep_baseline.avg_sleep_hours,
+        sleepQuality1To5: payload.sleep_baseline.sleep_quality_1_to_5,
+        lifeStress1To5: payload.life_stress_1_to_5,
+      })
+      psychologicalRows.push({
+        user_id: userId,
+        assessment_type: 'sleep_baseline',
+        responses: {
+          ...payload.sleep_baseline,
+          life_stress_1_to_5: payload.life_stress_1_to_5 ?? null,
+        },
+        total_score: null,
+        subscale_scores: {},
+        flag_level: sleepFlag,
+        recommendation_shown:
+          sleepFlag === 'red'
+            ? 'Sleep is likely limiting adaptation. Keep intensity conservative until the pattern improves.'
+            : sleepFlag === 'amber'
+              ? 'Sleep is a watch item. Creeda will bias recommendations toward recoverability.'
+              : 'Sleep baseline supports normal progression once other data agrees.',
+        assessed_at: nowIso,
+      })
+      psychologicalResult = {
+        ...(psychologicalResult ?? {}),
+        sleep_flag: sleepFlag,
+      }
+    }
+
+    if (psychologicalRows.length > 0) {
+      const { error: psychError } = await supabase
+        .from('psychological_assessments')
+        .insert(psychologicalRows)
+
+      if (psychError) {
+        return {
+          success: false as const,
+          error: 'Unable to save the Phase 2 APSQ or sleep baseline.',
+          details: psychError.message as string,
+        }
+      }
+    }
+  }
+
+  let environmentalResult: Record<string, unknown> | null = null
+  if (payload.day === 'day7_environment') {
+    const modifier = computeEnvironmentalModifier({
+      heatIndexC: payload.heat_index_c,
+      aqi: payload.aqi,
+      altitudeMeters: payload.environment.altitude_meters,
+    })
+    const { error: environmentError } = await supabase.from('environmental_context').upsert(
+      {
+        user_id: userId,
+        primary_training_city: payload.environment.primary_training_city,
+        primary_training_lat: payload.environment.primary_training_lat ?? null,
+        primary_training_lng: payload.environment.primary_training_lng ?? null,
+        altitude_meters: payload.environment.altitude_meters ?? null,
+        indoor_outdoor_split_pct: payload.environment.indoor_outdoor_split_pct ?? null,
+        sleep_environment: payload.environment.sleep_environment ?? null,
+        commute_minutes: payload.environment.commute_minutes ?? null,
+        commute_mode: cleanOptionalText(payload.environment.commute_mode),
+        travel_frequency: payload.environment.travel_frequency ?? null,
+        current_high_stress_phase: payload.environment.current_high_stress_phase,
+        high_stress_reason: payload.environment.current_high_stress_phase
+          ? cleanOptionalText(payload.environment.high_stress_reason)
+          : null,
+        caregiving_responsibilities: payload.environment.caregiving_responsibilities,
+        updated_at: nowIso,
+      },
+      { onConflict: 'user_id' }
+    )
+
+    if (environmentError) {
+      return {
+        success: false as const,
+        error: 'Unable to save the Phase 2 environment context.',
+        details: environmentError.message as string,
+      }
+    }
+
+    environmentalResult = {
+      environmental_modifier: modifier,
+      heat_index_c: payload.heat_index_c ?? null,
+      aqi: payload.aqi ?? null,
+      training_surface: payload.training_surface ?? null,
+      heat_acclimated: payload.heat_acclimated ?? null,
+    }
+  }
+
+  const confidence = computeConfidence({
+    daysSinceOnboarding: completedDays.length,
+    dataPointsCollected: 30 + completedDays.length * 5 + capacityRows.length,
+    hasWearable: false,
+    movementScansCount: completedDays.includes('day3_movement_quality') ? 1 : 0,
+    capacityTestsCompleted: capacityRows.length,
+    daysOfChronicLoad: 4,
+    daysOfCheckIns: completedDays.length,
+  })
+  const profileCalibrationPct = Math.min(
+    100,
+    Math.max(currentCalibration, PHASE2_DAY_CALIBRATION[payload.day], confidence.pct)
+  )
+  const onboardingPhase = payload.day === 'day7_environment' ? 3 : 2
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      onboarding_phase: onboardingPhase,
+      profile_calibration_pct: profileCalibrationPct,
+    })
+    .eq('id', userId)
+
+  if (profileError) {
+    return {
+      success: false as const,
+      error: 'Phase 2 saved, but profile calibration could not be updated.',
+      details: profileError.message as string,
+    }
+  }
+
+  const latestDayRecord = {
+    day: payload.day,
+    label: PHASE2_DAY_LABELS[payload.day],
+    captured_at: nowIso,
+    capacity_tests_count: capacityRows.length,
+    nutrition: nutritionResult,
+    psychological: psychologicalResult,
+    environment: environmentalResult,
+  }
+
+  const { error: adaptiveProfileError } = await supabase.from('adaptive_form_profiles').upsert(
+    {
+      user_id: userId,
+      role: payload.persona,
+      flow_id: 'onboarding_v2_phase2',
+      flow_version: '2026-04-26',
+      core_fields: {
+        phase: 2,
+        persona: payload.persona,
+      },
+      optional_fields: {
+        ...existingOptionalFields,
+        completed_days: completedDays,
+        latest_day: latestDayRecord,
+        day_payloads: {
+          ...(existingOptionalFields.day_payloads &&
+          typeof existingOptionalFields.day_payloads === 'object'
+            ? existingOptionalFields.day_payloads
+            : {}),
+          [payload.day]: payload,
+        },
+      },
+      inferred_fields: {
+        ...existingInferredFields,
+        profile_calibration_pct: profileCalibrationPct,
+        confidence,
+        nutrition: nutritionResult,
+        psychological: psychologicalResult,
+        environment: environmentalResult,
+      },
+      completion_score: Math.round((completedDays.length / 7) * 100),
+      confidence_score: confidence.pct,
+      confidence_level: confidenceLevelForAdaptiveForms(confidence.tier),
+      confidence_recommendations:
+        payload.day === 'day7_environment'
+          ? ['Daily check-ins', 'Training plan adherence', 'Repeat capacity baselines']
+          : ['Complete the remaining Phase 2 diagnostic days'],
+      next_question_ids:
+        payload.day === 'day7_environment'
+          ? ['daily_checkin', 'plan_feedback']
+          : ['phase2_next_day'],
+      onboarding_v2_phase: 2,
+      completion_seconds: payload.completion_seconds ?? null,
+      confidence_pct: confidence.pct,
+    },
+    { onConflict: 'user_id,role,flow_id' }
+  )
+
+  if (adaptiveProfileError) {
+    return {
+      success: false as const,
+      error: 'Phase 2 saved, but adaptive calibration could not be updated.',
+      details: adaptiveProfileError.message as string,
+    }
+  }
+
+  await trackOnboardingV2EventForUser({
+    supabase,
+    userId,
+    event: {
+      event_name: 'onb.screen.completed',
+      persona: payload.persona,
+      phase: 2,
+      screen: payload.day,
+      source: payload.source,
+      completion_seconds: payload.completion_seconds,
+      metadata: {
+        completed_days: completedDays,
+        profile_calibration_pct: profileCalibrationPct,
+        capacity_tests_count: capacityRows.length,
+        nutrition: nutritionResult,
+        psychological: psychologicalResult,
+        environment: environmentalResult,
+      },
+    },
+  })
+
+  return {
+    success: true as const,
+    day: payload.day,
+    completedDays,
+    profileCalibrationPct,
+    confidence,
+    destination:
+      payload.day === 'day7_environment'
+        ? ONBOARDING_V2_PHASE2_COMPLETE_DESTINATIONS[payload.persona]
+        : `/onboarding/phase-2?day=${encodeURIComponent(payload.day)}`,
+    latestDay: latestDayRecord,
   }
 }
 

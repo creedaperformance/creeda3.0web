@@ -1233,12 +1233,20 @@ export function OnboardingV2Client({
                 <ArrowRight className="h-4 w-4" />
               </Link>
               {persona !== 'coach' ? (
-                <Link
-                  href={phase1Result.destination}
-                  className="ml-0 mt-3 inline-flex h-13 items-center justify-center rounded-2xl border border-white/10 px-5 text-sm font-bold text-white/70 transition hover:bg-white/[0.06] sm:ml-3"
-                >
-                  Skip to dashboard
-                </Link>
+                <>
+                  <Link
+                    href="/onboarding/phase-2"
+                    className="ml-0 mt-3 inline-flex h-13 items-center justify-center rounded-2xl border border-[#6ee7b7]/30 px-5 text-sm font-bold text-[#d1fae5] transition hover:bg-[#6ee7b7]/10 sm:ml-3"
+                  >
+                    Continue Phase 2 diagnostics
+                  </Link>
+                  <Link
+                    href={phase1Result.destination}
+                    className="ml-0 mt-3 inline-flex h-13 items-center justify-center rounded-2xl border border-white/10 px-5 text-sm font-bold text-white/70 transition hover:bg-white/[0.06] sm:ml-3"
+                  >
+                    Skip to dashboard
+                  </Link>
+                </>
               ) : null}
             </div>
           ) : null}

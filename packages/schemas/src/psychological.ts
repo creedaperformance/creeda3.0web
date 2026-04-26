@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const Apsq10Schema = z.object({
-  responses: z.array(z.number().int().min(1).max(5)).length(10),
+  responses: z.array(z.number().int().min(0).max(4)).length(10),
 })
 
 export type Apsq10 = z.infer<typeof Apsq10Schema>
