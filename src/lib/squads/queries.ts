@@ -37,7 +37,7 @@ export type SquadMember = {
 
 export function buildInviteUrl(inviteCode: string) {
   const base = getSiteUrl().replace(/\/+$/, '')
-  return `${base}/join/${inviteCode}`
+  return `${base}/squad/${inviteCode}`
 }
 
 export async function listCoachSquads(
