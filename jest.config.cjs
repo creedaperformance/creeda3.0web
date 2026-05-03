@@ -6,6 +6,7 @@ module.exports = {
   roots: [
     '<rootDir>/src/lib/research/__tests__',
     '<rootDir>/src/lib/diagnostics/__tests__',
+    '<rootDir>/src/lib/mobile/__tests__',
     '<rootDir>/packages/engine/src/__tests__',
   ],
   testMatch: ['**/*.test.ts'],
