@@ -22,8 +22,8 @@ export function CookieNotice() {
   if (dismissed || storedChoice) return null
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-[120]">
-      <div className="mx-auto max-w-5xl rounded-2xl border border-white/15 bg-[#0a111f]/95 p-4 sm:p-5 backdrop-blur-xl shadow-2xl">
+    <div className="fixed bottom-0 left-0 right-0 z-[120] sm:bottom-4 sm:left-4 sm:right-4">
+      <div className="mx-auto max-w-5xl rounded-t-2xl sm:rounded-2xl border-t sm:border border-white/15 bg-[#0a111f]/95 p-4 sm:p-5 backdrop-blur-xl shadow-2xl">
         <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/60">Cookie Notice</p>
         <p className="mt-2 text-sm text-white/80 leading-relaxed">
           CREEDA uses essential cookies for login and core security. Optional analytics cookies only run after you

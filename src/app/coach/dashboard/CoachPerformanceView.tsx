@@ -371,8 +371,8 @@ function SquadsSection({ squads }: { squads: CoachSquadCard[] }) {
 
       {squads.length === 0 ? (
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/55">
-          Spin up a squad — name it (e.g. "U19 Cricket — Mumbai Academy"), pick a sport and a focus,
-          and we'll generate an invite link with QR code your athletes can join in two taps.
+          Spin up a squad — name it (e.g. &quot;U19 Cricket — Mumbai Academy&quot;), pick a sport and a focus,
+          and we&apos;ll generate an invite link with QR code your athletes can join in two taps.
         </p>
       ) : (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">

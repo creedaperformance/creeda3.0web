@@ -3,21 +3,80 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { getRoleHomeRoute, isAppRole } from '@/lib/role_routes'
 import { getPublicSupabaseEnv } from '@/lib/env'
 
+const protectedRolePrefixes = [
+  { prefix: '/athlete', role: 'athlete' },
+  { prefix: '/coach', role: 'coach' },
+  { prefix: '/individual', role: 'individual' },
+] as const
+
+const authRequiredPrefixes = [
+  '/admin',
+  '/dashboard',
+  '/fitstart',
+  '/newspapers',
+  '/onboarding',
+]
+
+let loggedMissingSupabaseEnv = false
+
+function buildNextResponse(request: NextRequest, requestHeaders?: Headers) {
+  return requestHeaders
+    ? NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      })
+    : NextResponse.next({
+        request,
+      })
+}
+
+function redirectToLogin(request: NextRequest) {
+  const url = request.nextUrl.clone()
+  url.pathname = '/login'
+  return NextResponse.redirect(url)
+}
+
+function requiresAuth(path: string) {
+  return (
+    protectedRolePrefixes.some((entry) => path.startsWith(entry.prefix)) ||
+    authRequiredPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+  )
+}
+
+function readPublicSupabaseEnvForMiddleware() {
+  try {
+    return getPublicSupabaseEnv()
+  } catch (error) {
+    if (process.env.NODE_ENV === 'production') {
+      throw error
+    }
+
+    if (!loggedMissingSupabaseEnv) {
+      loggedMissingSupabaseEnv = true
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`[supabase/middleware] Auth session refresh skipped in local dev: ${message}`)
+    }
+
+    return null
+  }
+}
+
 export async function updateSession(request: NextRequest, requestHeaders?: Headers) {
-  const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } = getPublicSupabaseEnv()
+  const path = request.nextUrl.pathname
+  const publicSupabaseEnv = readPublicSupabaseEnvForMiddleware()
 
-  const buildNextResponse = () =>
-    requestHeaders
-      ? NextResponse.next({
-          request: {
-            headers: requestHeaders,
-          },
-        })
-      : NextResponse.next({
-          request,
-        })
+  if (!publicSupabaseEnv) {
+    if (requiresAuth(path)) {
+      return redirectToLogin(request)
+    }
 
-  let supabaseResponse = buildNextResponse()
+    return buildNextResponse(request, requestHeaders)
+  }
+
+  const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } = publicSupabaseEnv
+
+  let supabaseResponse = buildNextResponse(request, requestHeaders)
 
   const supabase = createServerClient(
     NEXT_PUBLIC_SUPABASE_URL,
@@ -29,7 +88,7 @@ export async function updateSession(request: NextRequest, requestHeaders?: Heade
         },
         setAll(keysToSet) {
           keysToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = buildNextResponse()
+          supabaseResponse = buildNextResponse(request, requestHeaders)
           keysToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -46,21 +105,11 @@ export async function updateSession(request: NextRequest, requestHeaders?: Heade
     data: { user },
   } = await supabase.auth.getUser()
 
-  const path = request.nextUrl.pathname;
-
-  const protectedRolePrefixes = [
-    { prefix: '/athlete', role: 'athlete' },
-    { prefix: '/coach', role: 'coach' },
-    { prefix: '/individual', role: 'individual' },
-  ] as const
-
   const matchedRolePrefix = protectedRolePrefixes.find(entry => path.startsWith(entry.prefix))
 
   if (matchedRolePrefix) {
     if (!user) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
+      return redirectToLogin(request)
     }
     
     // Role Authorization: Ensure athletes can't see coach tools and vice-versa
